@@ -4,265 +4,142 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Login - Rumah Anak</title>
-  
-  <!-- CSS Inline untuk critical load (bisa dipindah ke css/login.css nanti) -->
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
-    body {
-      background: #f0f2f5 url('https://i.imgur.com/JHcTHJu.jpeg') center/cover no-repeat fixed;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-    }
-    .login-card {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    }
-    .login-header { text-align: center; margin-bottom: 24px; }
-    .login-header h1 { color: #2c3e50; font-size: 1.5rem; }
-    
-    .form-group { margin-bottom: 16px; }
-    .form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #374151;
-      font-size: 14px;
-    }
-    .form-group input {
-      width: 100%;
-      padding: 14px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 16px; /* Cegah auto-zoom iOS */
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    .form-group input:focus { border-color: #4CAF50; }
-    
-    .btn {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      margin-top: 8px;
-    }
-    .btn-primary { background: #4CAF50; color: white; }
-    .btn-primary:hover { background: #45a049; }
-    .btn-secondary { background: #f44336; color: white; display: none; }
-    .btn-secondary:hover { background: #d32f2f; }
-    
-    .error-msg {
-      color: #ef4444;
-      font-size: 14px;
-      margin-top: 8px;
-      text-align: center;
-      min-height: 20px;
-    }
-    
-    .demo-credentials {
-      background: #fffbeb;
-      border: 1px solid #fcd34d;
-      border-radius: 8px;
-      padding: 12px;
-      margin: 16px 0;
-      font-size: 14px;
-      color: #92400e;
-    }
-    .demo-credentials code {
-      background: #fef3c7;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 600;
-    }
-
-    .divider {
-      text-align: center;
-      margin: 20px 0;
-      color: #9ca3af;
-      font-size: 14px;
-      position: relative;
-    }
-    .divider::before, .divider::after {
-      content: "";
-      position: absolute;
-      top: 50%;
-      width: 40%;
-      height: 1px;
-      background: #e5e7eb;
-    }
-    .divider::before { left: 0; }
-    .divider::after { right: 0; }
-
-    .user-id-login { display: none; }
-    .user-id-login.active { display: block; }
-    .email-login.hidden { display: none; }
-
-    @media (max-width: 480px) {
-      .login-card { padding: 20px 16px; }
-      .btn { font-size: 16px; padding: 16px; }
-    }
-  </style>
+  <link rel="stylesheet" href="./css/login.css" />
 </head>
 <body>
   <div class="login-card">
     <div class="login-header">
       <h1>🏠 Rumah Anak</h1>
-      <p style="color:#6b7280;font-size:14px">Silakan login untuk melanjutkan</p>
+      <p>Silakan login untuk melanjutkan</p>
     </div>
 
     <!-- Demo Credentials (Plain Text) -->
     <div class="demo-credentials">
-      🔑 <strong>Demo Login:</strong><br>
-      Username: <code>Andi</code> | Password: <code>1981</code>
+      🔑 <strong>Demo:</strong> Username: <code>Andi</code> | Password: <code>1981</code>
     </div>
 
-    <!-- Email/Password Login -->
-    <form id="emailLoginForm" class="email-login" autocomplete="off">
+    <!-- Email/Password Form -->
+    <form id="emailLoginForm" autocomplete="off">
       <div class="form-group">
         <label for="email">Email</label>
-        <input type="email" id="email" name="email" placeholder="contoh@email.com" required inputmode="email" />
+        <input type="email" id="email" placeholder="contoh@email.com" required inputmode="email" />
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" placeholder="••••••••" required inputmode="text" />
+        <input type="password" id="password" placeholder="••••••••" required inputmode="text" />
       </div>
       <div id="loginError" class="error-msg" role="alert"></div>
       <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
     </form>
 
-    <!-- User ID Login (Opsional) -->
+    <!-- Toggle to User ID Login -->
     <div class="divider">atau</div>
-    <form id="userIdForm" class="user-id-login" autocomplete="off">
+    <button type="button" id="toggleLogin" class="btn btn-text">🆔 Login dengan User ID</button>
+
+    <!-- User ID Form (Hidden by default) -->
+    <form id="userIdForm" class="hidden" autocomplete="off">
       <div class="form-group">
         <label for="userId">User ID</label>
-        <input type="text" id="userId" name="userId" placeholder="Masukkan User ID" required inputmode="text" />
+        <input type="text" id="userId" placeholder="Masukkan User ID" required inputmode="text" />
       </div>
       <div id="userIdError" class="error-msg" role="alert"></div>
-      <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk dengan ID</button>
+      <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk</button>
     </form>
 
-    <!-- Toggle Login Method -->
-    <div style="text-align:center;margin-top:12px">
-      <button type="button" id="toggleLogin" class="btn" style="background:#e5e7eb;color:#374151;font-size:14px;padding:10px">
-        🔁 Ganti Metode Login
-      </button>
-    </div>
-
-    <!-- Logout Button (SULU) - Only visible after login -->
-    <button id="logoutBtn" class="btn btn-secondary">🚪 SULU (Keluar)</button>
+    <!-- Logout Button (SULU) - Visible after login -->
+    <button id="logoutBtn" class="btn btn-secondary hidden">🚪 SULU (Keluar)</button>
   </div>
 
-  <!-- Firebase Config -->
-  <script src="./firebase-config.js"></script>
-  <!-- Auth Login Module (PATH SUDAH BENAR: di root) -->
-  <script src="./auth-login.js"></script>
+  <!-- Firebase Config + Auth Module (type="module" untuk ES6 import) -->
+  <script type="module" src="./firebase-config.js"></script>
+  <script type="module" src="./auth-login.js"></script>
   
-  <!-- Inline Script untuk UI Interactions -->
+  <!-- Inline UI Logic -->
   <script>
-    // === Toggle Email/ID Login ===
-    const toggleBtn = document.getElementById('toggleLogin');
-    const emailForm = document.getElementById('emailLoginForm');
-    const userIdForm = document.getElementById('userIdForm');
-    
-    toggleBtn?.addEventListener('click', () => {
-      emailForm.classList.toggle('hidden');
-      userIdForm.classList.toggle('active');
+    // Toggle Email/ID Login
+    document.getElementById('toggleLogin')?.addEventListener('click', () => {
+      document.getElementById('emailLoginForm').classList.toggle('hidden');
+      document.getElementById('userIdForm').classList.toggle('hidden');
       document.getElementById('loginError').textContent = '';
       document.getElementById('userIdError').textContent = '';
     });
 
-    // === Handle Email Login Submit ===
-    emailForm?.addEventListener('submit', async (e) => {
+    // Handle Email Login Submit
+    document.getElementById('emailLoginForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
       const errorEl = document.getElementById('loginError');
-      const loginBtn = document.getElementById('loginBtn');
+      const btn = document.getElementById('loginBtn');
       
       errorEl.textContent = '';
-      loginBtn.disabled = true;
-      loginBtn.textContent = '⏳ Memproses...';
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses...';
       
       try {
-        // Panggil fungsi dari auth-login.js
-        if (typeof handleEmailLogin === 'function') {
-          await handleEmailLogin(email, password);
-          // Redirect ke dashboard setelah sukses (ditangani di auth-login.js)
+        if (typeof window.handleEmailLogin === 'function') {
+          await window.handleEmailLogin(email, password);
         } else {
-          throw new Error('Fungsi login tidak ditemukan. Periksa auth-login.js');
+          throw new Error('Fungsi login tidak tersedia. Periksa auth-login.js');
         }
       } catch (err) {
         console.error('Login error:', err);
-        errorEl.textContent = err.message || 'Login gagal. Periksa koneksi atau kredensial.';
+        errorEl.textContent = err.message || 'Login gagal. Periksa kredensial.';
       } finally {
-        loginBtn.disabled = false;
-        loginBtn.textContent = '🔐 Masuk';
+        btn.disabled = false;
+        btn.textContent = '🔐 Masuk';
       }
     });
 
-    // === Handle User ID Login Submit ===
-    userIdForm?.addEventListener('submit', async (e) => {
+    // Handle User ID Login Submit
+    document.getElementById('userIdForm')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const userId = document.getElementById('userId').value.trim();
       const errorEl = document.getElementById('userIdError');
-      const userIdBtn = document.getElementById('userIdBtn');
+      const btn = document.getElementById('userIdBtn');
       
       errorEl.textContent = '';
-      userIdBtn.disabled = true;
-      userIdBtn.textContent = '⏳ Memproses...';
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses...';
       
       try {
-        if (typeof handleUserIdLogin === 'function') {
-          await handleUserIdLogin(userId);
+        if (typeof window.handleUserIdLogin === 'function') {
+          await window.handleUserIdLogin(userId);
         } else {
-          throw new Error('Fungsi login ID tidak ditemukan');
+          throw new Error('Fungsi login ID tidak tersedia');
         }
       } catch (err) {
         console.error('UserID login error:', err);
         errorEl.textContent = err.message || 'Login dengan ID gagal';
       } finally {
-        userIdBtn.disabled = false;
-        userIdBtn.textContent = '🆔 Masuk dengan ID';
+        btn.disabled = false;
+        btn.textContent = '🆔 Masuk';
       }
     });
 
-    // === Handle Logout (SULU) ===
+    // Handle Logout (SULU)
     document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-      const logoutBtn = document.getElementById('logoutBtn');
-      logoutBtn.disabled = true;
-      
+      const btn = document.getElementById('logoutBtn');
+      btn.disabled = true;
       try {
-        if (typeof handleLogout === 'function') {
-          await handleLogout();
-          // UI akan diupdate oleh onAuthStateChanged di auth-login.js
+        if (typeof window.handleLogout === 'function') {
+          await window.handleLogout();
         }
       } catch (err) {
         console.error('Logout error:', err);
         alert('Gagal logout: ' + err.message);
       } finally {
-        logoutBtn.disabled = false;
+        btn.disabled = false;
       }
     });
 
-    // === Debug: Pastikan script terload ===
+    // Debug: Pastikan module terload
     document.addEventListener('DOMContentLoaded', () => {
       console.log('🔐 index.html loaded');
-      console.log('✅ auth-login.js tersedia:', typeof handleEmailLogin === 'function');
-      
-      // Auto-fill demo credentials untuk testing (opsional, bisa dihapus di production)
-      // document.getElementById('email').value = 'andi@example.com';
-      // document.getElementById('password').value = '1981';
+      setTimeout(() => {
+        console.log('✅ handleEmailLogin:', typeof window.handleEmailLogin);
+        console.log('✅ handleLogout:', typeof window.handleLogout);
+      }, 500);
     });
   </script>
 </body>
