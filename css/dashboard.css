@@ -1,18 +1,198 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-body { 
-    font-family: 'Inter', sans-serif; 
+/* ===== RESET & BASE ===== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-.card-hover { 
-    transition: all 0.2s; 
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #f0f2f5;
+  padding: 16px;
+  min-height: 100vh;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%; /* Mencegah zoom teks di mobile */
 }
 
-.card-hover:hover { 
-    transform: translateY(-4px); 
-    box-shadow: 0 12px 24px -10px rgb(0 0 0 / 0.15); 
+/* ===== CONTAINER ===== */
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.menu-btn:active {
-    transform: scale(0.98);
+h1 {
+  text-align: center;
+  margin-bottom: 24px;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+h2 {
+  margin-bottom: 20px;
+  color: #2c3e50;
+  text-align: center;
+  font-size: 1.4rem;
+}
+
+/* ===== FORM ELEMENTS ===== */
+label {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+select {
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  font-size: 16px; /* Mencegah auto-zoom di iOS */
+  background: white;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+select:focus {
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+/* ===== BUTTONS ===== */
+.button-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+button {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  outline: none;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button#savePeriod {
+  background: #4CAF50;
+  color: white;
+}
+
+button#savePeriod:hover {
+  background: #45a049;
+}
+
+button.secondary {
+  background: #f44336;
+  color: white;
+}
+
+button.secondary:hover {
+  background: #d32f2f;
+}
+
+/* ===== STATUS MESSAGE ===== */
+#status {
+  text-align: center;
+  min-height: 24px;
+  font-weight: 500;
+  margin-bottom: 12px;
+  color: #10b981;
+  transition: color 0.2s;
+}
+
+#status.error {
+  color: #ef4444;
+}
+
+/* ===== HOUSE GRID ===== */
+#childHouses {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.house-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 16px;
+}
+
+.house-btn {
+  padding: 16px 12px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+  line-height: 1.4;
+  min-height: 60px;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.house-btn:hover {
+  background: #1976D2;
+  transform: translateY(-2px);
+}
+
+.house-btn:active {
+  transform: scale(0.98);
+}
+
+/* ===== MOBILE OPTIMIZATION ===== */
+@media (max-width: 480px) {
+  body {
+    padding: 12px;
+  }
+  
+  .container {
+    padding: 20px 16px;
+    border-radius: 12px;
+  }
+  
+  h1 {
+    font-size: 1.5rem;
+  }
+  
+  .button-group {
+    grid-template-columns: 1fr; /* Stack buttons on small screens */
+  }
+  
+  .house-grid {
+    grid-template-columns: 1fr; /* Full width buttons on mobile */
+  }
+  
+  select, button {
+    font-size: 16px; /* Prevent iOS zoom on focus */
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+[hidden] {
+  display: none !important;
 }
