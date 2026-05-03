@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rumah Utama - Dashboard</title>
+  
+  <!-- CSS External -->
+  <link rel="stylesheet" href="./css/dashboard.css" />
+  
+  <!-- Firebase Config (jika dibutuhkan di dashboard) -->
+  <script src="./firebase-config.js" defer></script>
+  <!-- Auth Login Module -->
+  <script src="./auth-login.js" defer></script>
+  <!-- Dashboard Logic -->
+  <script src="./js/dashboard.js" defer></script>
+</head>
+<body>
+  <div class="container">
+    <h1>🏠 Rumah Utama</h1>
+    
+    <!-- Status Message -->
+    <div id="status" aria-live="polite"></div>
+
+    <!-- Market Selection -->
+    <section class="selection-panel">
+      <label for="period">Pilih Market / Periode:</label>
+      <select id="period" aria-label="Pilih market">
+        <option value="">-- Pilih Market --</option>
+        <option value="15">T@RD@L</option>
+        <option value="16">beting show</option>
+        <option value="17">pustaka</option>
+        <option value="18">jarak lemah</option>
+        <option value="19">RES HARIAN</option>
+        <option value="20">KHUSUS NYA</option>
+        <option value="21">tabel</option>
+        <option value="22">sketsa bil</option>
+        <option value="23">bbfs</option>
+      </select>
+
+      <div class="button-group">
+        <button id="savePeriod" type="button">💾 Simpan Market</button>
+        <button id="resetBtn" type="button" class="secondary">🗑️ Reset</button>
+      </div>
+    </section>
+
+    <!-- Child Houses Section (Dynamic) -->
+    <section id="childHouses" hidden>
+      <h2>🚪 Akses Rumah Anak</h2>
+      <div id="houseList" class="house-grid" role="list"></div>
+    </section>
+  </div>
+</body>
+</html>
