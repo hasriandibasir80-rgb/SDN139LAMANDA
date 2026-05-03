@@ -3,30 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Rumah Utama - Dashboard</title>
-  
-  <!-- CSS External -->
+  <title>Dashboard - Rumah Anak</title>
   <link rel="stylesheet" href="./css/dashboard.css" />
-  
-  <!-- Firebase Config (jika dibutuhkan di dashboard) -->
-  <script src="./firebase-config.js" defer></script>
-  <!-- Auth Login Module -->
-  <script src="./auth-login.js" defer></script>
-  <!-- Dashboard Logic -->
-  <script src="./js/dashboard.js" defer></script>
 </head>
 <body>
   <div class="container">
-    <h1>🏠 Rumah Utama</h1>
-    
-    <!-- Status Message -->
-    <div id="status" aria-live="polite"></div>
+    <!-- Header dengan Tombol SULU (Logout) -->
+    <header class="dashboard-header">
+      <h1>🏠 Rumah Utama</h1>
+      <button id="logoutBtn" class="btn-sulu" aria-label="Keluar">🚪 SULU</button>
+    </header>
 
-    <!-- Market Selection -->
-    <section class="selection-panel">
-      <label for="period">Pilih Market / Periode:</label>
-      <select id="period" aria-label="Pilih market">
-        <option value="">-- Pilih Market --</option>
+    <!-- Status Message -->
+    <div id="status" aria-live="polite" class="status-msg"></div>
+
+    <!-- Market/Period Selector (Persisted via localStorage) -->
+    <section class="market-selector">
+      <label for="period">Pilih Periode:</label>
+      <select id="period" aria-label="Pilih periode">
+        <option value="">-- Pilih --</option>
         <option value="15">T@RD@L</option>
         <option value="16">beting show</option>
         <option value="17">pustaka</option>
@@ -37,18 +32,35 @@
         <option value="22">sketsa bil</option>
         <option value="23">bbfs</option>
       </select>
-
-      <div class="button-group">
-        <button id="savePeriod" type="button">💾 Simpan Market</button>
-        <button id="resetBtn" type="button" class="secondary">🗑️ Reset</button>
+      <div class="btn-group">
+        <button id="savePeriod" class="btn btn-primary">💾 Simpan</button>
+        <button id="resetPeriod" class="btn btn-secondary">🗑️ Reset</button>
       </div>
     </section>
 
-    <!-- Child Houses Section (Dynamic) -->
-    <section id="childHouses" hidden>
-      <h2>🚪 Akses Rumah Anak</h2>
-      <div id="houseList" class="house-grid" role="list"></div>
-    </section>
+    <!-- 7 Feature Cards -->
+    <main class="features-grid" role="list">
+      <!-- Card akan dirender dinamis oleh dashboard.js -->
+      <!-- Template structure per card:
+        <article class="feature-card" data-feature="1">
+          <h3>Fitur 1</h3>
+          <p>Deskripsi singkat</p>
+          <div class="sub-features">
+            <button data-sub="1">Sub 1</button>
+            <button data-sub="2">Sub 2</button>
+            <button data-sub="3">Sub 3</button>
+          </div>
+        </article>
+      -->
+    </main>
+
+    <!-- Back Button (Visible when in sub-feature view) -->
+    <button id="backBtn" class="btn-back hidden" aria-label="Kembali">🔙 Kembali</button>
   </div>
+
+  <!-- Firebase + Auth + Dashboard Logic (type="module") -->
+  <script type="module" src="./firebase-config.js"></script>
+  <script type="module" src="./auth-login.js"></script>
+  <script type="module" src="./js/dashboard.js"></script>
 </body>
 </html>
