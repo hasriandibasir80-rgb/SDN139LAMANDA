@@ -1,121 +1,110 @@
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { forceLogout } from '../modules/auth-login.js';
-import { app } from '../firebase-config.js';
+/**
+ * Dashboard Logic - Rumah Utama
+ * Fitur: Market selection + Dynamic child houses navigation
+ * Compatible: Mobile, Firebase-ready, localStorage persistence
+ */
 
-const auth = getAuth(app);
-const firestore = getFirestore(app);
-const rtdb = getDatabase(app);
+// === DATA: Nama "Rumah Anak" ===
+const houseNames = {
+  1: 'Pasar 1',
+  2: 'Pasar 2',
+  3: 'Pasar 3',
+  4: 'Pasar 4',
+  5: 'Pasar 5'
+  // Tambahkan sesuai kebutuhan
+};
 
-let currentUser = null;
+let activeMarket = null;
+const statusEl = document.getElementById('status');
 
-// Cek Auth
-onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.replace('./index.html');
-        return;
-    }
-    
-    currentUser = user;
-    await loadDashboard(user.uid);
-    document.getElementById('loadingScreen').classList.add('hidden');
-});
-
-async function loadDashboard(uid) {
-    // 1. Ambil data user dari Firestore
-    const userDoc = await getDoc(doc(firestore, 'users', uid));
-    const userData = userDoc.data() || {};
-    
-    document.getElementById('userName').textContent = userData.nama || userData.email || 'Guru';
-    document.getElementById('welcomeName').textContent = userData.nama || 'Guru';
-    document.getElementById('userRole').textContent = userData.role || 'Guru';
-    
-    // Format lastLogin
-    if (userData.lastLoginAt) {
-        const date = userData.lastLoginAt.toDate();
-        document.getElementById('lastLogin').textContent = date.toLocaleDateString('id-ID', {
-            day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
-        });
-    }
-
-    // 2. Ambil jumlah device aktif dari RTDB
-    const sessionsRef = ref(rtdb, `users/${uid}/sessions`);
-    const snapshot = await get(sessionsRef);
-    const sessions = snapshot.val() || {};
-    const now = Date.now();
-    const activeCount = Object.values(sessions).filter(s => now - s.lastSeen < 60000).length;
-    document.getElementById('activeDevices').textContent = activeCount;
-
-    // 3. Load statistik dari Firestore
-    await loadStats(uid);
+// === UTIL: Tampilkan status message ===
+function showStatus(message, isError = false) {
+  statusEl.textContent = message;
+  statusEl.className = isError ? 'error' : '';
 }
 
-async function loadStats(uid) {
-    try {
-        // Total Siswa
-        const siswaQuery = query(collection(firestore, 'siswa'), where('guruId', '==', uid));
-        const siswaSnap = await getDocs(siswaQuery);
-        document.getElementById('totalSiswa').textContent = siswaSnap.size;
+// === RENDER: Daftar Rumah Anak ===
+function renderChildHouses() {
+  const container = document.getElementById('houseList');
+  if (!container) return;
+  
+  container.innerHTML = '';
 
-        // Total Nilai
-        const nilaiQuery = query(collection(firestore, 'nilai'), where('guruId', '==', uid));
-        const nilaiSnap = await getDocs(nilaiQuery);
-        document.getElementById('totalNilai').textContent = nilaiSnap.size;
+  for (const num in houseNames) {
+    const link = document.createElement('a');
+    const marketParam = encodeURIComponent(activeMarket);
+    link.href = `rumah${num}.html?market=${marketParam}`;
+    link.className = 'house-btn';
+    link.setAttribute('role', 'listitem');
+    link.innerHTML = `Rumah${num}<br><small>(${houseNames[num]})</small>`;
+    container.appendChild(link);
+  }
 
-        // Total Modul Ajar
-        const modulQuery = query(collection(firestore, 'adm_pembelajaran'), where('guruId', '==', uid));
-        const modulSnap = await getDocs(modulQuery);
-        document.getElementById('totalModul').textContent = modulSnap.size;
-
-        // Total Absensi bulan ini
-        const now = new Date();
-        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const absenQuery = query(
-            collection(firestore, 'absensi'), 
-            where('guruId', '==', uid),
-            where('tanggal', '>=', startMonth)
-        );
-        const absenSnap = await getDocs(absenQuery);
-        document.getElementById('totalAbsen').textContent = absenSnap.size;
-
-    } catch (err) {
-        console.error('Error load stats:', err);
-    }
+  document.getElementById('childHouses').hidden = false;
 }
 
-// Logout
-document.getElementById('btnLogout').addEventListener('click', async () => {
-    if (confirm('Yakin mau logout?')) {
-        await forceLogout();
-        window.location.replace('./index.html');
-    }
-});
-
-// Load Module Dinamis
-document.querySelectorAll('.menu-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const moduleName = btn.dataset.module;
-        await loadModule(moduleName);
-    });
-});
-
-async function loadModule(moduleName) {
-    const container = document.getElementById('moduleContainer');
-    container.innerHTML = '<div class="text-center py-12"><p class="text-gray-500">Memuat modul...</p></div>';
-    container.classList.remove('hidden');
-    
-    container.scrollIntoView({ behavior: 'smooth' });
-
-    try {
-        const module = await import(`../modules/${moduleName}/${moduleName}.js`);
-        if (module.renderModule) {
-            container.innerHTML = '';
-            module.renderModule(container, currentUser.uid);
-        } else {
-            container.innerHTML = `<div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-4 rounded-lg">Modul ${moduleName} belum siap.</div>`;
-        }
-    } catch (err) {
-        container.innerHTML = `<div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg">Gagal load modul: ${err.message}</div>`;
-    }
+// === INIT: Load market dari localStorage ===
+function initDashboard() {
+  const savedMarket = localStorage.getItem('marketAktif');
+  const periodSelect = document.getElementById('period');
+  
+  if (savedMarket && periodSelect) {
+    periodSelect.value = savedMarket;
+    activeMarket = savedMarket;
+    showStatus(`✅ Market aktif: ${savedMarket}`);
+    renderChildHouses();
+  }
 }
+
+// === EVENT: Simpan market pilihan ===
+function handleSaveMarket() {
+  const periodSelect = document.getElementById('period');
+  const selected = periodSelect?.value;
+  
+  if (!selected) {
+    showStatus('⚠️ Pilih market terlebih dahulu.', true);
+    return;
+  }
+  
+  activeMarket = selected;
+  localStorage.setItem('marketAktif', selected);
+  showStatus(`✅ Market aktif: ${selected}`);
+  renderChildHouses();
+}
+
+// === EVENT: Reset pilihan ===
+function handleReset() {
+  activeMarket = null;
+  localStorage.removeItem('marketAktif');
+  
+  const periodSelect = document.getElementById('period');
+  if (periodSelect) periodSelect.value = '';
+  
+  const childHouses = document.getElementById('childHouses');
+  if (childHouses) childHouses.hidden = true;
+  
+  showStatus('');
+}
+
+// === REGISTER EVENT LISTENERS ===
+function setupEventListeners() {
+  const saveBtn = document.getElementById('savePeriod');
+  const resetBtn = document.getElementById('resetBtn');
+  
+  if (saveBtn) {
+    saveBtn.addEventListener('click', handleSaveMarket);
+  }
+  
+  if (resetBtn) {
+    resetBtn.addEventListener('click', handleReset);
+  }
+}
+
+// === DOM READY ===
+document.addEventListener('DOMContentLoaded', () => {
+  initDashboard();
+  setupEventListeners();
+  
+  // Debug: pastikan script terload
+  console.log('📊 Dashboard.js loaded - Market:', activeMarket || 'none');
+});
