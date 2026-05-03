@@ -1,9 +1,13 @@
-// modules/firebase-config.js
-// Firebase Configuration
+/**
+ * Firebase Configuration - Unified Export Module
+ * Version: 10.12.2 (Modular SDK)
+ * Location: Root directory (bukan modules/) untuk konsistensi path
+ */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+// ✅ Import Firebase App
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-// ✅ Import semua Auth functions yang dibutuhkan
+// ✅ Import Firebase Auth + Functions
 import { 
   getAuth, 
   signInWithEmailAndPassword, 
@@ -11,7 +15,6 @@ import {
   GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
-  // ✅ Functions untuk register & reset password:
   createUserWithEmailAndPassword,
   sendEmailVerification,
   updateProfile,
@@ -19,8 +22,9 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
+// ✅ Import Firebase Firestore + Functions
 import { 
   getFirestore,
   collection,
@@ -36,7 +40,20 @@ import {
   onSnapshot,
   serverTimestamp,
   where
-} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ✅ Import Firebase Realtime Database (untuk session management)
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  remove,
+  onDisconnect,
+  serverTimestamp as rtdbTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ✅ Konfigurasi Firebase Project (dari user)
 const firebaseConfig = {
   apiKey: "AIzaSyDyRS8oVmg6euIvCo20cGpDSilDXe04Bl0",
   authDomain: "ddi-quis.firebaseapp.com",
@@ -47,22 +64,23 @@ const firebaseConfig = {
   appId: "1:907614060325:web:f29dd9a35d9d79623ee4cc"
 };
 
-
+// ✅ Inisialisasi Firebase Instances
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const googleProvider = new GoogleAuthProvider();
 
-// ✅ Export semua instances dan functions yang dibutuhkan module lain
+// ✅ Export SEMUA instances dan functions untuk module lain
 export { 
-  auth, 
-  googleProvider,
-  // Auth sign in/out
+  // === INSTANCES ===
+  app, auth, db, rtdb, googleProvider,
+  
+  // === AUTH FUNCTIONS ===
   signInWithEmailAndPassword, 
   signInWithPopup,
   signOut,
   onAuthStateChanged,
-  // Auth functions untuk register & reset password
   createUserWithEmailAndPassword,
   sendEmailVerification,
   updateProfile,
@@ -70,21 +88,13 @@ export {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  // Firestore instances & functions
-  db,
-  collection,
-  setDoc,
-  addDoc,
-  getDocs,
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  query,
-  orderBy,
-  onSnapshot,
-  serverTimestamp,
-  where
+  
+  // === FIRESTORE FUNCTIONS ===
+  collection, setDoc, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc,
+  query, orderBy, onSnapshot, serverTimestamp, where,
+  
+  // === REALTIME DATABASE FUNCTIONS ===
+  ref, set, get, remove, onDisconnect, rtdbTimestamp
 };
 
-console.log('✅ Firebase initialized');
+console.log('✅ Firebase v10.12.2 initialized successfully');
