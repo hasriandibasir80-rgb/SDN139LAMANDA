@@ -1,125 +1,84 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-}
+const houseNames = {
+  1: 'data statistik',
+  2: 'dasar',
+  3: 'kamar',
+  4: 'jalur',
+  5: 'kontrol',
+  6: 'besar/kecil',
+  7: 'rampa40',
+  8: 'kalkulator',
+  9: 'filter',
+  10: 'lemari',
+  11: 'rata muncul',
+  12: 'ranjang',
+  13: 'tv',
+  14: 'ganjil/genap',
+  15: 'T@RD@L',
+  16: 'beting show',
+  17: 'pustaka',
+  18: 'jarak lemah',
+  19: 'RES HARIAN',
+  20: 'KHUSUS NYA',
+  21: 'tabel',
+  22: 'sketsa bil',
+  23: 'BBFS',
+  24: 'coming soon',
+  25: 'coming soon',
+  26: 'coming soon',
+  27: 'coming soon'
+};
 
-body {
-  background: #f0f2f5;
-  padding: 16px;
-  min-height: 100vh;
-}
+let activeMarket = null;
+const statusEl = document.getElementById('status');
 
-.container {
-  max-width: 600px;
-  margin: 0 auto;
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 24px;
-  color: #2c3e50;
-  font-size: 1.8rem;
-}
-
-label {
-  display: block;
-  margin-bottom: 12px;
-  font-weight: bold;
-  color: #374151;
-}
-
-select, button {
-  width: 100%;
-  padding: 16px;
-  margin-bottom: 18px;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  font-size: 16px;
-  outline: none;
-}
-
-button {
-  background: #4CAF50;
-  color: white;
-  border: none;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background 0.2s;
-}
-
-button:hover {
-  background: #45a049;
-}
-
-#resetBtn {
-  background: #f44336;
-}
-
-#resetBtn:hover {
-  background: #d32f2f;
-}
-
-#status {
-  text-align: center;
-  min-height: 24px;
-  font-weight: bold;
-  margin-bottom: 12px;
-  color: #10b981;
-}
-
-.error { color: #ef4444; }
-
-#childHouses {
-  display: none;
-  margin-top: 32px;
-}
-
-#childHouses h2 {
-  margin-bottom: 20px;
-  color: #2c3e50;
-  text-align: center;
-}
-
-.house-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 16px;
-}
-
-.house-btn {
-  padding: 16px 12px;
-  background: #2196F3;
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  text-align: center;
-  cursor: pointer;
-  text-decoration: none;
-  display: block;
-  line-height: 1.4;
-  min-height: 60px;
-  transition: background 0.2s;
-}
-
-.house-btn:hover {
-  background: #1976D2;
-}
-
-@media (max-width: 480px) {
-  .container {
-    padding: 20px 16px;
+// === MUAT MARKET AKTIF SAAT HALAMAN DIMUAT ===
+document.addEventListener('DOMContentLoaded', () => {
+  const savedMarket = localStorage.getItem('marketAktif');
+  if (savedMarket) {
+    document.getElementById('period').value = savedMarket;
+    activeMarket = savedMarket;
+    statusEl.textContent = `✅ Market aktif: ${savedMarket}`;
+    renderChildHouses();
   }
-  .house-grid {
-    grid-template-columns: 1fr;
+});
+
+// === SIMPAN MARKET KE LOCALSTORAGE ===
+document.getElementById('savePeriod').addEventListener('click', () => {
+  const selected = document.getElementById('period').value;
+  if (!selected) {
+    statusEl.textContent = '⚠️ Pilih market terlebih dahulu.';
+    statusEl.className = 'error';
+    return;
   }
-  h1 {
-    font-size: 1.6rem;
+  activeMarket = selected;
+  localStorage.setItem('marketAktif', selected);
+  statusEl.textContent = `✅ Market aktif: ${selected}`;
+  statusEl.className = '';
+  renderChildHouses();
+});
+
+// === RESET (BERSIHKAN PEMILIHAN) ===
+document.getElementById('resetBtn').addEventListener('click', () => {
+  activeMarket = null;
+  localStorage.removeItem('marketAktif');
+  document.getElementById('period').value = '';
+  document.getElementById('childHouses').style.display = 'none';
+  statusEl.textContent = '';
+});
+
+// === RENDER DAFTAR "ANAK RUMAH" ===
+function renderChildHouses() {
+  const container = document.getElementById('houseList');
+  container.innerHTML = '';
+
+  for (const num in houseNames) {
+    const a = document.createElement('a');
+    a.href = `rumah${num}.html?market=${encodeURIComponent(activeMarket)}`;
+    a.className = 'house-btn';
+    a.textContent = `Rumah${num}\n(${houseNames[num]})`;
+    a.style.whiteSpace = 'pre-line';
+    container.appendChild(a);
   }
+
+  document.getElementById('childHouses').style.display = 'block';
 }
