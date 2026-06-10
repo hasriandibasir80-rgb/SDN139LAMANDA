@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Rumah Utama</title>
+  <!-- Link ke file CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Rumah Utama</h1>
+
+    <label for="period">Pilih Periode / Market</label>
+    <select id="period">
+      <option value="">-- Pilih Market --</option>
+      <option value="Cambodia">Cambodia</option>
+      <option value="Sidney">Sidney</option>
+      <option value="China">China</option>
+      <option value="SGP">SGP</option>
+      <option value="Japan">Japan</option>
+      <option value="Taiwan">Taiwan</option>
+      <option value="Hongkong">Hongkong</option>
+    </select>
+
+    <div id="status"></div>
+
+    <button id="savePeriod">Simpan Periode Aktif</button>
+    <button id="resetBtn">Beranda</button>
+
+    <div id="childHouses">
+      <h2>Anak Rumah</h2>
+      <div class="house-grid" id="houseList"></div>
+    </div>
+  </div>
+
+  <!-- Link ke file JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>
