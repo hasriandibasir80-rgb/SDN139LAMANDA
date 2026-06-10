@@ -73,7 +73,9 @@ button:hover {
   color: #10b981;
 }
 
-.error { color: #ef4444; }
+.error { 
+  color: #ef4444; 
+}
 
 #childHouses {
   display: none;
