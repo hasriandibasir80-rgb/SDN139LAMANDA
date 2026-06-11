@@ -17,13 +17,13 @@ const houseNames = {
 let activeMarket = null;
 const statusEl = document.getElementById('status');
 
-// === MUAT MARKET AKTIF SAAT HALAMAN DIMUAT ===
+// === MUAT FITUR AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
-  const savedMarket = localStorage.getItem('marketAktif');
+  const savedMarket = localStorage.getItem('fiturAktif');
   if (savedMarket) {
     document.getElementById('period').value = savedMarket;
     activeMarket = savedMarket;
-    statusEl.textContent = `✅ Market aktif: ${savedMarket}`;
+    statusEl.textContent = `✅ fitur aktif: ${savedMarket}`;
     renderChildHouses();
   }
 });
@@ -32,13 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
 document.getElementById('savePeriod').addEventListener('click', () => {
   const selected = document.getElementById('period').value;
   if (!selected) {
-    statusEl.textContent = '⚠️ Pilih market terlebih dahulu.';
+    statusEl.textContent = '⚠️ Pilih fitur terlebih dahulu.';
     statusEl.className = 'error';
     return;
   }
   activeMarket = selected;
-  localStorage.setItem('marketAktif', selected);
-  statusEl.textContent = `✅ Market aktif: ${selected}`;
+  localStorage.setItem('fiturAktif', selected);
+  statusEl.textContent = `✅ Fitur aktif: ${selected}`;
   statusEl.className = '';
   renderChildHouses();
 });
