@@ -40,7 +40,7 @@ select, button {
   margin-bottom: 18px;
   border: 1px solid #d1d5db;
   border-radius: 12px;
-  font-size: 16px; /* Penting untuk mencegah zoom otomatis di iOS */
+  font-size: 16px;
   outline: none;
 }
 
@@ -72,7 +72,10 @@ button:hover {
   margin-bottom: 12px;
   color: #10b981;
 }
-.error { color: #ef4444; }
+
+.error {
+  color: #ef4444;
+}
 
 #childHouses {
   display: none;
