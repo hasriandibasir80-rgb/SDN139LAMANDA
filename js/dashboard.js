@@ -52,16 +52,16 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   statusEl.textContent = '';
 });
 
-// === RENDER DAFTAR "ANAK RUMAH" ===
+// === RENDER DAFTAR "FITUR" ===
 function renderChildHouses() {
   const container = document.getElementById('houseList');
   container.innerHTML = '';
 
   for (const num in houseNames) {
     const a = document.createElement('a');
-    a.href = `rumah${num}.html?market=${encodeURIComponent(activeMarket)}`;
+    a.href = `FITUR${num}.html?market=${encodeURIComponent(activeMarket)}`;
     a.className = 'house-btn';
-    a.textContent = `Rumah${num}\n(${houseNames[num]})`;
+    a.textContent = `FITUR${num}\n(${houseNames[num]})`;
     a.style.whiteSpace = 'pre-line';
     container.appendChild(a);
   }
