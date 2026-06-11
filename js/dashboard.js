@@ -20,10 +20,10 @@ const statusEl = document.getElementById('status');
 // === MUAT FITUR AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
   const savedMarket = localStorage.getItem('fiturAktif');
-  if (savedMarket) {
-    document.getElementById('period').value = savedMarket;
-    activeMarket = savedMarket;
-    statusEl.textContent = `✅ fitur aktif: ${savedMarket}`;
+  if (savedFitur) {
+    document.getElementById('period').value = savedFitur;
+    activeFitur = savedFitur;
+    statusEl.textContent = `✅ fitur aktif: ${savedFitur}`;
     renderChildHouses();
   }
 });
