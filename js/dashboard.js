@@ -14,12 +14,12 @@ const houseNames = {
   
 };
 
-let activeMarket = null;
+let activefitur = null;
 const statusEl = document.getElementById('status');
 
 // === MUAT FITUR AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
-  const savedMarket = localStorage.getItem('fiturAktif');
+  const savedFitur = localStorage.getItem('fiturAktif');
   if (savedFitur) {
     document.getElementById('period').value = savedFitur;
     activeFitur = savedFitur;
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// === SIMPAN MARKET KE LOCALSTORAGE ===
+// === SIMPAN FITUR KE LOCALSTORAGE ===
 document.getElementById('savePeriod').addEventListener('click', () => {
   const selected = document.getElementById('period').value;
   if (!selected) {
