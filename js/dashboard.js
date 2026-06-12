@@ -10,7 +10,8 @@ const houseNames = {
   9: 'SUVERVISI',
   10: 'COMING SOON',
   11: 'COMING SOON',
-  12: 'MENUJU SIAGA'
+  12: 'MENUJU SIAGA',
+  13: 'dicoba'
   
 };
 
