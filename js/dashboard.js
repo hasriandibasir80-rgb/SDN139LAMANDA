@@ -4,7 +4,13 @@
 // Cukup tambah/edit di sini, kartu akan otomatis muncul di dashboard!
 const konfigurasiFitur = {
   'layanan-portal': [
-    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📄', link: 'layanan-portal/sub-1.html' },
+    // ✅ UPDATED: Sub-Fitur 1 sekarang mengarah ke SIAGA Pendis dengan logo
+    { 
+      nama: 'SIAGA Pendis (Login)', 
+      icon: 'https://siagapendis.kemenag.go.id/favicon.ico',
+      link: 'https://siagapendis.kemenag.go.id/login',
+      isExternal: true
+    },
     { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📄', link: 'layanan-portal/sub-2.html' }
   ],
   'dokumen-arsip': [
@@ -59,12 +65,32 @@ function renderFiturInternal(featureKey) {
   const gridEl = document.createElement('div');
   gridEl.className = 'internal-grid';
 
-  // 6. Loop dan buat kartu untuk setiap sub-fitur (INILAH YANG MEMBUATNYA OTOMATIS)
+  // 6. Loop dan buat kartu untuk setiap sub-fitur
+  // ✅ UPDATED: Sekarang mendukung icon URL (logo) dan link eksternal
   subFiturList.forEach(item => {
     const card = document.createElement('a');
     card.href = item.link;
     card.className = 'internal-card';
-    card.innerHTML = `${item.icon} ${item.nama}`;
+    
+    // ✅ NEW: Jika link eksternal, buka di tab baru
+    if (item.isExternal) {
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+    }
+
+    // ✅ NEW: Cek apakah icon adalah URL (untuk logo) atau emoji biasa
+    if (item.icon.startsWith('http')) {
+      // Jika URL, buat elemen <img> dengan fallback
+      card.innerHTML = `
+        <img src="${item.icon}" alt="logo" style="width: 32px; height: 32px; margin-right: 8px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span style="display:none;">🔗</span> 
+        ${item.nama}
+      `;
+    } else {
+      // Jika emoji, tampilkan seperti biasa
+      card.innerHTML = `${item.icon} ${item.nama}`;
+    }
+    
     gridEl.appendChild(card);
   });
 
