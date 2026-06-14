@@ -1,79 +1,80 @@
 // js/dashboard.js
 
-const houseNames = {
-  1: 'DATA SISWA',
-  2: 'PRESENSI',
-  3: 'PENILAIAN',
-  4: 'MODUL AJAR',
-  5: 'CP,TP,ATP',
-  6: 'REFLEKSI',
-  7: 'BAN SOAL',
-  8: 'JADWAL PEMBELAJARAN',
-  9: 'SUVERVISI',
-  10: 'COMING SOON',
-  11: 'COMING SOON',
-  12: 'MENUJU SIAGA',
-  13: 'dicoba'
-};
-
-// ✅ PERBAIKI: Gunakan nama variabel yang konsisten
-let activeFitur = null;
+const tabBtns = document.querySelectorAll('.tab-btn');
+const featureContents = document.querySelectorAll('.feature-content');
+const layananSelect = document.getElementById('layananSelect');
+const saveLayananBtn = document.getElementById('saveLayananBtn');
+const resetBtn = document.getElementById('resetBtn');
 const statusEl = document.getElementById('status');
 
-// === MUAT FITUR AKTIF SAAT HALAMAN DIMUAT ===
-document.addEventListener('DOMContentLoaded', () => {
-  const savedFitur = localStorage.getItem('fiturAktif');
-  if (savedFitur) {
-    document.getElementById('period').value = savedFitur;
-    activeFitur = savedFitur;
-    statusEl.textContent = `✅ Fitur aktif: ${savedFitur}`;
+// === FUNGSI UNTUK SINKRONISASI TAB DAN DROPDOWN ===
+function setActiveFeature(featureValue) {
+  // 1. Reset semua tab dan konten
+  tabBtns.forEach(b => b.classList.remove('active'));
+  featureContents.forEach(content => content.classList.remove('active'));
+
+  // 2. Aktifkan tab dan konten yang sesuai
+  const targetBtn = document.querySelector(`.tab-btn[data-target="${featureValue}"]`);
+  const targetContent = document.getElementById(featureValue);
+
+  if (targetBtn && targetContent) {
+    targetBtn.classList.add('active');
+    targetContent.classList.add('active');
+  }
+
+  // 3. Sinkronkan nilai dropdown
+  if (layananSelect) {
+    layananSelect.value = featureValue;
+  }
+}
+
+// === 1. EVENT LISTENER UNTUK TOMBOL TAB ===
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const featureValue = btn.getAttribute('data-target');
+    setActiveFeature(featureValue);
+    
+    // Opsional: Langsung simpan ke localStorage saat tab diklik
+    localStorage.setItem('layananAktif', featureValue);
+    statusEl.textContent = `✅ Layanan aktif: ${btn.textContent}`;
     statusEl.className = '';
-    renderChildHouses();
+  });
+});
+
+// === 2. MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
+document.addEventListener('DOMContentLoaded', () => {
+  const savedLayanan = localStorage.getItem('layananAktif');
+  if (savedLayanan) {
+    setActiveFeature(savedLayanan);
+    statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
+    statusEl.className = '';
   }
 });
 
-// === SIMPAN FITUR KE LOCALSTORAGE ===
-document.getElementById('savePeriod').addEventListener('click', () => {
-  const selected = document.getElementById('period').value;
+// === 3. SIMPAN PILIHAN LAYANAN ===
+saveLayananBtn.addEventListener('click', () => {
+  const selected = layananSelect.value;
   if (!selected) {
-    statusEl.textContent = '⚠️ Pilih fitur terlebih dahulu.';
+    statusEl.textContent = '⚠️ Pilih layanan terlebih dahulu.';
     statusEl.className = 'error';
     return;
   }
   
-  // ✅ PERBAIKI: Gunakan activeFitur, bukan activeMarket
-  activeFitur = selected;
-  localStorage.setItem('fiturAktif', selected);
-  statusEl.textContent = `✅ Fitur aktif: ${selected}`;
+  setActiveFeature(selected); // Pastikan tab juga ikut berubah
+  localStorage.setItem('layananAktif', selected);
+  statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
   statusEl.className = '';
-  renderChildHouses();
 });
 
-// === RESET (BERSIHKAN PEMILIHAN) ===
-document.getElementById('resetBtn').addEventListener('click', () => {
-  // ✅ PERBAIKI: Gunakan activeFitur dan 'fiturAktif'
-  activeFitur = null;
-  localStorage.removeItem('fiturAktif');
-  document.getElementById('period').value = '';
-  document.getElementById('childHouses').style.display = 'none';
+// === 4. RESET PILIHAN LAYANAN ===
+resetBtn.addEventListener('click', () => {
+  localStorage.removeItem('layananAktif');
+  layananSelect.value = '';
+  
+  // Reset tab ke default (misalnya tab pertama) atau kosongkan semua
+  tabBtns.forEach(b => b.classList.remove('active'));
+  featureContents.forEach(content => content.classList.remove('active'));
+  
   statusEl.textContent = '';
   statusEl.className = '';
 });
-
-// === RENDER DAFTAR "FITUR" ===
-function renderChildHouses() {
-  const container = document.getElementById('houseList');
-  container.innerHTML = '';
-
-  for (const num in houseNames) {
-    const a = document.createElement('a');
-    // ✅ PERBAIKI: Gunakan parameter ?fitur= bukan ?market=
-    a.href = `FITUR${num}.html?fitur=${encodeURIComponent(activeFitur)}`;
-    a.className = 'house-btn';
-    a.textContent = `FITUR ${num}\n(${houseNames[num]})`;
-    a.style.whiteSpace = 'pre-line';
-    container.appendChild(a);
-  }
-
-  document.getElementById('childHouses').style.display = 'block';
-}
