@@ -4,7 +4,7 @@
  * Compatible: ES6 Module, Firebase v10.12.2
  */
 
-// ✅ Import dari firebase-config.js (PATH DIPERBAIKI!)
+// ✅ Import dari firebase-config.js (PATH SUDAH DIPERBAIKI!)
 import { 
   auth, 
   rtdb, 
@@ -16,7 +16,7 @@ import {
   get,
   remove,
   onDisconnect
-} from './js/firebase-config.js';  // ← PERBAIKI DI SINI
+} from './firebase-config.js';  // ✅ DIPERBAIKI: dari './js/firebase-config.js' menjadi './firebase-config.js'
 
 // === CONFIG: Demo Credentials (Plain Text per Request) ===
 const DEMO_CREDENTIALS = {
