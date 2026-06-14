@@ -1,9 +1,30 @@
 // ============================================
-// FILE: js/script.js (FINAL REAL VERSION)
+// FILE: js/script.js (FINAL REAL VERSION + SIDEBAR)
 // SDN 139 LAMANDA - Login Page Script
 // ============================================
 
-// === CAPTCHA GENERATOR ===
+// === 1. SIDEBAR MENU LOGIC (BARU) ===
+const menuBtn = document.getElementById('menuBtn');
+const sidebar = document.getElementById('sidebar');
+const closeSidebar = document.getElementById('closeSidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+function openSidebar() {
+  if (sidebar) sidebar.classList.add('active');
+  if (sidebarOverlay) sidebarOverlay.classList.add('active');
+}
+
+function closeSidebarMenu() {
+  if (sidebar) sidebar.classList.remove('active');
+  if (sidebarOverlay) sidebarOverlay.classList.remove('active');
+}
+
+if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+if (closeSidebar) closeSidebar.addEventListener('click', closeSidebarMenu);
+if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebarMenu);
+
+
+// === 2. CAPTCHA GENERATOR ===
 let currentCaptcha = '';
 
 function generateCaptcha() {
@@ -19,7 +40,8 @@ function refreshCaptcha() {
   if (captchaInput) captchaInput.value = '';
 }
 
-// === FORM SUBMISSION (REAL FIREBASE + CAPTCHA CHECK) ===
+
+// === 3. FORM SUBMISSION (REAL FIREBASE + CAPTCHA CHECK) ===
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -68,12 +90,14 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   }
 });
 
-// === FORGOT PASSWORD ===
+
+// === 4. FORGOT PASSWORD ===
 function forgotPassword() {
   alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
 }
 
-// === INITIALIZE ===
+
+// === 5. INITIALIZE ===
 window.addEventListener('DOMContentLoaded', function() {
   generateCaptcha();
   
@@ -84,7 +108,8 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-// === BOTTOM NAVIGATION ===
+
+// === 6. BOTTOM NAVIGATION ===
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', function(e) {
     if (this.getAttribute('href') === '#') {
