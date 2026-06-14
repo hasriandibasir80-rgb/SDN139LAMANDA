@@ -12,7 +12,7 @@ body {
 }
 
 .container {
-  max-width: 800px; /* Diperlebar sedikit untuk menampung grid fitur internal */
+  max-width: 800px;
   margin: 0 auto;
   background: white;
   border-radius: 16px;
@@ -116,40 +116,6 @@ select {
   color: #ef4444;
 }
 
-/* === NAVIGASI TAB FITUR GLOBAL === */
-.global-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 8px;
-}
-
-.tab-btn {
-  flex: 1;
-  min-width: 120px;
-  padding: 10px 8px;
-  background: transparent;
-  border: none;
-  border-radius: 8px 8px 0 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-btn:hover {
-  background: #f3f4f6;
-  color: #2c3e50;
-}
-
-.tab-btn.active {
-  background: #2196F3;
-  color: white;
-}
-
 /* === AREA KONTEN DINAMIS (SHOW/HIDE) === */
 .feature-content {
   display: none; /* Tersembunyi secara default */
@@ -157,7 +123,7 @@ select {
 }
 
 .feature-content.active {
-  display: block; /* Ditampilkan jika memiliki class active */
+  display: block; /* Ditampilkan hanya jika memiliki class active */
 }
 
 @keyframes fadeIn {
@@ -169,9 +135,11 @@ select {
   margin-bottom: 16px;
   color: #2c3e50;
   font-size: 1.2rem;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 8px;
 }
 
-/* === GRID KARTU FITUR INTERNAL (PLACEHOLDER) === */
+/* === GRID KARTU FITUR INTERNAL === */
 .internal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -203,14 +171,6 @@ select {
 @media (max-width: 480px) {
   .container {
     padding: 16px;
-  }
-  .global-nav {
-    flex-direction: column;
-  }
-  .tab-btn {
-    width: 100%;
-    text-align: left;
-    padding: 12px;
   }
   .internal-grid {
     grid-template-columns: 1fr;
