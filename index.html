@@ -3,8 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>SDN 139 LAMANDA - sdn139lamanda</title>
+  <title>SDN 139 LAMANDA - Login</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Style tambahan untuk form login Firebase */
+    .login-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+    .login-header { text-align: center; margin-bottom: 20px; }
+    .login-header h1 { color: #2a5298; font-size: 1.5rem; margin-bottom: 8px; }
+    .login-header p { color: #666; font-size: 0.9rem; }
+    .demo-credentials {
+      background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px;
+      padding: 12px; margin-bottom: 16px; text-align: center;
+      font-size: 0.85rem; color: #856404;
+    }
+    .demo-credentials code {
+      background: #fff; padding: 2px 6px; border-radius: 4px; font-weight: bold;
+    }
+    .divider {
+      text-align: center; margin: 16px 0; color: #999; font-size: 0.9rem; position: relative;
+    }
+    .divider::before, .divider::after {
+      content: ''; position: absolute; top: 50%; width: 40%; height: 1px; background: #ddd;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+    .btn-text {
+      background: none; border: none; color: #2a5298; text-decoration: underline;
+      cursor: pointer; font-size: 0.9rem; padding: 8px; width: 100%;
+    }
+    .btn-text:hover { color: #1e3c72; }
+    .hidden { display: none !important; }
+    .error-msg {
+      color: #f44336; font-size: 0.85rem; margin-top: 8px;
+      text-align: center; min-height: 20px;
+    }
+  </style>
 </head>
 <body>
   <!-- Header -->
@@ -18,33 +57,48 @@
   <div class="container">
     <h1 class="page-title">Login Untuk Masuk</h1>
 
-    <!-- Login Form -->
-    <div class="login-box">
-      <form id="loginForm">
-        <div class="form-group">
-          <span class="form-icon">👤</span>
-          <input type="text" class="form-control" placeholder="Username" required>
-        </div>
+    <!-- Login Card dengan Firebase Auth -->
+    <div class="login-card">
+      <div class="login-header">
+        <h1>🏠 COCOK UNTUK KALANGAN GURU</h1>
+        <p>Silakan login untuk melanjutkan</p>
+      </div>
 
+      <!-- Demo Credentials -->
+      <div class="demo-credentials">
+        🔑 <strong>Demo:</strong> Username: <code>Andi</code> | Password: <code>1981</code>
+      </div>
+
+      <!-- Email/Password Form -->
+      <form id="emailLoginForm" autocomplete="off">
+        <div class="form-group">
+          <span class="form-icon">📧</span>
+          <input type="text" id="email" class="form-control" placeholder="Username atau Email" required />
+        </div>
         <div class="form-group">
           <span class="form-icon">🔒</span>
-          <input type="password" class="form-control" placeholder="Password" required>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required />
         </div>
-
-        <div class="form-group">
-          <div class="captcha-box">
-            <span class="form-icon">🛡️</span>
-            <input type="text" class="form-control" placeholder="Captcha" style="flex: 1;" required>
-            <div class="captcha-image" id="captcha">27855</div>
-            <button type="button" class="refresh-captcha" onclick="refreshCaptcha()">🔄</button>
-          </div>
-        </div>
-
-        <div class="button-group">
-          <button type="button" class="btn btn-secondary" onclick="forgotPassword()">Lupa Password</button>
-          <button type="submit" class="btn btn-primary">Sign In</button>
-        </div>
+        <div id="loginError" class="error-msg" role="alert"></div>
+        <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
       </form>
+
+      <!-- Toggle to User ID Login -->
+      <div class="divider">atau</div>
+      <button type="button" id="toggleLogin" class="btn btn-text">🆔 Login dengan User ID</button>
+
+      <!-- User ID Form (Hidden by default) -->
+      <form id="userIdForm" class="hidden" autocomplete="off">
+        <div class="form-group">
+          <span class="form-icon">🆔</span>
+          <input type="text" id="userId" class="form-control" placeholder="Masukkan User ID" required />
+        </div>
+        <div id="userIdError" class="error-msg" role="alert"></div>
+        <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk</button>
+      </form>
+
+      <!-- Logout Button (SULU) - Visible after login -->
+      <button id="logoutBtn" class="btn btn-secondary hidden">🚪 SULU (Keluar)</button>
     </div>
 
     <!-- WAP Version Button -->
@@ -80,7 +134,7 @@
     <!-- Quick Links to Houses -->
     <div class="login-box" style="margin-top: 20px;">
       <h3 style="color: #2a5298; margin-bottom: 16px; text-align: center;">🏠 Akses Rumah Utama</h3>
-      <a href="index.html" class="btn btn-primary" style="display: block; margin-bottom: 10px; text-decoration: none; text-align: center;">
+      <a href="dashboard.html" class="btn btn-primary" style="display: block; margin-bottom: 10px; text-decoration: none; text-align: center;">
         📊 Rumah Utama (Dashboard)
       </a>
       <a href="rumah30.html" class="btn btn-secondary" style="display: block; text-decoration: none; text-align: center;">
@@ -114,6 +168,101 @@
     <div class="spinner"></div>
   </div>
 
+  <!-- Firebase Config + Auth Module (WAJIB ADA!) -->
+  <script type="module" src="./js/firebase-config.js"></script>
+  <script type="module" src="./auth-login.js"></script>
+
+  <!-- Script Utama -->
   <script src="js/script.js"></script>
+  
+  <!-- Inline UI Logic untuk Login Firebase -->
+  <script>
+    // Toggle Email/ID Login
+    document.getElementById('toggleLogin')?.addEventListener('click', () => {
+      document.getElementById('emailLoginForm').classList.toggle('hidden');
+      document.getElementById('userIdForm').classList.toggle('hidden');
+      document.getElementById('loginError').textContent = '';
+      document.getElementById('userIdError').textContent = '';
+    });
+
+    // Handle Email Login Submit
+    document.getElementById('emailLoginForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('loginError');
+      const btn = document.getElementById('loginBtn');
+      
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses...';
+      
+      try {
+        if (typeof window.handleEmailLogin === 'function') {
+          await window.handleEmailLogin(email, password);
+        } else {
+          throw new Error('Fungsi login tidak tersedia. Periksa auth-login.js');
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+        errorEl.textContent = err.message || 'Login gagal. Periksa kredensial.';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔐 Masuk';
+      }
+    });
+
+    // Handle User ID Login Submit
+    document.getElementById('userIdForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('userId').value.trim();
+      const errorEl = document.getElementById('userIdError');
+      const btn = document.getElementById('userIdBtn');
+      
+      errorEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = '⏳ Memproses...';
+      
+      try {
+        if (typeof window.handleUserIdLogin === 'function') {
+          await window.handleUserIdLogin(userId);
+        } else {
+          throw new Error('Fungsi login ID tidak tersedia');
+        }
+      } catch (err) {
+        console.error('UserID login error:', err);
+        errorEl.textContent = err.message || 'Login dengan ID gagal';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🆔 Masuk';
+      }
+    });
+
+    // Handle Logout (SULU)
+    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('logoutBtn');
+      btn.disabled = true;
+      try {
+        if (typeof window.handleLogout === 'function') {
+          await window.handleLogout();
+        }
+      } catch (err) {
+        console.error('Logout error:', err);
+        alert('Gagal logout: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Debug: Pastikan module terload
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('🔐 index.html loaded');
+      setTimeout(() => {
+        console.log('✅ handleEmailLogin:', typeof window.handleEmailLogin);
+        console.log('✅ handleUserIdLogin:', typeof window.handleUserIdLogin);
+        console.log('✅ handleLogout:', typeof window.handleLogout);
+      }, 500);
+    });
+  </script>
 </body>
 </html>
