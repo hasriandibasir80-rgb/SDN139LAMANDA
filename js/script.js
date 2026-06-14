@@ -21,7 +21,7 @@ document.getElementById('loginForm').addEventListener('submit', function(e) {
     loading.style.display = 'none';
     alert('Login berhasil! Selamat datang di SDN 139 LAMANDA');
     // Redirect to dashboard or rumah30
-    window.location.href = 'rumah30.html';
+    window.location.href = 'dashboard.html';
   }, 1500);
 });
 
