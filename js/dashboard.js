@@ -1,80 +1,73 @@
 // js/dashboard.js
 
-const tabBtns = document.querySelectorAll('.tab-btn');
-const featureContents = document.querySelectorAll('.feature-content');
 const layananSelect = document.getElementById('layananSelect');
 const saveLayananBtn = document.getElementById('saveLayananBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusEl = document.getElementById('status');
+const featureContents = document.querySelectorAll('.feature-content');
 
-// === FUNGSI UNTUK SINKRONISASI TAB DAN DROPDOWN ===
+// === FUNGSI UNTUK MENAMPILKAN KONTEN YANG DIPILIH ===
 function setActiveFeature(featureValue) {
-  // 1. Reset semua tab dan konten
-  tabBtns.forEach(b => b.classList.remove('active'));
+  // 1. Sembunyikan semua konten terlebih dahulu
   featureContents.forEach(content => content.classList.remove('active'));
 
-  // 2. Aktifkan tab dan konten yang sesuai
-  const targetBtn = document.querySelector(`.tab-btn[data-target="${featureValue}"]`);
+  // 2. Tampilkan hanya konten yang ID-nya cocok dengan featureValue
   const targetContent = document.getElementById(featureValue);
-
-  if (targetBtn && targetContent) {
-    targetBtn.classList.add('active');
+  if (targetContent) {
     targetContent.classList.add('active');
-  }
-
-  // 3. Sinkronkan nilai dropdown
-  if (layananSelect) {
-    layananSelect.value = featureValue;
   }
 }
 
-// === 1. EVENT LISTENER UNTUK TOMBOL TAB ===
-tabBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    const featureValue = btn.getAttribute('data-target');
-    setActiveFeature(featureValue);
-    
-    // Opsional: Langsung simpan ke localStorage saat tab diklik
-    localStorage.setItem('layananAktif', featureValue);
-    statusEl.textContent = `✅ Layanan aktif: ${btn.textContent}`;
-    statusEl.className = '';
-  });
-});
-
-// === 2. MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
+// === 1. MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
   const savedLayanan = localStorage.getItem('layananAktif');
   if (savedLayanan) {
+    layananSelect.value = savedLayanan;
     setActiveFeature(savedLayanan);
     statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
     statusEl.className = '';
   }
 });
 
-// === 3. SIMPAN PILIHAN LAYANAN ===
+// === 2. FUNGSI UTAMA: SIMPAN LAYANAN (Pemicu Perubahan Tampilan) ===
 saveLayananBtn.addEventListener('click', () => {
   const selected = layananSelect.value;
+  
   if (!selected) {
     statusEl.textContent = '⚠️ Pilih layanan terlebih dahulu.';
     statusEl.className = 'error';
     return;
   }
   
-  setActiveFeature(selected); // Pastikan tab juga ikut berubah
+  // Simpan ke localStorage
   localStorage.setItem('layananAktif', selected);
-  statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
+  
+  // Ubah tampilan secara real-time
+  setActiveFeature(selected);
+  
+  // Berikan feedback ke user
+  statusEl.textContent = `✅ Layanan "${layananSelect.options[layananSelect.selectedIndex].text}" berhasil disimpan dan ditampilkan.`;
   statusEl.className = '';
 });
 
-// === 4. RESET PILIHAN LAYANAN ===
+// === 3. RESET PILIHAN LAYANAN ===
 resetBtn.addEventListener('click', () => {
+  // Hapus dari penyimpanan
   localStorage.removeItem('layananAktif');
+  
+  // Kembalikan dropdown ke kondisi awal
   layananSelect.value = '';
   
-  // Reset tab ke default (misalnya tab pertama) atau kosongkan semua
-  tabBtns.forEach(b => b.classList.remove('active'));
+  // Sembunyikan semua konten fitur
   featureContents.forEach(content => content.classList.remove('active'));
   
-  statusEl.textContent = '';
-  statusEl.className = '';
+  // Bersihkan pesan status
+  statusEl.textContent = '⚠️ Tampilan direset. Silakan pilih layanan baru.';
+  statusEl.className = 'error'; // Menggunakan warna merah/oranye untuk alert reset
+  
+  // Opsional: Kembalikan warna status ke normal setelah 2 detik
+  setTimeout(() => {
+    statusEl.textContent = '';
+    statusEl.className = '';
+  }, 3000);
 });
