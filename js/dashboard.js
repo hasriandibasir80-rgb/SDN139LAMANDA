@@ -1,71 +1,111 @@
 // js/dashboard.js
 
+// === 🌟 PUSAT KONFIGURASI FITUR 🌟 ===
+// Cukup tambah/edit di sini, kartu akan otomatis muncul di dashboard!
+const konfigurasiFitur = {
+  'layanan-portal': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📄', link: 'layanan-portal/sub-1.html' },
+    { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📄', link: 'layanan-portal/sub-2.html' }
+  ],
+  'dokumen-arsip': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-1.html' },
+    { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-2.html' }
+  ],
+  'data-statistik': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📊', link: 'data-statistik/sub-1.html' }
+  ],
+  'admin-pembelajaran': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📚', link: 'admin-pembelajaran/sub-1.html' }
+  ],
+  'kolaborasi-global': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '🤝', link: 'kolaborasi/sub-1.html' }
+  ],
+  'monitoring': [
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '👁️', link: 'monitoring/sub-1.html' }
+  ]
+};
+
 const layananSelect = document.getElementById('layananSelect');
 const saveLayananBtn = document.getElementById('saveLayananBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusEl = document.getElementById('status');
-const featureContents = document.querySelectorAll('.feature-content');
+const contentArea = document.getElementById('contentArea');
 
-// === FUNGSI UNTUK MENAMPILKAN KONTEN YANG DIPILIH ===
-function setActiveFeature(featureValue) {
-  // 1. Sembunyikan semua konten terlebih dahulu
-  featureContents.forEach(content => content.classList.remove('active'));
+// === FUNGSI UNTUK MERENDER KARTU FITUR ===
+function renderFiturInternal(featureKey) {
+  // 1. Kosongkan area konten dulu
+  contentArea.innerHTML = '';
 
-  // 2. Tampilkan hanya konten yang ID-nya cocok dengan featureValue
-  const targetContent = document.getElementById(featureValue);
-  if (targetContent) {
-    targetContent.classList.add('active');
+  // 2. Jika tidak ada fitur yang dipilih, tampilkan pesan default
+  if (!featureKey || !konfigurasiFitur[featureKey]) {
+    contentArea.innerHTML = '<p style="text-align:center; color:#6b7280; padding:20px;">Silakan pilih dan simpan layanan untuk melihat fitur internal.</p>';
+    return;
   }
+
+  // 3. Ambil data sub-fitur berdasarkan key yang dipilih
+  const subFiturList = konfigurasiFitur[featureKey];
+  const featureTitle = layananSelect.options[layananSelect.selectedIndex].text;
+
+  // 4. Buat elemen judul
+  const titleEl = document.createElement('h3');
+  titleEl.textContent = `📌 Fitur Internal: ${featureTitle}`;
+  titleEl.style.marginBottom = '16px';
+  titleEl.style.color = '#2c3e50';
+  titleEl.style.borderBottom = '2px solid #e5e7eb';
+  titleEl.style.paddingBottom = '8px';
+  contentArea.appendChild(titleEl);
+
+  // 5. Buat container grid
+  const gridEl = document.createElement('div');
+  gridEl.className = 'internal-grid';
+
+  // 6. Loop dan buat kartu untuk setiap sub-fitur (INILAH YANG MEMBUATNYA OTOMATIS)
+  subFiturList.forEach(item => {
+    const card = document.createElement('a');
+    card.href = item.link;
+    card.className = 'internal-card';
+    card.innerHTML = `${item.icon} ${item.nama}`;
+    gridEl.appendChild(card);
+  });
+
+  contentArea.appendChild(gridEl);
 }
 
-// === 1. MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
+// === MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
   const savedLayanan = localStorage.getItem('layananAktif');
-  if (savedLayanan) {
+  if (savedLayanan && konfigurasiFitur[savedLayanan]) {
     layananSelect.value = savedLayanan;
-    setActiveFeature(savedLayanan);
+    renderFiturInternal(savedLayanan);
     statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
     statusEl.className = '';
   }
 });
 
-// === 2. FUNGSI UTAMA: SIMPAN LAYANAN (Pemicu Perubahan Tampilan) ===
+// === SIMPAN LAYANAN (Pemicu Render) ===
 saveLayananBtn.addEventListener('click', () => {
   const selected = layananSelect.value;
-  
   if (!selected) {
     statusEl.textContent = '⚠️ Pilih layanan terlebih dahulu.';
     statusEl.className = 'error';
     return;
   }
   
-  // Simpan ke localStorage
   localStorage.setItem('layananAktif', selected);
+  renderFiturInternal(selected); // <-- Di sini kartu dibuat secara otomatis
   
-  // Ubah tampilan secara real-time
-  setActiveFeature(selected);
-  
-  // Berikan feedback ke user
   statusEl.textContent = `✅ Layanan "${layananSelect.options[layananSelect.selectedIndex].text}" berhasil disimpan dan ditampilkan.`;
   statusEl.className = '';
 });
 
-// === 3. RESET PILIHAN LAYANAN ===
+// === RESET PILIHAN LAYANAN ===
 resetBtn.addEventListener('click', () => {
-  // Hapus dari penyimpanan
   localStorage.removeItem('layananAktif');
-  
-  // Kembalikan dropdown ke kondisi awal
   layananSelect.value = '';
-  
-  // Sembunyikan semua konten fitur
-  featureContents.forEach(content => content.classList.remove('active'));
-  
-  // Bersihkan pesan status
+  contentArea.innerHTML = ''; // Kosongkan tampilan
   statusEl.textContent = '⚠️ Tampilan direset. Silakan pilih layanan baru.';
-  statusEl.className = 'error'; // Menggunakan warna merah/oranye untuk alert reset
+  statusEl.className = 'error';
   
-  // Opsional: Kembalikan warna status ke normal setelah 2 detik
   setTimeout(() => {
     statusEl.textContent = '';
     statusEl.className = '';
