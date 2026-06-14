@@ -3,58 +3,243 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Login - administasi sekali klik</title>
-  <link rel="stylesheet" href="./css/login.css" />
+  <title>SDN 139 LAMANDA - Login</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Tambahan untuk login card */
+    .login-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .login-header h1 {
+      color: #2a5298;
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+
+    .login-header p {
+      color: #666;
+      font-size: 0.9rem;
+    }
+
+    .demo-credentials {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #856404;
+    }
+
+    .demo-credentials code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .divider {
+      text-align: center;
+      margin: 16px 0;
+      color: #999;
+      font-size: 0.9rem;
+      position: relative;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: #ddd;
+    }
+
+    .divider::before {
+      left: 0;
+    }
+
+    .divider::after {
+      right: 0;
+    }
+
+    .btn-text {
+      background: none;
+      border: none;
+      color: #2a5298;
+      text-decoration: underline;
+      cursor: pointer;
+      font-size: 0.9rem;
+      padding: 8px;
+      width: 100%;
+    }
+
+    .btn-text:hover {
+      color: #1e3c72;
+    }
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: #fff;
+      margin-top: 12px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .error-msg {
+      color: #f44336;
+      font-size: 0.85rem;
+      margin-top: 8px;
+      text-align: center;
+      min-height: 20px;
+    }
+  </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="login-header">
-      <h1>🏠 COCOK UNTUK KALANGAN GURU</h1>
-      <p>Silakan login untuk melanjutkan</p>
+  <!-- Header -->
+  <header class="header">
+    <button class="menu-btn">☰</button>
+    <div class="logo-text">SDN<span> 139</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container">
+    <h1 class="page-title">Login Untuk Masuk</h1>
+
+    <!-- Login Card dengan Firebase Auth -->
+    <div class="login-card">
+      <div class="login-header">
+        <h1>🏠 COCOK UNTUK KALANGAN GURU</h1>
+        <p>Silakan login untuk melanjutkan</p>
+      </div>
+
+      <!-- Demo Credentials -->
+      <div class="demo-credentials">
+        🔑 <strong>Demo:</strong> Username: <code>Andi</code> | Password: <code>1981</code>
+      </div>
+
+      <!-- Email/Password Form -->
+      <form id="emailLoginForm" autocomplete="off">
+        <div class="form-group">
+          <span class="form-icon">📧</span>
+          <input type="email" id="email" class="form-control" placeholder="contoh@email.com" required inputmode="email" />
+        </div>
+        <div class="form-group">
+          <span class="form-icon">🔒</span>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required inputmode="text" />
+        </div>
+        <div id="loginError" class="error-msg" role="alert"></div>
+        <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
+      </form>
+
+      <!-- Toggle to User ID Login -->
+      <div class="divider">atau</div>
+      <button type="button" id="toggleLogin" class="btn btn-text">🆔 Login dengan User ID</button>
+
+      <!-- User ID Form (Hidden by default) -->
+      <form id="userIdForm" class="hidden" autocomplete="off">
+        <div class="form-group">
+          <span class="form-icon">🆔</span>
+          <input type="text" id="userId" class="form-control" placeholder="Masukkan User ID" required inputmode="text" />
+        </div>
+        <div id="userIdError" class="error-msg" role="alert"></div>
+        <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk</button>
+      </form>
+
+      <!-- Logout Button (SULU) - Visible after login -->
+      <button id="logoutBtn" class="btn btn-secondary hidden">🚪 SULU (Keluar)</button>
     </div>
 
-    <!-- Demo Credentials (Plain Text) -->
-    <div class="demo-credentials">
-      🔑 <strong>Demo:</strong> Username: <code>Andi</code> | Password: <code>1981</code>
+    <!-- WAP Version Button -->
+    <a href="#" class="wap-btn">VERSI WAP</a>
+
+    <!-- Promo Banner -->
+    <div class="promo-banner">
+      <div class="promo-title">🎮 SELAMAT DATANG! 🎮</div>
+      <div class="promo-subtitle">
+        MARI PENUHI<br>
+        LAKUKAN<br>
+        YANG BEDA DARI BIASANYA
+      </div>
+      <div style="background: #FFD700; color: #000; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold; margin-top: 10px;">
+        MUDAH SEGALANYA!
+      </div>
+      <a href="#" class="promo-cta">SILAHKAN COBA →</a>
     </div>
 
-    <!-- Email/Password Form -->
-    <form id="emailLoginForm" autocomplete="off">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="contoh@email.com" required inputmode="email" />
+    <!-- Social Media -->
+    <div class="social-section">
+      <div class="social-title">Follow Sosmed Kami Juga :</div>
+      <div class="social-icons">
+        <a href="#" class="social-icon instagram">📷</a>
+        <a href="#" class="social-icon facebook">f</a>
+        <a href="#" class="social-icon telegram">✈️</a>
+        <a href="#" class="social-icon twitter">𝕏</a>
+        <a href="#" class="social-icon youtube">▶️</a>
+        <a href="#" class="social-icon whatsapp">💬</a>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" placeholder="••••••••" required inputmode="text" />
-      </div>
-      <div id="loginError" class="error-msg" role="alert"></div>
-      <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
-    </form>
+    </div>
 
-    <!-- Toggle to User ID Login -->
-    <div class="divider">atau</div>
-    <button type="button" id="toggleLogin" class="btn btn-text">🆔 Login dengan User ID</button>
-
-    <!-- User ID Form (Hidden by default) -->
-    <form id="userIdForm" class="hidden" autocomplete="off">
-      <div class="form-group">
-        <label for="userId">User ID</label>
-        <input type="text" id="userId" placeholder="Masukkan User ID" required inputmode="text" />
-      </div>
-      <div id="userIdError" class="error-msg" role="alert"></div>
-      <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk</button>
-    </form>
-
-    <!-- Logout Button (SULU) - Visible after login -->
-    <button id="logoutBtn" class="btn btn-secondary hidden">🚪 SULU (Keluar)</button>
+    <!-- Quick Links to Houses -->
+    <div class="login-box" style="margin-top: 20px;">
+      <h3 style="color: #2a5298; margin-bottom: 16px; text-align: center;">🏠 Akses Rumah Utama</h3>
+      <a href="index.html" class="btn btn-primary" style="display: block; margin-bottom: 10px; text-decoration: none; text-align: center;">
+        📊 Rumah Utama (Dashboard)
+      </a>
+      <a href="rumah30.html" class="btn btn-secondary" style="display: block; text-decoration: none; text-align: center;">
+        🚪 Masuk (Rumah 30)
+      </a>
+    </div>
   </div>
 
-  <!-- Firebase Config + Auth Module (type="module" untuk ES6 import) -->
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="#" class="nav-item active">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">BERANDA</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">✍️</span>
+      <span class="nav-label">DAFTAR</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">🎁</span>
+      <span class="nav-label">PROMOSI</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">💬</span>
+      <span class="nav-label">LIVECHAT</span>
+    </a>
+  </nav>
+
+  <!-- Loading Overlay -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+  </div>
+
+  <!-- Firebase Config + Auth Module -->
   <script type="module" src="./firebase-config.js"></script>
   <script type="module" src="./auth-login.js"></script>
+
+  <!-- Script untuk UI tambahan -->
+  <script src="js/script.js"></script>
   
-  <!-- Inline UI Logic -->
+  <!-- Inline UI Logic untuk Login Firebase -->
   <script>
     // Toggle Email/ID Login
     document.getElementById('toggleLogin')?.addEventListener('click', () => {
