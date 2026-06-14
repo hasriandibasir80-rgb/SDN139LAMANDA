@@ -10,7 +10,7 @@
   <div class="container">
     <h1>🏠 Beranda</h1>
 
-    <!-- User Info & Logout (Dipertahankan) -->
+    <!-- User Info & Logout -->
     <div class="user-info" id="userInfo">
       <strong>👤 User:</strong>
       <div id="userDetail">Memuat...</div>
@@ -19,7 +19,7 @@
 
     <hr class="divider" />
 
-    <!-- Dropdown & Aksi (Inti Pengendali) -->
+    <!-- Dropdown & Aksi -->
     <label for="layananSelect">Pilih Layanan</label>
     <select id="layananSelect">
       <option value="">-- Pilih Layanan --</option>
@@ -40,67 +40,12 @@
 
     <hr class="divider" />
 
-    <!-- Area Konten Dinamis (Hanya 1 yang muncul sesuai pilihan) -->
-    <div class="content-area">
-      
-      <!-- 1. Layanan Portal -->
-      <div id="layanan-portal" class="feature-content">
-        <h3>📌 Fitur Internal: Layanan Portal</h3>
-        <div class="internal-grid">
-          <a href="layanan-portal/sub-fitur-1.html" class="internal-card">📄 Sub-Fitur 1 (Placeholder)</a>
-          <a href="layanan-portal/sub-fitur-2.html" class="internal-card">📄 Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
+    <!-- WAKTU INI KOSONG, AKAN DIISI OTOMATIS OLEH JAVASCRIPT -->
+    <div id="contentArea" class="content-area"></div>
 
-      <!-- 2. Dokumen Arsip -->
-      <div id="dokumen-arsip" class="feature-content">
-        <h3>📌 Fitur Internal: Dokumen Arsip</h3>
-        <div class="internal-grid">
-          <a href="dokumen-arsip/sub-fitur-1.html" class="internal-card">📁 Sub-Fitur 1 (Placeholder)</a>
-          <a href="dokumen-arsip/sub-fitur-2.html" class="internal-card">📁 Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
-
-      <!-- 3. Data Statistik -->
-      <div id="data-statistik" class="feature-content">
-        <h3>📌 Fitur Internal: Data Statistik</h3>
-        <div class="internal-grid">
-          <a href="data-statistik/sub-fitur-1.html" class="internal-card">📊 Sub-Fitur 1 (Placeholder)</a>
-          <a href="data-statistik/sub-fitur-2.html" class="internal-card">📊 Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
-
-      <!-- 4. Administrasi Pembelajaran -->
-      <div id="admin-pembelajaran" class="feature-content">
-        <h3>📌 Fitur Internal: Administrasi Pembelajaran</h3>
-        <div class="internal-grid">
-          <a href="admin-pembelajaran/sub-fitur-1.html" class="internal-card">📚 Sub-Fitur 1 (Placeholder)</a>
-          <a href="admin-pembelajaran/sub-fitur-2.html" class="internal-card">📚 Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
-
-      <!-- 5. Kolaborasi -->
-      <div id="kolaborasi-global" class="feature-content">
-        <h3>📌 Fitur Internal: Kolaborasi</h3>
-        <div class="internal-grid">
-          <a href="kolaborasi/sub-fitur-1.html" class="internal-card">🤝 Sub-Fitur 1 (Placeholder)</a>
-          <a href="kolaborasi/sub-fitur-2.html" class="internal-card">🤝 Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
-
-      <!-- 6. Monitoring -->
-      <div id="monitoring" class="feature-content">
-        <h3>📌 Fitur Internal: Monitoring</h3>
-        <div class="internal-grid">
-          <a href="monitoring/sub-fitur-1.html" class="internal-card">👁️ Sub-Fitur 1 (Placeholder)</a>
-          <a href="monitoring/sub-fitur-2.html" class="internal-card">👁️ Sub-Fitur 2 (Placeholder)</a>
-        </div>
-      </div>
-
-    </div>
   </div>
 
-  <!-- Script Auth & Dashboard -->
+  <!-- Script -->
   <script type="module" src="./js/firebase-config.js"></script>
   <script type="module" src="./js/auth-login.js"></script>
   <script src="js/dashboard.js"></script>
