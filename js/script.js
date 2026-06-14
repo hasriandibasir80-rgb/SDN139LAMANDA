@@ -1,12 +1,13 @@
 // ============================================
-// FILE: js/script.js (LENGKAP - SUDAH DIPERBAIKI)
+// FILE: js/script.js (100% REAL FIREBASE - NO SIMULATION)
 // SDN 139 LAMANDA - Login Page Script
 // ============================================
 
 // === CAPTCHA GENERATOR ===
 function generateCaptcha() {
   const captcha = Math.floor(10000 + Math.random() * 90000).toString();
-  document.getElementById('captcha').textContent = captcha;
+  const captchaEl = document.getElementById('captcha');
+  if (captchaEl) captchaEl.textContent = captcha;
   return captcha;
 }
 
@@ -14,52 +15,66 @@ function refreshCaptcha() {
   generateCaptcha();
 }
 
-// === FORM SUBMISSION (LOGIN) ===
-document.getElementById('loginForm').addEventListener('submit', function(e) {
+// === FORM SUBMISSION (REAL FIREBASE) ===
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   
   const loading = document.getElementById('loading');
-  loading.style.display = 'flex';
+  const submitBtn = document.querySelector('button[type="submit"]');
   
-  // Simulate login process
-  setTimeout(() => {
-    loading.style.display = 'none';
-    alert('Login berhasil! Selamat datang di SDN 139 LAMANDA');
+  if (loading) loading.style.display = 'flex';
+  if (submitBtn) submitBtn.disabled = true;
+  
+  // Ambil nilai input (Pastikan ID di HTML Anda adalah 'email' dan 'password')
+  const emailInput = document.getElementById('email');
+  const passwordInput = document.getElementById('password');
+  
+  if (!emailInput || !passwordInput) {
+    alert('⚠️ Error: Input email atau password tidak ditemukan di HTML!');
+    if (loading) loading.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  
+  if (!email || !password) {
+    alert('Email dan password harus diisi!');
+    if (loading) loading.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    return;
+  }
+  
+  try {
+    // ✅ PANGGIL FUNGSI REAL DARI auth-login.js
+    // Fungsi ini akan menghubungi Firebase, memverifikasi, dan redirect otomatis
+    await window.handleEmailLogin(email, password);
     
-    // ==========================================
-    // ✅ PERBAIKAN: SIMPAN DATA USER KE LOCALSTORAGE
-    // ==========================================
-    // Membuat objek data user yang memiliki 'uid' (syarat mutlak agar diterima dashboard)
-    const userData = {
-      uid: 'user-sdn139-' + Date.now(), 
-      displayName: 'Pengguna SDN 139',
-      email: 'admin@sdn139.sch.id',
-      isCustomId: true
-    };
-    
-    // Menyimpan data user ke localStorage dengan kunci 'currentUser'
-    // JSON.stringify digunakan karena localStorage hanya menerima format teks (string)
-    localStorage.setItem('currentUser', JSON.stringify(userData));
-    // ==========================================
-    // ✅ AKHIR PERBAIKAN
-    // ==========================================
-    
-    // ✅ REDIRECT KE DASHBOARD
-    window.location.href = 'dashboard.html';
-  }, 1500);
+  } catch (error) {
+    console.error('❌ Login gagal:', error);
+    if (loading) loading.style.display = 'none';
+    if (submitBtn) submitBtn.disabled = false;
+    alert('❌ ' + error.message);
+  }
 });
 
 // === FORGOT PASSWORD ===
 function forgotPassword() {
-  alert('Silakan hubungi Live Chat untuk reset password Anda');
+  alert('Silakan hubungi Admin sekolah untuk reset password Anda');
 }
 
-// === INITIALIZE CAPTCHA ON PAGE LOAD ===
-window.onload = function() {
+// === INITIALIZE ===
+window.addEventListener('DOMContentLoaded', function() {
   generateCaptcha();
-};
+  if (typeof window.handleEmailLogin !== 'function') {
+    console.error('⚠️ CRITICAL: auth-login.js belum ter-load!');
+  } else {
+    console.log('✅ Sistem login REAL siap digunakan');
+  }
+});
 
-// === BOTTOM NAVIGATION CLICK HANDLER ===
+// === BOTTOM NAVIGATION ===
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', function(e) {
     if (this.getAttribute('href') === '#') {
@@ -69,7 +84,3 @@ document.querySelectorAll('.nav-item').forEach(item => {
     }
   });
 });
-
-// ============================================
-// AKHIR FILE - Tidak ada kode lain di bawah ini
-// ============================================
