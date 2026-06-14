@@ -4,152 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Beranda - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ HAPUS CSS INLINE, PAKAI YANG EKSTERNAL SAJA -->
   <link rel="stylesheet" href="css/dashboard.css" />
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    }
-
-    body {
-      background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .container {
-      max-width: 800px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      padding: 30px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-    }
-
-    h1 {
-      color: #2c3e50;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .user-info {
-      background: #e3f2fd;
-      border-left: 4px solid #2a5298;
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-    }
-
-    .user-info strong {
-      color: #1976d2;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-      color: #374151;
-    }
-
-    select, button {
-      width: 100%;
-      padding: 14px;
-      margin-bottom: 16px;
-      border: 1px solid #d1d5db;
-      border-radius: 10px;
-      font-size: 16px;
-      outline: none;
-    }
-
-    button {
-      background: #4CAF50;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background: #45a049;
-    }
-
-    #resetBtn {
-      background: #f44336;
-    }
-
-    #resetBtn:hover {
-      background: #d32f2f;
-    }
-
-    #logoutBtn {
-      background: #ff9800;
-      margin-bottom: 20px;
-    }
-
-    #logoutBtn:hover {
-      background: #f57c00;
-    }
-
-    #status {
-      text-align: center;
-      min-height: 24px;
-      font-weight: bold;
-      margin-bottom: 12px;
-      color: #10b981;
-    }
-
-    #childHouses {
-      display: none;
-      margin-top: 32px;
-    }
-
-    #childHouses h2 {
-      margin-bottom: 20px;
-      color: #2c3e50;
-      text-align: center;
-    }
-
-    .house-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 16px;
-    }
-
-    .house-btn {
-      padding: 16px 12px;
-      background: #2196F3;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-size: 14px;
-      text-align: center;
-      cursor: pointer;
-      text-decoration: none;
-      display: block;
-      line-height: 1.4;
-      min-height: 60px;
-      transition: background 0.2s;
-    }
-
-    .house-btn:hover {
-      background: #1976D2;
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 20px 16px;
-      }
-      .house-grid {
-        grid-template-columns: 1fr;
-      }
-      h1 {
-        font-size: 1.6rem;
-      }
-    }
-  </style>
 </head>
 <body>
   <div class="container">
@@ -187,9 +44,9 @@
     </div>
   </div>
 
-  <!-- Firebase Modules (WAJIB ADA!) -->
+  <!-- ✅ PERBAIKI PATH: auth-login.js seharusnya di folder js/ -->
   <script type="module" src="./js/firebase-config.js"></script>
-  <script type="module" src="./auth-login.js"></script>
+  <script type="module" src="./js/auth-login.js"></script>
 
   <!-- Dashboard Script -->
   <script src="js/dashboard.js"></script>
@@ -223,13 +80,12 @@
       if (!confirm('Yakin ingin keluar?')) return;
       
       try {
-        if (typeof window.handleLogout === 'function') {
-          await window.handleLogout();
-        } else {
-          // Fallback jika auth-login.js belum ter-load
-          localStorage.removeItem('currentUser');
-          window.location.href = './index.html';
-        }
+        // ✅ HAPUS localStorage dulu
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('fiturAktif');
+        
+        // Redirect ke login
+        window.location.href = './index.html';
       } catch (err) {
         console.error('Logout error:', err);
         alert('Gagal logout: ' + err.message);
@@ -239,14 +95,7 @@
     // === INIT ===
     document.addEventListener('DOMContentLoaded', () => {
       console.log('📊 Dashboard loaded');
-      
-      // Cek login state
       checkLoginState();
-      
-      // Debug: Pastikan module terload
-      setTimeout(() => {
-        console.log('✅ handleLogout:', typeof window.handleLogout);
-      }, 500);
     });
   </script>
 </body>
