@@ -4,7 +4,6 @@
  * Compatible: ES6 Module, Firebase v10.12.2
  */
 
-// ✅ Import dari firebase-config.js (Pastikan path ini benar: sama-sama di folder js/)
 import { 
   auth, 
   rtdb, 
@@ -41,7 +40,7 @@ async function registerSession(userId, deviceId) {
 // === 1. Handle Email/Password Login (REAL FIREBASE ONLY) ===
 async function handleEmailLogin(email, password) {
   try {
-    // ✅ LANGSUNG KE FIREBASE AUTH. TIDAK ADA SIMULASI.
+    // LANGSUNG KE FIREBASE AUTH. TIDAK ADA SIMULASI.
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
@@ -50,7 +49,7 @@ async function handleEmailLogin(email, password) {
     
     // Simpan data user ASLI dari Firebase ke localStorage agar dashboard bisa membacanya
     localStorage.setItem('currentUser', JSON.stringify({
-      uid: user.uid, // <-- INI UID ASLI FIREBASE, BUKAN Date.now()
+      uid: user.uid, 
       email: user.email,
       displayName: user.displayName || email.split('@')[0]
     }));
@@ -86,7 +85,6 @@ async function handleLogout() {
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     const deviceId = localStorage.getItem('deviceId');
     
-    // Hapus session dari Realtime Database
     if (currentUser.uid && deviceId) {
       try {
         const sessionRef = ref(rtdb, `sessions/${currentUser.uid}/${deviceId}`);
@@ -96,10 +94,7 @@ async function handleLogout() {
       }
     }
     
-    // Firebase sign out
     await signOut(auth);
-    
-    // Clear local state
     localStorage.removeItem('currentUser');
     
     console.log('✅ Logout berhasil');
