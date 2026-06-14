@@ -5,11 +5,109 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SDN 139 LAMANDA - sdn139lamanda</title>
   <link rel="stylesheet" href="css/style.css">
+  
+  <!-- ✅ CSS TAMBAHAN KHUSUS UNTUK SIDEBAR MENU (Agar langsung rapi) -->
+  <style>
+    /* Tombol Menu */
+    .menu-btn {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #fff; /* Sesuaikan dengan warna header Anda */
+      padding: 10px;
+    }
+
+    /* Sidebar Container */
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -280px; /* Sembunyi di kiri layar */
+      width: 260px;
+      height: 100%;
+      background-color: #1a1a2e; /* Warna gelap profesional */
+      color: #fff;
+      transition: left 0.3s ease-in-out;
+      z-index: 1000;
+      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
+      padding-top: 60px;
+    }
+
+    .sidebar.active {
+      left: 0; /* Muncul ke layar */
+    }
+
+    /* Tombol Tutup Sidebar */
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+    }
+
+    /* Link di dalam Sidebar */
+    .sidebar-link {
+      display: flex;
+      align-items: center;
+      padding: 15px 25px;
+      color: #e0e0e0;
+      text-decoration: none;
+      font-size: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .sidebar-link:hover {
+      background-color: #16213e;
+      color: #FFD700; /* Warna emas saat di-hover */
+    }
+
+    .sidebar-link span {
+      margin-right: 12px;
+      font-size: 20px;
+    }
+
+    /* Overlay Gelap di Belakang Sidebar */
+    .sidebar-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 999;
+      display: none; /* Sembunyi default */
+    }
+
+    .sidebar-overlay.active {
+      display: block; /* Muncul saat sidebar aktif */
+    }
+  </style>
 </head>
 <body>
+  <!-- ✅ SIDEBAR MENU (Baru) -->
+  <div class="sidebar" id="sidebar">
+    <button class="close-btn" id="closeSidebar">✕</button>
+    <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">
+      🏫 MENU UTAMA
+    </div>
+    <a href="visi-misi.html" class="sidebar-link"><span>🎯</span> Visi & Misi Sekolah</a>
+    <a href="personil.html" class="sidebar-link"><span>👥</span> Personil</a>
+    <a href="rubrik-info.html" class="sidebar-link"><span>📰</span> Rubrik Info</a>
+    <a href="layanan.html" class="sidebar-link"><span>🛠️</span> Layanan Kami</a>
+  </div>
+
+  <!-- ✅ OVERLAY (Untuk menutup menu saat klik di luar) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <!-- Header -->
   <header class="header">
-    <button class="menu-btn">☰</button>
+    <!-- ✅ DITAMBAHKAN ID: menuBtn -->
+    <button class="menu-btn" id="menuBtn">☰</button>
     <div class="logo-text">SDN<span> 139</span></div>
     <div style="width: 50px;"></div>
   </header>
@@ -103,15 +201,9 @@
     <div class="spinner"></div>
   </div>
 
-  <!-- ✅ PERBAIKAN KRUSIAL: Muat SEMUA script dengan urutan yang benar -->
-  <!-- 1. Konfigurasi Firebase (WAJIB PERTAMA) -->
+  <!-- Scripts -->
   <script type="module" src="js/firebase-config.js?v=3"></script>
-  
-  <!-- 2. Logic Auth Login (WAJIB KEDUA, agar window.handleEmailLogin terbentuk) -->
   <script type="module" src="js/auth-login.js?v=3"></script>
-  
-  <!-- 3. Script Utama Form (WAJIB TERAKHIR, agar bisa memanggil fungsi dari auth-login.js) -->
   <script type="module" src="js/script.js?v=3"></script>
-
 </body>
 </html>
