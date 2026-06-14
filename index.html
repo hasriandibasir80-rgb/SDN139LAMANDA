@@ -23,18 +23,18 @@
       <form id="loginForm">
         <div class="form-group">
           <span class="form-icon">👤</span>
-          <input type="text" class="form-control" placeholder="Username" required>
+          <input type="email" id="email" class="form-control" placeholder="Alamat Email" required>
         </div>
 
         <div class="form-group">
           <span class="form-icon">🔒</span>
-          <input type="password" class="form-control" placeholder="Password" required>
+          <input type="password" id="password" class="form-control" placeholder="Password" required>
         </div>
 
         <div class="form-group">
           <div class="captcha-box">
             <span class="form-icon">🛡️</span>
-            <input type="text" class="form-control" placeholder="Captcha" style="flex: 1;" required>
+            <input type="text" id="captchaInput" class="form-control" placeholder="Captcha" style="flex: 1;" required>
             <div class="captcha-image" id="captcha">angka random</div>
             <button type="button" class="refresh-captcha" onclick="refreshCaptcha()">🔄</button>
           </div>
@@ -76,6 +76,7 @@
         <a href="#" class="social-icon whatsapp">💬</a>
       </div>
     </div>
+  </div>
 
   <!-- Bottom Navigation -->
   <nav class="bottom-nav">
@@ -102,6 +103,7 @@
     <div class="spinner"></div>
   </div>
 
-  <script src="js/script.js"></script>
+  <!-- ✅ PENTING: type="module" dan ?v=3 wajib ada agar tidak kena cache lama -->
+  <script type="module" src="js/script.js?v=3"></script>
 </body>
 </html>
