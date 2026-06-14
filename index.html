@@ -103,7 +103,15 @@
     <div class="spinner"></div>
   </div>
 
-  <!-- ✅ PENTING: type="module" dan ?v=3 wajib ada agar tidak kena cache lama -->
+  <!-- ✅ PERBAIKAN KRUSIAL: Muat SEMUA script dengan urutan yang benar -->
+  <!-- 1. Konfigurasi Firebase (WAJIB PERTAMA) -->
+  <script type="module" src="js/firebase-config.js?v=3"></script>
+  
+  <!-- 2. Logic Auth Login (WAJIB KEDUA, agar window.handleEmailLogin terbentuk) -->
+  <script type="module" src="js/auth-login.js?v=3"></script>
+  
+  <!-- 3. Script Utama Form (WAJIB TERAKHIR, agar bisa memanggil fungsi dari auth-login.js) -->
   <script type="module" src="js/script.js?v=3"></script>
+
 </body>
 </html>
