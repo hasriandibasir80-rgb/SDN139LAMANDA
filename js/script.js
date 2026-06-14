@@ -1,21 +1,25 @@
 // ============================================
-// FILE: js/script.js (100% REAL FIREBASE - NO SIMULATION)
+// FILE: js/script.js (FINAL REAL VERSION)
 // SDN 139 LAMANDA - Login Page Script
 // ============================================
 
 // === CAPTCHA GENERATOR ===
+let currentCaptcha = '';
+
 function generateCaptcha() {
-  const captcha = Math.floor(10000 + Math.random() * 90000).toString();
+  currentCaptcha = Math.floor(10000 + Math.random() * 90000).toString();
   const captchaEl = document.getElementById('captcha');
-  if (captchaEl) captchaEl.textContent = captcha;
-  return captcha;
+  if (captchaEl) captchaEl.textContent = currentCaptcha;
+  return currentCaptcha;
 }
 
 function refreshCaptcha() {
   generateCaptcha();
+  const captchaInput = document.getElementById('captchaInput');
+  if (captchaInput) captchaInput.value = '';
 }
 
-// === FORM SUBMISSION (REAL FIREBASE) ===
+// === FORM SUBMISSION (REAL FIREBASE + CAPTCHA CHECK) ===
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -25,12 +29,12 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   if (loading) loading.style.display = 'flex';
   if (submitBtn) submitBtn.disabled = true;
   
-  // Ambil nilai input (Pastikan ID di HTML Anda adalah 'email' dan 'password')
   const emailInput = document.getElementById('email');
   const passwordInput = document.getElementById('password');
+  const captchaInput = document.getElementById('captchaInput');
   
-  if (!emailInput || !passwordInput) {
-    alert('⚠️ Error: Input email atau password tidak ditemukan di HTML!');
+  if (!emailInput || !passwordInput || !captchaInput) {
+    alert('⚠️ Error: Struktur form tidak lengkap!');
     if (loading) loading.style.display = 'none';
     if (submitBtn) submitBtn.disabled = false;
     return;
@@ -38,39 +42,45 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   
   const email = emailInput.value.trim();
   const password = passwordInput.value;
+  const userCaptcha = captchaInput.value.trim();
   
-  if (!email || !password) {
-    alert('Email dan password harus diisi!');
+  // Validasi Captcha di sisi client sebelum hubungi Firebase
+  if (userCaptcha !== currentCaptcha) {
+    alert('❌ Kode Captcha yang Anda masukkan salah! Silakan coba lagi.');
+    refreshCaptcha();
     if (loading) loading.style.display = 'none';
     if (submitBtn) submitBtn.disabled = false;
-    return;
+    return; 
   }
   
   try {
-    // ✅ PANGGIL FUNGSI REAL DARI auth-login.js
-    // Fungsi ini akan menghubungi Firebase, memverifikasi, dan redirect otomatis
+    console.log('✅ Captcha benar. Menghubungi Firebase...');
+    // Panggil fungsi login REAL dari auth-login.js
     await window.handleEmailLogin(email, password);
     
   } catch (error) {
     console.error('❌ Login gagal:', error);
     if (loading) loading.style.display = 'none';
     if (submitBtn) submitBtn.disabled = false;
+    
+    refreshCaptcha();
     alert('❌ ' + error.message);
   }
 });
 
 // === FORGOT PASSWORD ===
 function forgotPassword() {
-  alert('Silakan hubungi Admin sekolah untuk reset password Anda');
+  alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
 }
 
 // === INITIALIZE ===
 window.addEventListener('DOMContentLoaded', function() {
   generateCaptcha();
+  
   if (typeof window.handleEmailLogin !== 'function') {
-    console.error('⚠️ CRITICAL: auth-login.js belum ter-load!');
+    console.error('⚠️ CRITICAL: auth-login.js belum ter-load! Pastikan path dan type="module" sudah benar.');
   } else {
-    console.log('✅ Sistem login REAL siap digunakan');
+    console.log('✅ Sistem login REAL & Captcha siap digunakan');
   }
 });
 
