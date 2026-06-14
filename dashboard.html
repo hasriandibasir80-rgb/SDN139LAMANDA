@@ -19,7 +19,7 @@
 
     <hr class="divider" />
 
-       <!-- Dropdown & Aksi (Redaksi disesuaikan dengan 6 Fitur Global) -->
+    <!-- Dropdown & Aksi (Inti Pengendali) -->
     <label for="layananSelect">Pilih Layanan</label>
     <select id="layananSelect">
       <option value="">-- Pilih Layanan --</option>
@@ -38,30 +38,17 @@
 
     <div id="status"></div>
 
-    <div id="status"></div>
-
     <hr class="divider" />
 
-    <!-- Navigasi 6 Fitur Global (Tab) -->
-    <div class="global-nav">
-      <button class="tab-btn active" data-target="layanan-portal">Layanan Portal</button>
-      <button class="tab-btn" data-target="dokumen-arsip">Dokumen Arsip</button>
-      <button class="tab-btn" data-target="data-statistik">Data Statistik</button>
-      <button class="tab-btn" data-target="admin-pembelajaran">Administrasi Pembelajaran</button>
-      <button class="tab-btn" data-target="kolaborasi-global">Kolaborasi</button>
-      <button class="tab-btn" data-target="monitoring">Monitoring</button>
-    </div>
-
-    <!-- Area Konten Dinamis (Show/Hide) -->
+    <!-- Area Konten Dinamis (Hanya 1 yang muncul sesuai pilihan) -->
     <div class="content-area">
       
       <!-- 1. Layanan Portal -->
-      <div id="layanan-portal" class="feature-content active">
+      <div id="layanan-portal" class="feature-content">
         <h3>📌 Fitur Internal: Layanan Portal</h3>
         <div class="internal-grid">
           <a href="layanan-portal/sub-fitur-1.html" class="internal-card">📄 Sub-Fitur 1 (Placeholder)</a>
           <a href="layanan-portal/sub-fitur-2.html" class="internal-card">📄 Sub-Fitur 2 (Placeholder)</a>
-          <a href="layanan-portal/sub-fitur-3.html" class="internal-card">📄 Sub-Fitur 3 (Placeholder)</a>
         </div>
       </div>
 
@@ -89,7 +76,6 @@
         <div class="internal-grid">
           <a href="admin-pembelajaran/sub-fitur-1.html" class="internal-card">📚 Sub-Fitur 1 (Placeholder)</a>
           <a href="admin-pembelajaran/sub-fitur-2.html" class="internal-card">📚 Sub-Fitur 2 (Placeholder)</a>
-          <a href="admin-pembelajaran/sub-fitur-3.html" class="internal-card">📚 Sub-Fitur 3 (Placeholder)</a>
         </div>
       </div>
 
@@ -119,7 +105,7 @@
   <script type="module" src="./js/auth-login.js"></script>
   <script src="js/dashboard.js"></script>
 
-  <!-- Auth Check & Logout Handler (Dipertahankan dari existing) -->
+  <!-- Auth Check & Logout Handler -->
   <script>
     function checkLoginState() {
       const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -141,7 +127,7 @@
       if (!confirm('Yakin ingin keluar?')) return;
       try {
         localStorage.removeItem('currentUser');
-        localStorage.removeItem('layananAktif'); // Disesuaikan dengan nama baru
+        localStorage.removeItem('layananAktif');
         window.location.href = './index.html';
       } catch (err) {
         console.error('Logout error:', err);
