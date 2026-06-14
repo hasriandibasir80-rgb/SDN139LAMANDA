@@ -1,147 +1,119 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Login - administasi sekali klik</title>
-  <link rel="stylesheet" href="./css/login.css" />
+  <title>SDN 139 LAMANDA - sdn139lamanda</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <div class="login-card">
-    <div class="login-header">
-      <h1>🏠 COCOK UNTUK KALANGAN GURU</h1>
-      <p>Silakan login untuk melanjutkan</p>
+  <!-- Header -->
+  <header class="header">
+    <button class="menu-btn">☰</button>
+    <div class="logo-text">SDN<span> 139</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container">
+    <h1 class="page-title">Login Untuk Masuk</h1>
+
+    <!-- Login Form -->
+    <div class="login-box">
+      <form id="loginForm">
+        <div class="form-group">
+          <span class="form-icon">👤</span>
+          <input type="text" class="form-control" placeholder="Username" required>
+        </div>
+
+        <div class="form-group">
+          <span class="form-icon">🔒</span>
+          <input type="password" class="form-control" placeholder="Password" required>
+        </div>
+
+        <div class="form-group">
+          <div class="captcha-box">
+            <span class="form-icon">🛡️</span>
+            <input type="text" class="form-control" placeholder="Captcha" style="flex: 1;" required>
+            <div class="captcha-image" id="captcha">27855</div>
+            <button type="button" class="refresh-captcha" onclick="refreshCaptcha()">🔄</button>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button type="button" class="btn btn-secondary" onclick="forgotPassword()">Lupa Password</button>
+          <button type="submit" class="btn btn-primary">Sign In</button>
+        </div>
+      </form>
     </div>
 
-    <!-- Demo Credentials (Plain Text) -->
-    <div class="demo-credentials">
-      🔑 <strong>Demo:</strong> Username: <code>Andi</code> | Password: <code>1981</code>
+    <!-- WAP Version Button -->
+    <a href="#" class="wap-btn">VERSI WAP</a>
+
+    <!-- Promo Banner -->
+    <div class="promo-banner">
+      <div class="promo-title">🎮 SELAMAT DATANG! 🎮</div>
+      <div class="promo-subtitle">
+        MARI PENUHI<br>
+        LAKUKAN<br>
+        YANG BEDA DARI BIASANYA
+      </div>
+      <div style="background: #FFD700; color: #000; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold; margin-top: 10px;">
+        MUDAH SEGALANYA!
+      </div>
+      <a href="#" class="promo-cta">SILAHKAN COBA →</a>
     </div>
 
-    <!-- Email/Password Form -->
-    <form id="emailLoginForm" autocomplete="off">
-      <div class="form-group">
-        <label for="email">Email</label>
-        <input type="email" id="email" placeholder="contoh@email.com" required inputmode="email" />
+    <!-- Social Media -->
+    <div class="social-section">
+      <div class="social-title">Follow Sosmed Kami Juga :</div>
+      <div class="social-icons">
+        <a href="#" class="social-icon instagram">📷</a>
+        <a href="#" class="social-icon facebook">f</a>
+        <a href="#" class="social-icon telegram">✈️</a>
+        <a href="#" class="social-icon twitter">𝕏</a>
+        <a href="#" class="social-icon youtube">▶️</a>
+        <a href="#" class="social-icon whatsapp">💬</a>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" placeholder="••••••••" required inputmode="text" />
-      </div>
-      <div id="loginError" class="error-msg" role="alert"></div>
-      <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
-    </form>
+    </div>
 
-    <!-- Toggle to User ID Login -->
-    <div class="divider">atau</div>
-    <button type="button" id="toggleLogin" class="btn btn-text">🆔 Login dengan User ID</button>
-
-    <!-- User ID Form (Hidden by default) -->
-    <form id="userIdForm" class="hidden" autocomplete="off">
-      <div class="form-group">
-        <label for="userId">User ID</label>
-        <input type="text" id="userId" placeholder="Masukkan User ID" required inputmode="text" />
-      </div>
-      <div id="userIdError" class="error-msg" role="alert"></div>
-      <button type="submit" class="btn btn-primary" id="userIdBtn">🆔 Masuk</button>
-    </form>
-
-    <!-- Logout Button (SULU) - Visible after login -->
-    <button id="logoutBtn" class="btn btn-secondary hidden">🚪 SULU (Keluar)</button>
+    <!-- Quick Links to Houses -->
+    <div class="login-box" style="margin-top: 20px;">
+      <h3 style="color: #2a5298; margin-bottom: 16px; text-align: center;">🏠 Akses Rumah Utama</h3>
+      <a href="index.html" class="btn btn-primary" style="display: block; margin-bottom: 10px; text-decoration: none; text-align: center;">
+        📊 Rumah Utama (Dashboard)
+      </a>
+      <a href="rumah30.html" class="btn btn-secondary" style="display: block; text-decoration: none; text-align: center;">
+        🚪 Masuk (Rumah 30)
+      </a>
+    </div>
   </div>
 
-  <!-- Firebase Config + Auth Module (type="module" untuk ES6 import) -->
-  <script type="module" src="./firebase-config.js"></script>
-  <script type="module" src="./auth-login.js"></script>
-  
-  <!-- Inline UI Logic -->
-  <script>
-    // Toggle Email/ID Login
-    document.getElementById('toggleLogin')?.addEventListener('click', () => {
-      document.getElementById('emailLoginForm').classList.toggle('hidden');
-      document.getElementById('userIdForm').classList.toggle('hidden');
-      document.getElementById('loginError').textContent = '';
-      document.getElementById('userIdError').textContent = '';
-    });
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <a href="#" class="nav-item active">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">BERANDA</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">✍️</span>
+      <span class="nav-label">DAFTAR</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">🎁</span>
+      <span class="nav-label">PROMOSI</span>
+    </a>
+    <a href="#" class="nav-item">
+      <span class="nav-icon">💬</span>
+      <span class="nav-label">LIVECHAT</span>
+    </a>
+  </nav>
 
-    // Handle Email Login Submit
-    document.getElementById('emailLoginForm')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const errorEl = document.getElementById('loginError');
-      const btn = document.getElementById('loginBtn');
-      
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = '⏳ Memproses...';
-      
-      try {
-        if (typeof window.handleEmailLogin === 'function') {
-          await window.handleEmailLogin(email, password);
-        } else {
-          throw new Error('Fungsi login tidak tersedia. Periksa auth-login.js');
-        }
-      } catch (err) {
-        console.error('Login error:', err);
-        errorEl.textContent = err.message || 'Login gagal. Periksa kredensial.';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '🔐 Masuk';
-      }
-    });
+  <!-- Loading Overlay -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+  </div>
 
-    // Handle User ID Login Submit
-    document.getElementById('userIdForm')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const userId = document.getElementById('userId').value.trim();
-      const errorEl = document.getElementById('userIdError');
-      const btn = document.getElementById('userIdBtn');
-      
-      errorEl.textContent = '';
-      btn.disabled = true;
-      btn.textContent = '⏳ Memproses...';
-      
-      try {
-        if (typeof window.handleUserIdLogin === 'function') {
-          await window.handleUserIdLogin(userId);
-        } else {
-          throw new Error('Fungsi login ID tidak tersedia');
-        }
-      } catch (err) {
-        console.error('UserID login error:', err);
-        errorEl.textContent = err.message || 'Login dengan ID gagal';
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '🆔 Masuk';
-      }
-    });
-
-    // Handle Logout (SULU)
-    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-      const btn = document.getElementById('logoutBtn');
-      btn.disabled = true;
-      try {
-        if (typeof window.handleLogout === 'function') {
-          await window.handleLogout();
-        }
-      } catch (err) {
-        console.error('Logout error:', err);
-        alert('Gagal logout: ' + err.message);
-      } finally {
-        btn.disabled = false;
-      }
-    });
-
-    // Debug: Pastikan module terload
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('🔐 index.html loaded');
-      setTimeout(() => {
-        console.log('✅ handleEmailLogin:', typeof window.handleEmailLogin);
-        console.log('✅ handleLogout:', typeof window.handleLogout);
-      }, 500);
-    });
-  </script>
+  <script src="js/script.js"></script>
 </body>
 </html>
