@@ -1,3 +1,5 @@
+// js/dashboard.js
+
 const houseNames = {
   1: 'DATA SISWA',
   2: 'PRESENSI',
@@ -12,10 +14,10 @@ const houseNames = {
   11: 'COMING SOON',
   12: 'MENUJU SIAGA',
   13: 'dicoba'
-  
 };
 
-let activefitur = null;
+// ✅ PERBAIKI: Gunakan nama variabel yang konsisten
+let activeFitur = null;
 const statusEl = document.getElementById('status');
 
 // === MUAT FITUR AKTIF SAAT HALAMAN DIMUAT ===
@@ -24,7 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedFitur) {
     document.getElementById('period').value = savedFitur;
     activeFitur = savedFitur;
-    statusEl.textContent = `✅ fitur aktif: ${savedFitur}`;
+    statusEl.textContent = `✅ Fitur aktif: ${savedFitur}`;
+    statusEl.className = '';
     renderChildHouses();
   }
 });
@@ -37,7 +40,9 @@ document.getElementById('savePeriod').addEventListener('click', () => {
     statusEl.className = 'error';
     return;
   }
-  activeMarket = selected;
+  
+  // ✅ PERBAIKI: Gunakan activeFitur, bukan activeMarket
+  activeFitur = selected;
   localStorage.setItem('fiturAktif', selected);
   statusEl.textContent = `✅ Fitur aktif: ${selected}`;
   statusEl.className = '';
@@ -46,11 +51,13 @@ document.getElementById('savePeriod').addEventListener('click', () => {
 
 // === RESET (BERSIHKAN PEMILIHAN) ===
 document.getElementById('resetBtn').addEventListener('click', () => {
-  activeMarket = null;
-  localStorage.removeItem('marketAktif');
+  // ✅ PERBAIKI: Gunakan activeFitur dan 'fiturAktif'
+  activeFitur = null;
+  localStorage.removeItem('fiturAktif');
   document.getElementById('period').value = '';
   document.getElementById('childHouses').style.display = 'none';
   statusEl.textContent = '';
+  statusEl.className = '';
 });
 
 // === RENDER DAFTAR "FITUR" ===
@@ -60,9 +67,10 @@ function renderChildHouses() {
 
   for (const num in houseNames) {
     const a = document.createElement('a');
-    a.href = `FITUR${num}.html?market=${encodeURIComponent(activeMarket)}`;
+    // ✅ PERBAIKI: Gunakan parameter ?fitur= bukan ?market=
+    a.href = `FITUR${num}.html?fitur=${encodeURIComponent(activeFitur)}`;
     a.className = 'house-btn';
-    a.textContent = `FITUR${num}\n(${houseNames[num]})`;
+    a.textContent = `FITUR ${num}\n(${houseNames[num]})`;
     a.style.whiteSpace = 'pre-line';
     container.appendChild(a);
   }
