@@ -1,0 +1,115 @@
+/* ========================================== */
+/* css/form.css - KHUSUS STYLE FORM REGISTRASI */
+/* ========================================== */
+
+.form-page-container {
+  max-width: 600px;
+  margin: 40px auto;
+  padding: 0 16px;
+}
+
+.form-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.form-header h1 {
+  color: #1e3c72;
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.form-header p {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #334155;
+  font-size: 14px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: all 0.2s;
+  background: #f8fafc;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #2a5298;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(42, 82, 152, 0.1);
+}
+
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-top: 12px;
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(42, 82, 152, 0.3);
+}
+
+.btn-back-link {
+  display: block;
+  text-align: center;
+  margin-top: 20px;
+  color: #64748b;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-back-link:hover {
+  color: #1e3c72;
+  text-decoration: underline;
+}
+
+/* Responsif Mobile */
+@media (max-width: 480px) {
+  .form-card {
+    padding: 24px 20px;
+  }
+  .form-header h1 {
+    font-size: 1.5rem;
+  }
+}
