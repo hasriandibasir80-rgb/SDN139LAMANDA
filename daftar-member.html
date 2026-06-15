@@ -1,1 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Daftar Member - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ PENTING: Link CSS sesuai aturan arsitektur kita -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/form.css"> 
+</head>
+<body>
 
+  <!-- Header Sederhana (Bisa disesuaikan dengan header utama Anda) -->
+  <header class="header">
+    <div class="logo-text" style="margin: 0 auto;">SDN<span> 139</span> LAMANDA</div>
+  </header>
+
+  <div class="form-page-container">
+    <div class="form-card">
+      <div class="form-header">
+        <h1>👤 Pendaftaran Member</h1>
+        <p>Isi data diri Anda untuk mendapatkan akses ke Dashboard Manajemen Sekolah.</p>
+      </div>
+
+      <form id="formDaftarMember">
+        <div class="form-group">
+          <label for="namaLengkap">Nama Lengkap</label>
+          <input type="text" id="namaLengkap" class="form-input" placeholder="Masukkan nama lengkap" required>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Alamat Email</label>
+          <input type="email" id="email" class="form-input" placeholder="contoh@email.com" required>
+        </div>
+
+        <div class="form-group">
+          <label for="noHp">Nomor WhatsApp</label>
+          <input type="tel" id="noHp" class="form-input" placeholder="08xxxxxxxxxx" required>
+        </div>
+
+        <div class="form-group">
+          <label for="peran">Peran di Sekolah</label>
+          <select id="peran" class="form-select" required>
+            <option value="">-- Pilih Peran --</option>
+            <option value="guru">Guru</option>
+            <option value="staf">Staf Administrasi</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-submit">Kirim Permohonan Akses</button>
+      </form>
+
+      <a href="index.html" class="btn-back-link">← Kembali ke Halaman Login</a>
+    </div>
+  </div>
+
+  <!-- Script khusus halaman ini (bisa ditambahkan nanti untuk Firebase) -->
+  <script>
+    document.getElementById('formDaftarMember').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('✅ Data berhasil disimulasikan! (Nanti akan dihubungkan ke Firebase)');
+      // Di sini nanti kita tambahkan logika simpan ke Firebase
+    });
+  </script>
+</body>
+</html>
