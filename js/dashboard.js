@@ -4,21 +4,19 @@
 // Cukup tambah/edit di sini, kartu akan otomatis muncul di dashboard!
 const konfigurasiFitur = {
   'layanan-portal': [
-    // ✅ UPDATED: Link mengarah ke file lokal di folder modules/
     { 
-    'layanan-portal': [
-  { 
-    nama: 'SIAGA Pendis (Login)', 
-    icon: 'https://siagapendis.kemenag.go.id/favicon.ico',
-    link: 'modules/siaga-pendis.html'
-  },
-  // ✅ BARU: Sub-Fitur 2 - SIMPKB
-  { 
-    nama: 'SIMPKB (Portal Guru)', 
-    icon: 'https://portal.simpkb.id/favicon.ico',
-    link: 'modules/simpkb.html'
-  }
-],
+      nama: 'SIAGA Pendis (Login)', 
+      icon: 'https://siagapendis.kemenag.go.id/favicon.ico',
+      link: 'modules/siaga-pendis.html',
+      isExternal: true
+    },
+    { 
+      nama: 'SIMPKB (Portal Guru)', 
+      icon: 'https://portal.simpkb.id/favicon.ico',
+      link: 'modules/simpkb.html',
+      isExternal: true
+    }
+  ],
   'dokumen-arsip': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-1.html' },
     { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-2.html' }
@@ -60,7 +58,7 @@ function renderFiturInternal(featureKey) {
 
   // 4. Buat elemen judul
   const titleEl = document.createElement('h3');
-  titleEl.textContent = `📌 Fitur Internal: ${featureTitle}`;
+  titleEl.textContent = '📌 Fitur Internal: ' + featureTitle;
   titleEl.style.marginBottom = '16px';
   titleEl.style.color = '#2c3e50';
   titleEl.style.borderBottom = '2px solid #e5e7eb';
@@ -71,21 +69,25 @@ function renderFiturInternal(featureKey) {
   const gridEl = document.createElement('div');
   gridEl.className = 'internal-grid';
 
-  // 6. Loop dan buat kartu untuk setiap sub-fitur
+  // 6. Loop dan buat kartu untuk setiap sub-fitur (INILAH YANG MEMBUATNYA OTOMATIS)
   subFiturList.forEach(item => {
     const card = document.createElement('a');
     card.href = item.link;
     card.className = 'internal-card';
     
-    // Cek apakah icon adalah URL (untuk logo) atau emoji biasa
+    // ✅ DIPERTAHANKAN: Jika link eksternal, buka di tab baru
+    if (item.isExternal) {
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+    }
+
+    // ✅ DIPERTAHANKAN: Cek apakah icon adalah URL (untuk logo) atau emoji biasa
     if (item.icon.startsWith('http')) {
-      card.innerHTML = `
-        <img src="${item.icon}" alt="logo" style="width: 32px; height: 32px; margin-right: 8px; object-fit: contain;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-        <span style="display:none;">🔗</span> 
-        ${item.nama}
-      `;
+      // Jika URL, buat elemen <img> dengan fallback
+      card.innerHTML = '<img src="' + item.icon + '" alt="logo" style="width: 32px; height: 32px; margin-right: 8px; object-fit: contain;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'inline\';"><span style="display:none;">🔗</span> ' + item.nama;
     } else {
-      card.innerHTML = `${item.icon} ${item.nama}`;
+      // Jika emoji, tampilkan seperti biasa
+      card.innerHTML = item.icon + ' ' + item.nama;
     }
     
     gridEl.appendChild(card);
@@ -100,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedLayanan && konfigurasiFitur[savedLayanan]) {
     layananSelect.value = savedLayanan;
     renderFiturInternal(savedLayanan);
-    statusEl.textContent = `✅ Layanan aktif: ${layananSelect.options[layananSelect.selectedIndex].text}`;
+    statusEl.textContent = '✅ Layanan aktif: ' + layananSelect.options[layananSelect.selectedIndex].text;
     statusEl.className = '';
   }
 });
@@ -115,9 +117,9 @@ saveLayananBtn.addEventListener('click', () => {
   }
   
   localStorage.setItem('layananAktif', selected);
-  renderFiturInternal(selected);
+  renderFiturInternal(selected); // <-- Di sini kartu dibuat secara otomatis
   
-  statusEl.textContent = `✅ Layanan "${layananSelect.options[layananSelect.selectedIndex].text}" berhasil disimpan dan ditampilkan.`;
+  statusEl.textContent = '✅ Layanan "' + layananSelect.options[layananSelect.selectedIndex].text + '" berhasil disimpan dan ditampilkan.';
   statusEl.className = '';
 });
 
@@ -125,7 +127,7 @@ saveLayananBtn.addEventListener('click', () => {
 resetBtn.addEventListener('click', () => {
   localStorage.removeItem('layananAktif');
   layananSelect.value = '';
-  contentArea.innerHTML = '';
+  contentArea.innerHTML = ''; // Kosongkan tampilan
   statusEl.textContent = '⚠️ Tampilan direset. Silakan pilih layanan baru.';
   statusEl.className = 'error';
   
