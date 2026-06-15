@@ -186,7 +186,8 @@
       <span class="nav-icon">✍️</span>
       <span class="nav-label">DAFTAR</span>
     </a>
-    <a href="#" class="nav-item">
+    <!-- ✅ UPDATED: Item EKSPLOR sekarang memiliki ID untuk trigger modal -->
+    <a href="#" class="nav-item" id="navEksplor">
       <span class="nav-icon">🎁</span>
       <span class="nav-label">EKSPLOR</span>
     </a>
@@ -195,6 +196,103 @@
       <span class="nav-label">LIVECHAT</span>
     </a>
   </nav>
+
+  <!-- ✅ MODAL EKSPLOR (BARU) -->
+  <div id="modalEksplor" class="modal-eksplor-overlay">
+    <div class="modal-eksplor-content">
+      <button class="modal-eksplor-close" id="btnCloseModal" aria-label="Tutup">&times;</button>
+      
+      <div class="modal-eksplor-header">
+        <div class="modal-eksplor-icon">🗺️</div>
+        <h2>Eksplorasi Dashboard</h2>
+        <p>Selamat datang di Sistem Manajemen SDN 139 LAMANDA. Berikut adalah gambaran fitur lengkap yang akan Anda dapatkan setelah login.</p>
+      </div>
+
+      <div class="modal-eksplor-body">
+        <!-- Bagian 1: Fitur Global -->
+        <h3 class="modal-section-title">🌐 6 Fitur Global Utama</h3>
+        <div class="feature-grid">
+          <div class="feature-item">
+            <div class="feature-icon-wrap portal">🌐</div>
+            <div class="feature-text">
+              <strong>Layanan Portal</strong>
+              <p>Akses cepat ke SIAGA Pendis, SIMPKB, dan portal pendidikan eksternal lainnya.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon-wrap arsip">📁</div>
+            <div class="feature-text">
+              <strong>Dokumen Arsip</strong>
+              <p>Penyimpanan dan pengelolaan dokumen penting sekolah secara digital dan terstruktur.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon-wrap statistik">📊</div>
+            <div class="feature-text">
+              <strong>Data Statistik</strong>
+              <p>Visualisasi data siswa, guru, dan pencapaian sekolah secara real-time.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon-wrap admin">📚</div>
+            <div class="feature-text">
+              <strong>Administrasi Pembelajaran</strong>
+              <p>Modul ajar, penilaian, jadwal, dan perangkat ajar lainnya dalam satu tempat.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon-wrap kolab">🤝</div>
+            <div class="feature-text">
+              <strong>Kolaborasi</strong>
+              <p>Ruang diskusi dan berbagi sumber daya antar tenaga pendidik secara efisien.</p>
+            </div>
+          </div>
+          <div class="feature-item">
+            <div class="feature-icon-wrap monitor">👁️</div>
+            <div class="feature-text">
+              <strong>Monitoring</strong>
+              <p>Pantau progres pembelajaran dan kehadiran secara terpusat dan mudah.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bagian 2: Cara Kerja -->
+        <div class="how-it-works">
+          <h3 class="modal-section-title">⚙️ Cara Menggunakan Fitur Internal</h3>
+          <ol class="how-list">
+            <li>
+              <span class="step-number">1</span>
+              <div>Pilih salah satu <strong>6 Fitur Global</strong> pada menu dropdown "Pilih Layanan".</div>
+            </li>
+            <li>
+              <span class="step-number">2</span>
+              <div>Klik tombol <strong>"Simpan Layanan"</strong> untuk mengaktifkan.</div>
+            </li>
+            <li>
+              <span class="step-number">3</span>
+              <div>Dashboard akan otomatis menampilkan <strong>Sub-fitur (Fitur Internal)</strong> yang spesifik hanya untuk layanan tersebut.</div>
+            </li>
+          </ol>
+        </div>
+
+        <!-- Bagian 3: Keunggulan -->
+        <div class="keunggulan-box">
+          <h3 class="modal-section-title">✨ Keunggulan Sistem Ini</h3>
+          <ul class="keunggulan-list">
+            <li>✅ <strong>Mobile-First</strong> — Tampil sempurna di HP, tablet, maupun laptop</li>
+            <li>✅ <strong>Real-time</strong> — Data tersinkronisasi langsung dengan Firebase</li>
+            <li>✅ <strong>Terstruktur</strong> — Navigasi yang rapi dan mudah dipahami</li>
+            <li>✅ <strong>Aman</strong> — Login terproteksi dengan autentikasi Firebase</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-eksplor-footer">
+        <p>Sudah siap menjelajah? Silakan login untuk mulai menggunakan semua fitur.</p>
+        <button class="btn-modal-primary" id="btnCloseModalAction">Mengerti, Saya Siap Login</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Loading Overlay -->
   <div class="loading" id="loading">
@@ -205,5 +303,57 @@
   <script type="module" src="js/firebase-config.js?v=3"></script>
   <script type="module" src="js/auth-login.js?v=3"></script>
   <script type="module" src="js/script.js?v=3"></script>
+
+  <!-- ✅ SCRIPT EKSPLOR MODAL (Inline agar tidak konflik dengan script.js) -->
+  <script>
+    (function() {
+      const modal = document.getElementById('modalEksplor');
+      const navEksplor = document.getElementById('navEksplor');
+      const btnClose = document.getElementById('btnCloseModal');
+      const btnCloseAction = document.getElementById('btnCloseModalAction');
+
+      function openModal(e) {
+        if (e) e.preventDefault();
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeModal() {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      // Event: Klik item EKSPLOR di bottom nav
+      if (navEksplor) {
+        navEksplor.addEventListener('click', openModal);
+      }
+
+      // Event: Tutup via tombol X
+      if (btnClose) {
+        btnClose.addEventListener('click', closeModal);
+      }
+
+      // Event: Tutup via tombol "Mengerti"
+      if (btnCloseAction) {
+        btnCloseAction.addEventListener('click', closeModal);
+      }
+
+      // Event: Tutup saat klik di luar modal (overlay)
+      if (modal) {
+        modal.addEventListener('click', function(e) {
+          if (e.target === modal) {
+            closeModal();
+          }
+        });
+      }
+
+      // Event: Tutup dengan tombol ESC
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+          closeModal();
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
