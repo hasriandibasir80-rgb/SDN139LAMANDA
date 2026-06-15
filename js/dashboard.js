@@ -6,12 +6,19 @@ const konfigurasiFitur = {
   'layanan-portal': [
     // ✅ UPDATED: Link mengarah ke file lokal di folder modules/
     { 
-      nama: 'SIAGA Pendis (Login)', 
-      icon: 'https://siagapendis.kemenag.go.id/favicon.ico',
-      link: 'modules/siaga-pendis.html'
-    },
-    { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📄', link: 'layanan-portal/sub-2.html' }
-  ],
+    'layanan-portal': [
+  { 
+    nama: 'SIAGA Pendis (Login)', 
+    icon: 'https://siagapendis.kemenag.go.id/favicon.ico',
+    link: 'modules/siaga-pendis.html'
+  },
+  // ✅ BARU: Sub-Fitur 2 - SIMPKB
+  { 
+    nama: 'SIMPKB (Portal Guru)', 
+    icon: 'https://portal.simpkb.id/favicon.ico',
+    link: 'modules/simpkb.html'
+  }
+],
   'dokumen-arsip': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-1.html' },
     { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-2.html' }
