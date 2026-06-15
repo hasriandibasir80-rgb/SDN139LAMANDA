@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Daftar PPDB - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ PENTING: Link CSS sesuai aturan arsitektur kita -->
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/form.css"> 
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo-text" style="margin: 0 auto;">SDN<span> 139</span> LAMANDA</div>
+  </header>
+
+  <div class="form-page-container">
+    <div class="form-card">
+      <div class="form-header">
+        <h1>🎓 Pendaftaran Peserta Didik Baru</h1>
+        <p>Silakan lengkapi data calon siswa untuk proses seleksi PPDB tahun ajaran ini.</p>
+      </div>
+
+      <form id="formDaftarPPDB">
+        <div class="form-group">
+          <label for="namaSiswa">Nama Lengkap Calon Siswa</label>
+          <input type="text" id="namaSiswa" class="form-input" placeholder="Sesuai Akta Kelahiran" required>
+        </div>
+
+        <div class="form-group">
+          <label for="nisn">NISN (Nomor Induk Siswa Nasional)</label>
+          <input type="text" id="nisn" class="form-input" placeholder="10 digit angka" required>
+        </div>
+
+        <div class="form-group">
+          <label for="asalSekolah">Asal TK / PAUD</label>
+          <input type="text" id="asalSekolah" class="form-input" placeholder="Nama sekolah sebelumnya" required>
+        </div>
+
+        <div class="form-group">
+          <label for="noHpOrtu">Nomor WhatsApp Orang Tua/Wali</label>
+          <input type="tel" id="noHpOrtu" class="form-input" placeholder="08xxxxxxxxxx" required>
+        </div>
+
+        <button type="submit" class="btn-submit">Daftarkan Siswa</button>
+      </form>
+
+      <a href="index.html" class="btn-back-link">← Kembali ke Halaman Login</a>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('formDaftarPPDB').addEventListener('submit', function(e) {
+      e.preventDefault();
+      alert('✅ Data PPDB berhasil disimulasikan! (Nanti akan dihubungkan ke Firebase)');
+    });
+  </script>
+</body>
+</html>
