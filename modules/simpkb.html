@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Mengalihkan ke SIMPKB...</title>
+  
+  <!-- Redirect otomatis setelah 3 detik -->
+  <meta http-equiv="refresh" content="3; url=https://portal.simpkb.id/" />
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #1e88e5 0%, #0d47a1 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    
+    .redirect-card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: fadeIn 0.5s ease-out;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .logo-container {
+      margin-bottom: 20px;
+    }
+    
+    .logo-container img {
+      width: 64px;
+      height: 64px;
+      object-fit: contain;
+    }
+    
+    h1 {
+      color: #2c3e50;
+      font-size: 1.4rem;
+      margin-bottom: 12px;
+    }
+    
+    p {
+      color: #6b7280;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    
+    .loader {
+      border: 4px solid #f3f4f6;
+      border-top: 4px solid #1e88e5;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .manual-link {
+      display: inline-block;
+      padding: 12px 24px;
+      background: #1e88e5;
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: background 0.2s;
+      margin-bottom: 8px;
+    }
+    
+    .manual-link:hover {
+      background: #1565c0;
+    }
+    
+    .back-link {
+      display: block;
+      margin-top: 16px;
+      color: #6b7280;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    
+    .back-link:hover {
+      color: #2c3e50;
+      text-decoration: underline;
+    }
+    
+    @media (max-width: 480px) {
+      .redirect-card {
+        padding: 24px 16px;
+      }
+      h1 {
+        font-size: 1.2rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="redirect-card">
+    <div class="logo-container">
+      <img src="https://portal.simpkb.id/favicon.ico" alt="SIMPKB" 
+           onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%231e88e5%22%3E%3Cpath d=%22M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5%22/%3E%3C/svg%3E';">
+    </div>
+    
+    <h1>Mengalihkan ke SIMPKB</h1>
+    <p>Anda akan diarahkan ke Portal SIMPKB dalam beberapa detik...</p>
+    
+    <div class="loader"></div>
+    
+    <a href="https://portal.simpkb.id/" target="_blank" rel="noopener noreferrer" class="manual-link">
+      🔗 Klik di sini untuk membuka di tab baru
+    </a>
+    
+    <a href="../dashboard.html" class="back-link">← Kembali ke Dashboard</a>
+  </div>
+
+  <script>
+    // ✅ PENTING: Langsung buka tab baru ke SIMPKB, lalu kembali ke dashboard
+    // Ini memastikan tab aplikasi Anda tidak terganggu
+    window.addEventListener('DOMContentLoaded', () => {
+      // Buka SIMPKB di tab baru setelah 1.5 detik (memberi user waktu melihat halaman ini)
+      setTimeout(() => {
+        // Buka tab baru ke SIMPKB
+        window.open('https://portal.simpkb.id/', '_blank', 'noopener,noreferrer');
+        
+        // Kembali ke dashboard (tab aplikasi tetap utuh)
+        window.location.href = '../dashboard.html';
+      }, 1500);
+    });
+  </script>
+</body>
+</html>
