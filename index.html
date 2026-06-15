@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SDN 139LAMANDA - sdn139 LAMANDA</title>
   <link rel="stylesheet" href="css/style.css">
+  <!-- ✅ PERBAIKAN #4: Tambahkan link ke modal.css -->
+  <link rel="stylesheet" href="css/modal.css">
   
   <!-- ✅ CSS TAMBAHAN KHUSUS UNTUK SIDEBAR MENU (Agar langsung rapi) -->
   <style>
@@ -182,7 +184,8 @@
       <span class="nav-icon">🏠</span>
       <span class="nav-label">BERANDA</span>
     </a>
-    <a href="#" class="nav-item">
+    <!-- ✅ PERBAIKAN #1: Tambahkan id="navDaftar" pada item DAFTAR -->
+    <a href="#" class="nav-item" id="navDaftar">
       <span class="nav-icon">✍️</span>
       <span class="nav-label">DAFTAR</span>
     </a>
@@ -294,6 +297,45 @@
     </div>
   </div>
 
+  <!-- ✅ PERBAIKAN #2: TAMBAHKAN MODAL DAFTAR DI SINI -->
+  <div id="modalDaftar" class="modal-overlay-base">
+    <div class="modal-daftar-content">
+      <button class="modal-daftar-close" id="btnCloseDaftar" aria-label="Tutup">&times;</button>
+      
+      <div class="modal-daftar-header">
+        <div class="modal-daftar-icon">✍️</div>
+        <h2>Pilih Jenis Pendaftaran</h2>
+        <p>Silakan pilih kategori pendaftaran yang sesuai dengan kebutuhan Anda.</p>
+      </div>
+
+      <div class="modal-daftar-body">
+        <!-- Pilihan 1: Member Dashboard -->
+        <a href="daftar-member.html" class="choice-card">
+          <div class="choice-icon member">👤</div>
+          <div class="choice-text">
+            <h3>Member Dashboard</h3>
+            <p>Untuk Guru, Staf, atau Admin yang membutuhkan akses ke sistem manajemen sekolah internal.</p>
+          </div>
+          <div class="choice-arrow">→</div>
+        </a>
+
+        <!-- Pilihan 2: Peserta Didik Baru (PPDB) -->
+        <a href="daftar-ppdb.html" class="choice-card">
+          <div class="choice-icon ppdb">🎓</div>
+          <div class="choice-text">
+            <h3>Peserta Didik Baru</h3>
+            <p>Untuk calon siswa baru yang ingin mendaftar pada Penerimaan Peserta Didik Baru (PPDB) tahun ajaran ini.</p>
+          </div>
+          <div class="choice-arrow">→</div>
+        </a>
+      </div>
+
+      <div class="modal-daftar-footer">
+        <button class="btn-modal-secondary" id="btnCancelDaftar">Batal</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Loading Overlay -->
   <div class="loading" id="loading">
     <div class="spinner"></div>
@@ -304,53 +346,66 @@
   <script type="module" src="js/auth-login.js?v=3"></script>
   <script type="module" src="js/script.js?v=3"></script>
 
-  <!-- ✅ SCRIPT EKSPLOR MODAL (Inline agar tidak konflik dengan script.js) -->
+  <!-- ✅ PERBAIKAN #3: Script untuk SEMUA modal (Eksplor + Daftar) -->
   <script>
     (function() {
-      const modal = document.getElementById('modalEksplor');
+      // === MODAL EKSPLOR ===
+      const modalEksplor = document.getElementById('modalEksplor');
       const navEksplor = document.getElementById('navEksplor');
-      const btnClose = document.getElementById('btnCloseModal');
-      const btnCloseAction = document.getElementById('btnCloseModalAction');
+      const btnCloseEksplor = document.getElementById('btnCloseModal');
+      const btnCloseEksplorAction = document.getElementById('btnCloseModalAction');
 
-      function openModal(e) {
+      function openEksplor(e) {
         if (e) e.preventDefault();
-        modal.classList.add('active');
+        modalEksplor.classList.add('active');
         document.body.style.overflow = 'hidden';
       }
 
-      function closeModal() {
-        modal.classList.remove('active');
+      function closeEksplor() {
+        modalEksplor.classList.remove('active');
         document.body.style.overflow = '';
       }
 
-      // Event: Klik item EKSPLOR di bottom nav
-      if (navEksplor) {
-        navEksplor.addEventListener('click', openModal);
-      }
-
-      // Event: Tutup via tombol X
-      if (btnClose) {
-        btnClose.addEventListener('click', closeModal);
-      }
-
-      // Event: Tutup via tombol "Mengerti"
-      if (btnCloseAction) {
-        btnCloseAction.addEventListener('click', closeModal);
-      }
-
-      // Event: Tutup saat klik di luar modal (overlay)
-      if (modal) {
-        modal.addEventListener('click', function(e) {
-          if (e.target === modal) {
-            closeModal();
-          }
+      if (navEksplor) navEksplor.addEventListener('click', openEksplor);
+      if (btnCloseEksplor) btnCloseEksplor.addEventListener('click', closeEksplor);
+      if (btnCloseEksplorAction) btnCloseEksplorAction.addEventListener('click', closeEksplor);
+      if (modalEksplor) {
+        modalEksplor.addEventListener('click', function(e) {
+          if (e.target === modalEksplor) closeEksplor();
         });
       }
 
-      // Event: Tutup dengan tombol ESC
+      // === ✅ MODAL DAFTAR (BARU) ===
+      const modalDaftar = document.getElementById('modalDaftar');
+      const navDaftar = document.getElementById('navDaftar');
+      const btnCloseDaftar = document.getElementById('btnCloseDaftar');
+      const btnCancelDaftar = document.getElementById('btnCancelDaftar');
+
+      function openDaftar(e) {
+        if (e) e.preventDefault();
+        modalDaftar.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeDaftar() {
+        modalDaftar.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      if (navDaftar) navDaftar.addEventListener('click', openDaftar);
+      if (btnCloseDaftar) btnCloseDaftar.addEventListener('click', closeDaftar);
+      if (btnCancelDaftar) btnCancelDaftar.addEventListener('click', closeDaftar);
+      if (modalDaftar) {
+        modalDaftar.addEventListener('click', function(e) {
+          if (e.target === modalDaftar) closeDaftar();
+        });
+      }
+
+      // === TUTUP SEMUA MODAL DENGAN TOMBOL ESC ===
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && modal.classList.contains('active')) {
-          closeModal();
+        if (e.key === 'Escape') {
+          if (modalEksplor && modalEksplor.classList.contains('active')) closeEksplor();
+          if (modalDaftar && modalDaftar.classList.contains('active')) closeDaftar();
         }
       });
     })();
