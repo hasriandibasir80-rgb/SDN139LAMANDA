@@ -8,7 +8,18 @@
 </head>
 <body>
   <div class="container">
-    <h1>🏠 Beranda</h1>
+    
+    <!-- ✅ HEADER LOGO (Menggantikan Teks "🏠 Beranda") -->
+    <div class="header-logo">
+      <!-- Path mengarah ke root: logo-aplikasi.png -->
+      <img src="logo-aplikasi.png" alt="Logo Aplikasi SDN 139 LAMANDA" class="main-logo" 
+           onerror="this.style.display='none'; document.getElementById('fallback-title').style.display='block';">
+      
+      <!-- Fallback: Muncul hanya jika gambar logo gagal dimuat -->
+      <h1 id="fallback-title" style="display:none; text-align:center; margin-bottom:24px; color:#2c3e50; font-size:1.8rem;">
+        🏠 Beranda SDN 139 LAMANDA
+      </h1>
+    </div>
 
     <!-- User Info & Logout -->
     <div class="user-info" id="userInfo">
