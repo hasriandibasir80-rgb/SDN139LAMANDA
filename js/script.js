@@ -1,9 +1,24 @@
-// ============================================
-// FILE: js/script.js (FINAL REAL VERSION + SIDEBAR)
-// SDN 139 LAMANDA - Login Page Script
-// ============================================
+import { rtdb } from './firebase-config.js';
+import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-// === 1. SIDEBAR MENU LOGIC (BARU) ===
+const pengumumanRef = ref(rtdb, 'config/pengumuman_login');
+
+onValue(pengumumanRef, (snapshot) => {
+  const teksInfoEl = document.getElementById('teksInfo');
+  const infoBoxEl = document.getElementById('infoBerjalan');
+  
+  if (teksInfoEl && infoBoxEl) {
+    const data = snapshot.val();
+    
+    if (data && data.teks && data.teks.trim() !== "") {
+      teksInfoEl.textContent = data.teks;
+      infoBoxEl.style.display = 'flex';
+    } else {
+      infoBoxEl.style.display = 'none';
+    }
+  }
+});
+
 const menuBtn = document.getElementById('menuBtn');
 const sidebar = document.getElementById('sidebar');
 const closeSidebar = document.getElementById('closeSidebar');
@@ -23,8 +38,6 @@ if (menuBtn) menuBtn.addEventListener('click', openSidebar);
 if (closeSidebar) closeSidebar.addEventListener('click', closeSidebarMenu);
 if (sidebarOverlay) sidebarOverlay.addEventListener('click', closeSidebarMenu);
 
-
-// === 2. CAPTCHA GENERATOR ===
 let currentCaptcha = '';
 
 function generateCaptcha() {
@@ -40,8 +53,6 @@ function refreshCaptcha() {
   if (captchaInput) captchaInput.value = '';
 }
 
-
-// === 3. FORM SUBMISSION (REAL FIREBASE + CAPTCHA CHECK) ===
 document.getElementById('loginForm').addEventListener('submit', async function(e) {
   e.preventDefault();
   
@@ -66,7 +77,6 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   const password = passwordInput.value;
   const userCaptcha = captchaInput.value.trim();
   
-  // Validasi Captcha di sisi client sebelum hubungi Firebase
   if (userCaptcha !== currentCaptcha) {
     alert('❌ Kode Captcha yang Anda masukkan salah! Silakan coba lagi.');
     refreshCaptcha();
@@ -77,7 +87,6 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   
   try {
     console.log('✅ Captcha benar. Menghubungi Firebase...');
-    // Panggil fungsi login REAL dari auth-login.js
     await window.handleEmailLogin(email, password);
     
   } catch (error) {
@@ -90,14 +99,10 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   }
 });
 
-
-// === 4. FORGOT PASSWORD ===
 function forgotPassword() {
   alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
 }
 
-
-// === 5. INITIALIZE ===
 window.addEventListener('DOMContentLoaded', function() {
   generateCaptcha();
   
@@ -108,8 +113,6 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-
-// === 6. BOTTOM NAVIGATION ===
 document.querySelectorAll('.nav-item').forEach(item => {
   item.addEventListener('click', function(e) {
     if (this.getAttribute('href') === '#') {
