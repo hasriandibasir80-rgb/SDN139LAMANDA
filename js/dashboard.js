@@ -17,10 +17,22 @@ const konfigurasiFitur = {
       isExternal: true
     }
   ],
+  
+  // ✅ UPDATE: Fitur Dokumen Arsip yang sudah kita buat
   'dokumen-arsip': [
-    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-1.html' },
-    { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-2.html' }
+    { 
+      nama: 'Upload Dokumen', 
+      icon: '📤', 
+      link: 'modules/arsip/arsip-upload.html' 
+    },
+    { 
+      nama: 'Katalog Arsip', 
+      icon: '📚', 
+      link: 'modules/arsip/arsip-katalog.html' 
+    }
   ],
+  
+  // ✅ UPDATE: Fitur Data Statistik yang sudah kita buat
   'data-statistik': [
     { 
       nama: 'Demografi Sekolah', 
@@ -38,6 +50,7 @@ const konfigurasiFitur = {
       link: 'modules/statistik/prestasi.html' 
     }
   ],
+  
   'admin-pembelajaran': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📚', link: 'admin-pembelajaran/sub-1.html' }
   ],
