@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Katalog Arsip - SDN 139 LAMANDA</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/modules/arsip-katalog.css">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <div class="logo-text">Katalog <span>Arsip</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <div class="container modul-container">
+    
+    <div class="filter-card">
+      <div class="search-row">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 Cari dokumen...">
+        <select id="filterKategori" class="filter-select">
+          <option value="">Semua Kategori</option>
+          <option value="administrasi">Administrasi</option>
+          <option value="kurikulum">Kurikulum</option>
+          <option value="akreditasi">Akreditasi</option>
+          <option value="surat_edaran">Surat Edaran</option>
+          <option value="kepegawaian">Kepegawaian</option>
+        </select>
+      </div>
+      <div id="resultCount" class="result-count">Menampilkan 0 dokumen</div>
+    </div>
+
+    <div id="katalogContainer" class="katalog-grid">
+      <div class="loading-state">Memuat katalog...</div>
+    </div>
+
+  </div>
+
+  <script type="module" src="../../js/firebase-config.js"></script>
+  <script type="module" src="../../js/modules/arsip-katalog.js"></script>
+</body>
+</html>
