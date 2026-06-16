@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Dokumen Arsip - SDN 139 LAMANDA</title>
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/modules/arsip-upload.css">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <div class="logo-text">Upload <span>Arsip</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <div class="container modul-container">
+    <div class="upload-card">
+      <h2 class="form-title">📤 Unggah Dokumen Baru</h2>
+      <p class="form-subtitle">Isi detail dan pilih file untuk diunggah ke sistem arsip sekolah.</p>
+
+      <form id="formUpload">
+        <div class="form-group">
+          <label for="namaDokumen">📄 Nama Dokumen</label>
+          <input type="text" id="namaDokumen" class="form-control" placeholder="Contoh: SK Pembagian Tugas 2025" required>
+        </div>
+
+        <div class="form-group">
+          <label for="kategori">📁 Kategori</label>
+          <select id="kategori" class="form-control" required>
+            <option value="">-- Pilih Kategori --</option>
+            <option value="administrasi">Administrasi</option>
+            <option value="kurikulum">Kurikulum & Modul Ajar</option>
+            <option value="akreditasi">Akreditasi</option>
+            <option value="surat_edaran">Surat Edaran</option>
+            <option value="kepegawaian">Kepegawaian</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="levelAkses">🔒 Level Akses</label>
+          <select id="levelAkses" class="form-control" required>
+            <option value="publik">🟢 Publik Internal (Semua user)</option>
+            <option value="guru">🟡 Khusus Guru</option>
+            <option value="admin">🔴 Khusus Admin</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="deskripsi">📝 Deskripsi (Opsional)</label>
+          <textarea id="deskripsi" class="form-control" placeholder="Tambahkan deskripsi singkat..." rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="fileInput">📎 Pilih File (Max 10MB)</label>
+          <div class="file-drop-zone" id="dropZone">
+            <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png" required>
+            <div class="drop-text">
+              <div style="font-size: 40px;">📁</div>
+              <p><strong>Klik atau seret file ke sini</strong></p>
+              <p class="drop-hint">Format: PDF, DOC, XLS, PPT, JPG, PNG</p>
+            </div>
+            <div id="fileInfo" class="file-info" style="display:none;"></div>
+          </div>
+        </div>
+
+        <button type="submit" id="btnUpload" class="btn-submit">
+          <span id="btnText">💾 Upload & Simpan Metadata</span>
+        </button>
+
+        <div id="uploadStatus" class="upload-status"></div>
+      </form>
+    </div>
+
+    <div class="recent-uploads">
+      <h3>📋 Dokumen Terbaru yang Anda Upload</h3>
+      <div id="recentList" class="recent-list">
+        <p class="empty-state">Belum ada dokumen yang diupload.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="../../js/firebase-config.js"></script>
+  <script type="module" src="../../js/modules/arsip-upload.js"></script>
+</body>
+</html>
