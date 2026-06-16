@@ -6,8 +6,8 @@ import { db } from '../firebase-config.js';
 import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ⚠️ GANTI URL INI DENGAN URL WEB APP DARI LANGKAH 3 DI ATAS
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbx.../exec'; 
+// ✅ URL Web App Google Apps Script (SUDAH DIISI)
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgQ_bPgO8WPYT-LCiIGQzzyBlWm-WWq3ItnhulkxHXUDCWAYXw6BKVClo4ZFcxyGD_JA/exec'; 
 
 // 1. KEAMANAN: Cek Admin
 const userRole = localStorage.getItem('userRole');
@@ -81,16 +81,21 @@ form.addEventListener('submit', async (e) => {
       reader.readAsDataURL(file);
     });
 
-    // B. Kirim ke Google Apps Script
+    // B. Kirim ke Google Apps Script (DENGAN KONFIGURASI ANTI-CORS)
     showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu, ini mungkin memakan waktu 10-30 detik)...');
     
     const response = await fetch(APP_SCRIPT_URL, {
       method: 'POST',
+      // Trik anti-CORS: Gunakan text/plain untuk menghindari preflight OPTIONS request
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
       body: JSON.stringify({
         fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
         folderName: kategori,
         file: base64String
-      })
+      }),
+      redirect: 'follow' // Wajib: Agar fetch mengikuti redirect dari Google
     });
     
     const result = await response.json();
