@@ -749,27 +749,102 @@ body {
   background: #fffbeb;
   border: 1px solid #fcd34d;
   border-radius: 8px;
-  padding: 12px 16px;
   margin: 20px auto;
   max-width: 600px;
+  overflow: hidden;
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  min-height: 70px;
+  box-shadow: 0 2px 8px rgba(252, 211, 77, 0.2);
+}
+
+.info-slide {
+  width: 100%;
+  padding: 12px 16px;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.info-judul {
+  font-size: 13px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-isi-running {
   color: #92400e;
   font-size: 14px;
   font-weight: 500;
-  text-align: center;
-  animation: fadeIn 0.5s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  display: block;
 }
 
-.info-berjalan .info-icon {
-  font-size: 18px;
-  flex-shrink: 0;
+.info-isi-running span {
+  display: inline-block;
+  padding-left: 100%;
+  animation: scrollKiri 15s linear infinite;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+.info-berjalan:hover .info-isi-running span {
+  animation-play-state: paused;
 }
 
+.slide-in {
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+.slide-out {
+  animation: slideOutLeft 0.5s ease-in forwards;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-100%); opacity: 0; }
+}
+
+@keyframes scrollKiri {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+@media (max-width: 480px) {
+  .info-berjalan {
+    max-width: 100%;
+    margin: 16px 12px;
+    min-height: 60px;
+  }
+  .info-judul { font-size: 12px; }
+  .info-isi-running { font-size: 13px; }
+  .info-isi-running span { animation-duration: 12s; }
+}
+
+.btn-admin-secondary {
+  background: #eff6ff;
+  color: #1e40af;
+  padding: 10px 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-admin-secondary:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
