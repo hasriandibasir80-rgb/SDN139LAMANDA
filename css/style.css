@@ -385,11 +385,11 @@ body {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
 /* ============================================ */
-/* === MODAL EKSPLOR - DITAMBAHKAN DI SINI ==== */
+/* === MODAL EKSPLOR ========================== */
 /* ============================================ */
 
-/* Overlay Modal */
 .modal-eksplor-overlay {
   display: none;
   position: fixed;
@@ -400,7 +400,7 @@ body {
   background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
-  z-index: 10001; /* Di atas loading (9999) dan sidebar (1000) */
+  z-index: 10001;
   justify-content: center;
   align-items: center;
   padding: 16px;
@@ -416,7 +416,6 @@ body {
   to { opacity: 1; }
 }
 
-/* Konten Modal */
 .modal-eksplor-content {
   background: #fff;
   border-radius: 16px;
@@ -440,7 +439,6 @@ body {
   }
 }
 
-/* Tombol Tutup (X) */
 .modal-eksplor-close {
   position: sticky;
   top: 12px;
@@ -468,7 +466,6 @@ body {
   transform: rotate(90deg);
 }
 
-/* Header Modal */
 .modal-eksplor-header {
   padding: 32px 32px 20px;
   text-align: center;
@@ -504,7 +501,6 @@ body {
   margin: 0 auto;
 }
 
-/* Body Modal */
 .modal-eksplor-body {
   padding: 24px 32px;
 }
@@ -519,7 +515,6 @@ body {
   padding-left: 12px;
 }
 
-/* Grid Fitur Global */
 .feature-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -554,7 +549,6 @@ body {
   flex-shrink: 0;
 }
 
-/* Warna berbeda untuk tiap fitur (visual menarik) */
 .feature-icon-wrap.portal { background: #dbeafe; }
 .feature-icon-wrap.arsip { background: #fef3c7; }
 .feature-icon-wrap.statistik { background: #d1fae5; }
@@ -576,7 +570,6 @@ body {
   margin: 0;
 }
 
-/* Cara Kerja */
 .how-it-works {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   border-radius: 12px;
@@ -623,7 +616,6 @@ body {
   color: #1e3c72;
 }
 
-/* Keunggulan */
 .keunggulan-box {
   background: #fffbeb;
   border-radius: 12px;
@@ -648,7 +640,6 @@ body {
   color: #92400e;
 }
 
-/* Footer Modal */
 .modal-eksplor-footer {
   padding: 20px 32px 28px;
   text-align: center;
@@ -685,7 +676,6 @@ body {
   transform: translateY(0);
 }
 
-/* Scrollbar Custom untuk Modal */
 .modal-eksplor-content::-webkit-scrollbar {
   width: 8px;
 }
@@ -704,7 +694,6 @@ body {
   background: #1e3c72;
 }
 
-/* Responsif untuk HP */
 @media (max-width: 480px) {
   .modal-eksplor-overlay {
     padding: 8px;
@@ -745,7 +734,13 @@ body {
     width: 100%;
     padding: 14px;
   }
-}.info-berjalan {
+}
+
+/* ============================================ */
+/* === INFO BERJALAN (DIPERLAMBAT) ============ */
+/* ============================================ */
+
+.info-berjalan {
   background: #fffbeb;
   border: 1px solid #fcd34d;
   border-radius: 8px;
@@ -785,22 +780,25 @@ body {
   display: block;
 }
 
+/* ✅ PERUBAHAN: Durasi ditingkatkan dari 15s menjadi 40s agar sangat lambat dan nyaman dibaca */
 .info-isi-running span {
   display: inline-block;
   padding-left: 100%;
-  animation: scrollKiri 15s linear infinite;
+  animation: scrollKiri 40s linear infinite;
 }
 
+/* Fitur Bonus: Teks berhenti bergerak saat mouse diarahkan (hover) */
 .info-berjalan:hover .info-isi-running span {
   animation-play-state: paused;
 }
 
+/* ✅ PERUBAHAN: Transisi slide diperhalus dari 0.5s menjadi 0.8s */
 .slide-in {
-  animation: slideInRight 0.5s ease-out forwards;
+  animation: slideInRight 0.8s ease-out forwards;
 }
 
 .slide-out {
-  animation: slideOutLeft 0.5s ease-in forwards;
+  animation: slideOutLeft 0.8s ease-in forwards;
 }
 
 @keyframes slideInRight {
@@ -818,6 +816,7 @@ body {
   100% { transform: translateX(-100%); }
 }
 
+/* ✅ PERUBAHAN: Durasi mobile ditingkatkan dari 12s menjadi 30s */
 @media (max-width: 480px) {
   .info-berjalan {
     max-width: 100%;
@@ -826,8 +825,12 @@ body {
   }
   .info-judul { font-size: 12px; }
   .info-isi-running { font-size: 13px; }
-  .info-isi-running span { animation-duration: 12s; }
+  .info-isi-running span { animation-duration: 30s; }
 }
+
+/* ============================================ */
+/* === TOMBOL ADMIN =========================== */
+/* ============================================ */
 
 .btn-admin-secondary {
   background: #eff6ff;
