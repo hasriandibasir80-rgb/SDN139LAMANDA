@@ -1,0 +1,160 @@
+/* =========================================
+   MODUL: DEMOGRAFI SEKOLAH
+   ========================================= */
+
+.modul-container {
+  padding-top: 30px;
+  padding-bottom: 40px;
+}
+
+/* --- Kartu Ringkasan Utama --- */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #2a5298;
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+  font-size: 32px;
+  background: #f0f4f8;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.stat-info h3 {
+  font-size: 24px;
+  font-weight: 800;
+  color: #1e3c72;
+  margin: 0;
+  line-height: 1;
+}
+
+.stat-info p {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Warna aksen khusus per kartu */
+.card-siswa { border-left-color: #3b82f6; }
+.card-guru { border-left-color: #10b981; }
+.card-kelas { border-left-color: #f59e0b; }
+.card-rasio { border-left-color: #8b5cf6; }
+
+/* --- Bagian Rincian Per Kelas --- */
+.detail-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 18px;
+  color: #1e3c72;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.kelas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.kelas-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.kelas-item:last-child {
+  border-bottom: none;
+}
+
+.kelas-nama {
+  font-weight: 700;
+  color: #334155;
+  width: 80px;
+}
+
+.kelas-bar-container {
+  flex: 1;
+  margin: 0 16px;
+  background: #f1f5f9;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.kelas-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2a5298);
+  border-radius: 5px;
+  transition: width 1s ease-out;
+}
+
+.kelas-jumlah {
+  font-weight: 800;
+  color: #1e3c72;
+  width: 40px;
+  text-align: right;
+}
+
+.loading-state {
+  text-align: center;
+  color: #64748b;
+  padding: 20px;
+  font-style: italic;
+}
+
+/* Responsif Mobile */
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr 1fr; /* 2 kolom di HP */
+  }
+  
+  .stat-card {
+    padding: 16px 12px;
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+  
+  .stat-info h3 {
+    font-size: 20px;
+  }
+  
+  .kelas-nama {
+    width: 60px;
+    font-size: 14px;
+  }
+}
