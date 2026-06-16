@@ -4,14 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Pengaturan Situs - Control Center</title>
-  
-  <!-- Link CSS sesuai arsitektur -->
   <link rel="stylesheet" href="../../css/style.css">
   <link rel="stylesheet" href="../../css/admin.css">
 </head>
 <body>
-
-  <!-- Header Sederhana -->
   <header class="header">
     <div class="logo-text" style="margin: 0 auto;">Control Center <span>ADMIN</span></div>
   </header>
@@ -23,27 +19,27 @@
         <span class="admin-badge">Admin Only</span>
       </div>
 
-      <form id="formPengaturanSitus">
-        <div class="admin-form-group">
-          <label for="teksPengumuman">Teks Pengumuman Login (Info Berjalan)</label>
-          <textarea id="teksPengumuman" class="admin-textarea" placeholder="Contoh: 📢 Pendaftaran PPDB dibuka sampai 30 Juni 2024."></textarea>
-          <div class="helper-text">
-            ℹ️ Teks ini akan muncul secara real-time di halaman login (index.html) menggantikan tombol "Versi WAP". Kosongkan jika tidak ingin menampilkan pengumuman.
-          </div>
-        </div>
-
-        <button type="submit" id="btnSimpanPengumuman" class="btn-admin-save">
-          💾 Simpan Perubahan
+      <div style="margin-bottom: 20px;">
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 12px;">
+          ℹ️ Tambahkan beberapa pengumuman. Setiap pengumuman akan tampil bergantian dengan efek slide dan running text. Durasi tampil diacak antara 6-12 detik.
+        </p>
+        <button type="button" id="btnTambahPengumuman" class="btn-admin-secondary" style="margin-bottom: 16px;">
+          ➕ Tambah Pengumuman Baru
         </button>
+      </div>
 
-        <div id="adminStatus" class="admin-status"></div>
-      </form>
+      <div id="daftarPengumumanContainer"></div>
+
+      <button type="button" id="btnSimpanPengumuman" class="btn-admin-save" style="margin-top: 24px;">
+        💾 Simpan Semua Perubahan
+      </button>
+
+      <div id="adminStatus" class="admin-status"></div>
 
       <a href="../../dashboard.html" class="btn-back-dashboard">← Kembali ke Dashboard Utama</a>
     </div>
   </div>
 
-  <!-- Script Module untuk logika Firebase -->
   <script type="module" src="../../js/admin.js"></script>
 </body>
 </html>
