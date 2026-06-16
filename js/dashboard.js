@@ -22,7 +22,21 @@ const konfigurasiFitur = {
     { nama: 'Sub-Fitur 2 (Placeholder)', icon: '📁', link: 'dokumen-arsip/sub-2.html' }
   ],
   'data-statistik': [
-    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📊', link: 'data-statistik/sub-1.html' }
+    { 
+      nama: 'Demografi Sekolah', 
+      icon: '👥', 
+      link: 'modules/statistik/demografi.html' 
+    },
+    { 
+      nama: 'Kehadiran & Absensi', 
+      icon: '📈', 
+      link: 'modules/statistik/kehadiran.html' 
+    },
+    { 
+      nama: 'Prestasi & Akademik', 
+      icon: '🏆', 
+      link: 'modules/statistik/prestasi.html' 
+    }
   ],
   'admin-pembelajaran': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📚', link: 'admin-pembelajaran/sub-1.html' }
