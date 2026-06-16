@@ -35,11 +35,42 @@ const konfigurasiFitur = {
   ]
 };
 
+// === ✅ BARU: KONFIGURASI CONTROL CENTER (KHUSUS ADMIN) ===
+const controlCenterFitur = {
+  'control-center': [
+    { nama: 'Manajemen Pengguna', icon: '👥', link: 'modules/control-center/manajemen-pengguna.html' },
+    { nama: 'Data & Statistik', icon: '📊', link: 'modules/control-center/data-statistik.html' },
+    { nama: 'Keamanan & Log', icon: '🔒', link: 'modules/control-center/keamanan-log.html' },
+    { nama: 'Pengaturan Situs', icon: '⚙️', link: 'modules/control-center/pengaturan-situs.html' },
+    { nama: 'Monitoring', icon: '📡', link: 'modules/control-center/monitoring.html' }
+  ]
+};
+
 const layananSelect = document.getElementById('layananSelect');
 const saveLayananBtn = document.getElementById('saveLayananBtn');
 const resetBtn = document.getElementById('resetBtn');
 const statusEl = document.getElementById('status');
 const contentArea = document.getElementById('contentArea');
+
+// === ✅ BARU: CEK ROLE USER DAN INJEKSI CONTROL CENTER JIKA ADMIN ===
+function injectControlCenterIfAdmin() {
+  const userRole = localStorage.getItem('userRole');
+  
+  if (userRole === 'admin') {
+    // 1. Tambahkan opsi ke dropdown
+    const newOption = document.createElement('option');
+    newOption.value = 'control-center';
+    newOption.textContent = '🛡️ Control Center (Admin)';
+    layananSelect.appendChild(newOption);
+    
+    // 2. Gabungkan konfigurasi Control Center ke konfigurasi utama
+    Object.assign(konfigurasiFitur, controlCenterFitur);
+    
+    console.log('✅ Control Center diaktifkan untuk Admin');
+  } else {
+    console.log('ℹ️ User bukan Admin, Control Center tidak ditampilkan');
+  }
+}
 
 // === FUNGSI UNTUK MERENDER KARTU FITUR ===
 function renderFiturInternal(featureKey) {
@@ -98,6 +129,9 @@ function renderFiturInternal(featureKey) {
 
 // === MUAT LAYANAN AKTIF SAAT HALAMAN DIMUAT ===
 document.addEventListener('DOMContentLoaded', () => {
+  // ✅ BARU: Injeksi Control Center JIKA user adalah Admin
+  injectControlCenterIfAdmin();
+  
   const savedLayanan = localStorage.getItem('layananAktif');
   if (savedLayanan && konfigurasiFitur[savedLayanan]) {
     layananSelect.value = savedLayanan;
