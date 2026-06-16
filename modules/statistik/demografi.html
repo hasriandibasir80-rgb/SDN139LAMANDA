@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Demografi Sekolah - SDN 139 LAMANDA</title>
+  
+  <!-- 1. Global CSS (Untuk konsistensi font, tombol, dll) -->
+  <link rel="stylesheet" href="../../css/style.css">
+  
+  <!-- 2. Module CSS (Khusus untuk halaman ini) -->
+  <link rel="stylesheet" href="../../css/modules/demografi.css">
+</head>
+<body>
+
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <div class="logo-text">Data <span>Demografi</span></div>
+    <div style="width: 50px;"></div> <!-- Spacer agar judul di tengah -->
+  </header>
+
+  <div class="container modul-container">
+    
+    <!-- Bagian 1: Kartu Ringkasan Utama -->
+    <div class="summary-grid">
+      <div class="stat-card card-siswa">
+        <div class="stat-icon">👨‍🎓</div>
+        <div class="stat-info">
+          <h3 id="totalSiswa">0</h3>
+          <p>Total Siswa</p>
+        </div>
+      </div>
+
+      <div class="stat-card card-guru">
+        <div class="stat-icon">👩‍🏫</div>
+        <div class="stat-info">
+          <h3 id="totalGuru">0</h3>
+          <p>Total Guru & Staf</p>
+        </div>
+      </div>
+
+      <div class="stat-card card-kelas">
+        <div class="stat-icon">🏫</div>
+        <div class="stat-info">
+          <h3 id="totalKelas">0</h3>
+          <p>Total Rombel</p>
+        </div>
+      </div>
+
+      <div class="stat-card card-rasio">
+        <div class="stat-icon">⚖️</div>
+        <div class="stat-info">
+          <h3 id="rasioGuruSiswa">0:1</h3>
+          <p>Rasio Guru : Siswa</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bagian 2: Rincian Per Kelas -->
+    <div class="detail-section">
+      <h2 class="section-title">📊 Rincian Jumlah Siswa Per Kelas</h2>
+      <div id="daftarKelasContainer" class="kelas-list">
+        <!-- Data akan di-inject oleh JavaScript di sini -->
+        <div class="loading-state">Memuat data demografi...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 3. Global JS Config -->
+  <script type="module" src="../../js/firebase-config.js"></script>
+  
+  <!-- 4. Module JS (Logika khusus halaman ini) -->
+  <script type="module" src="../../js/modules/demografi.js"></script>
+
+</body>
+</html>
