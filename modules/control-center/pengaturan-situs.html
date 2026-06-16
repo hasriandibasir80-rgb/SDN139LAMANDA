@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pengaturan Situs - Control Center</title>
+  
+  <!-- Link CSS sesuai arsitektur -->
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/admin.css">
+</head>
+<body>
+
+  <!-- Header Sederhana -->
+  <header class="header">
+    <div class="logo-text" style="margin: 0 auto;">Control Center <span>ADMIN</span></div>
+  </header>
+
+  <div class="admin-container">
+    <div class="admin-card">
+      <div class="admin-header">
+        <h1>⚙️ Pengaturan Situs</h1>
+        <span class="admin-badge">Admin Only</span>
+      </div>
+
+      <form id="formPengaturanSitus">
+        <div class="admin-form-group">
+          <label for="teksPengumuman">Teks Pengumuman Login (Info Berjalan)</label>
+          <textarea id="teksPengumuman" class="admin-textarea" placeholder="Contoh: 📢 Pendaftaran PPDB dibuka sampai 30 Juni 2024."></textarea>
+          <div class="helper-text">
+            ℹ️ Teks ini akan muncul secara real-time di halaman login (index.html) menggantikan tombol "Versi WAP". Kosongkan jika tidak ingin menampilkan pengumuman.
+          </div>
+        </div>
+
+        <button type="submit" id="btnSimpanPengumuman" class="btn-admin-save">
+          💾 Simpan Perubahan
+        </button>
+
+        <div id="adminStatus" class="admin-status"></div>
+      </form>
+
+      <a href="../../dashboard.html" class="btn-back-dashboard">← Kembali ke Dashboard Utama</a>
+    </div>
+  </div>
+
+  <!-- Script Module untuk logika Firebase -->
+  <script type="module" src="../../js/admin.js"></script>
+</body>
+</html>
