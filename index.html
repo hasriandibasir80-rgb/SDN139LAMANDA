@@ -5,29 +5,25 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SDN 139LAMANDA - sdn139 LAMANDA</title>
   <link rel="stylesheet" href="css/style.css">
-  <!-- ✅ PERBAIKAN #4: Tambahkan link ke modal.css -->
   <link rel="stylesheet" href="css/modal.css">
   
-  <!-- ✅ CSS TAMBAHAN KHUSUS UNTUK SIDEBAR MENU (Agar langsung rapi) -->
   <style>
-    /* Tombol Menu */
     .menu-btn {
       background: none;
       border: none;
       font-size: 24px;
       cursor: pointer;
-      color: #fff; /* Sesuaikan dengan warna header Anda */
+      color: #fff;
       padding: 10px;
     }
 
-    /* Sidebar Container */
     .sidebar {
       position: fixed;
       top: 0;
-      left: -280px; /* Sembunyi di kiri layar */
+      left: -280px;
       width: 260px;
       height: 100%;
-      background-color: #1a1a2e; /* Warna gelap profesional */
+      background-color: #1a1a2e;
       color: #fff;
       transition: left 0.3s ease-in-out;
       z-index: 1000;
@@ -36,10 +32,9 @@
     }
 
     .sidebar.active {
-      left: 0; /* Muncul ke layar */
+      left: 0;
     }
 
-    /* Tombol Tutup Sidebar */
     .close-btn {
       position: absolute;
       top: 15px;
@@ -51,7 +46,6 @@
       cursor: pointer;
     }
 
-    /* Link di dalam Sidebar */
     .sidebar-link {
       display: flex;
       align-items: center;
@@ -65,7 +59,7 @@
 
     .sidebar-link:hover {
       background-color: #16213e;
-      color: #FFD700; /* Warna emas saat di-hover */
+      color: #FFD700;
     }
 
     .sidebar-link span {
@@ -73,7 +67,6 @@
       font-size: 20px;
     }
 
-    /* Overlay Gelap di Belakang Sidebar */
     .sidebar-overlay {
       position: fixed;
       top: 0;
@@ -82,16 +75,15 @@
       height: 100%;
       background-color: rgba(0, 0, 0, 0.5);
       z-index: 999;
-      display: none; /* Sembunyi default */
+      display: none;
     }
 
     .sidebar-overlay.active {
-      display: block; /* Muncul saat sidebar aktif */
+      display: block;
     }
   </style>
 </head>
 <body>
-  <!-- ✅ SIDEBAR MENU (Baru) -->
   <div class="sidebar" id="sidebar">
     <button class="close-btn" id="closeSidebar">✕</button>
     <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">
@@ -103,22 +95,17 @@
     <a href="layanan.html" class="sidebar-link"><span>🛠️</span> Layanan Kami</a>
   </div>
 
-  <!-- ✅ OVERLAY (Untuk menutup menu saat klik di luar) -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- Header -->
   <header class="header">
-    <!-- ✅ DITAMBAHKAN ID: menuBtn -->
     <button class="menu-btn" id="menuBtn">☰</button>
     <div class="logo-text">SDN<span> 139</span></div>
     <div style="width: 50px;"></div>
   </header>
 
-  <!-- Main Content -->
   <div class="container">
     <h1 class="page-title">Login Untuk Masuk</h1>
 
-    <!-- Login Form -->
     <div class="login-box">
       <form id="loginForm">
         <div class="form-group">
@@ -147,10 +134,11 @@
       </form>
     </div>
 
-    <!-- WAP Version Button -->
-    <a href="#" class="wap-btn">VERSI WAP</a>
+    <div id="infoBerjalan" class="info-berjalan" style="display: none;">
+      <span class="info-icon">📢</span>
+      <span id="teksInfo">Memuat pengumuman...</span>
+    </div>
 
-    <!-- Promo Banner -->
     <div class="promo-banner">
       <div class="promo-title">🎮 SELAMAT DATANG! 🎮</div>
       <div class="promo-subtitle">
@@ -164,7 +152,6 @@
       <a href="#" class="promo-cta">SILAHKAN COBA →</a>
     </div>
 
-    <!-- Social Media -->
     <div class="social-section">
       <div class="social-title">Follow Sosmed Kami Juga :</div>
       <div class="social-icons">
@@ -178,18 +165,15 @@
     </div>
   </div>
 
-  <!-- Bottom Navigation -->
   <nav class="bottom-nav">
     <a href="#" class="nav-item active">
       <span class="nav-icon">🏠</span>
       <span class="nav-label">BERANDA</span>
     </a>
-    <!-- ✅ PERBAIKAN #1: Tambahkan id="navDaftar" pada item DAFTAR -->
     <a href="#" class="nav-item" id="navDaftar">
       <span class="nav-icon">✍️</span>
       <span class="nav-label">DAFTAR</span>
     </a>
-    <!-- ✅ UPDATED: Item EKSPLOR sekarang memiliki ID untuk trigger modal -->
     <a href="#" class="nav-item" id="navEksplor">
       <span class="nav-icon">🎁</span>
       <span class="nav-label">EKSPLOR</span>
@@ -200,7 +184,6 @@
     </a>
   </nav>
 
-  <!-- ✅ MODAL EKSPLOR (BARU) -->
   <div id="modalEksplor" class="modal-eksplor-overlay">
     <div class="modal-eksplor-content">
       <button class="modal-eksplor-close" id="btnCloseModal" aria-label="Tutup">&times;</button>
@@ -212,7 +195,6 @@
       </div>
 
       <div class="modal-eksplor-body">
-        <!-- Bagian 1: Fitur Global -->
         <h3 class="modal-section-title">🌐 6 Fitur Global Utama</h3>
         <div class="feature-grid">
           <div class="feature-item">
@@ -259,7 +241,6 @@
           </div>
         </div>
 
-        <!-- Bagian 2: Cara Kerja -->
         <div class="how-it-works">
           <h3 class="modal-section-title">⚙️ Cara Menggunakan Fitur Internal</h3>
           <ol class="how-list">
@@ -278,7 +259,6 @@
           </ol>
         </div>
 
-        <!-- Bagian 3: Keunggulan -->
         <div class="keunggulan-box">
           <h3 class="modal-section-title">✨ Keunggulan Sistem Ini</h3>
           <ul class="keunggulan-list">
@@ -297,7 +277,6 @@
     </div>
   </div>
 
-  <!-- ✅ PERBAIKAN #2: TAMBAHKAN MODAL DAFTAR DI SINI -->
   <div id="modalDaftar" class="modal-overlay-base">
     <div class="modal-daftar-content">
       <button class="modal-daftar-close" id="btnCloseDaftar" aria-label="Tutup">&times;</button>
@@ -309,7 +288,6 @@
       </div>
 
       <div class="modal-daftar-body">
-        <!-- Pilihan 1: Member Dashboard -->
         <a href="daftar-member.html" class="choice-card">
           <div class="choice-icon member">👤</div>
           <div class="choice-text">
@@ -319,7 +297,6 @@
           <div class="choice-arrow">→</div>
         </a>
 
-        <!-- Pilihan 2: Peserta Didik Baru (PPDB) -->
         <a href="daftar-ppdb.html" class="choice-card">
           <div class="choice-icon ppdb">🎓</div>
           <div class="choice-text">
@@ -336,20 +313,16 @@
     </div>
   </div>
 
-  <!-- Loading Overlay -->
   <div class="loading" id="loading">
     <div class="spinner"></div>
   </div>
 
-  <!-- Scripts -->
   <script type="module" src="js/firebase-config.js?v=3"></script>
   <script type="module" src="js/auth-login.js?v=3"></script>
   <script type="module" src="js/script.js?v=3"></script>
 
-  <!-- ✅ PERBAIKAN #3: Script untuk SEMUA modal (Eksplor + Daftar) -->
   <script>
     (function() {
-      // === MODAL EKSPLOR ===
       const modalEksplor = document.getElementById('modalEksplor');
       const navEksplor = document.getElementById('navEksplor');
       const btnCloseEksplor = document.getElementById('btnCloseModal');
@@ -375,7 +348,6 @@
         });
       }
 
-      // === ✅ MODAL DAFTAR (BARU) ===
       const modalDaftar = document.getElementById('modalDaftar');
       const navDaftar = document.getElementById('navDaftar');
       const btnCloseDaftar = document.getElementById('btnCloseDaftar');
@@ -401,7 +373,6 @@
         });
       }
 
-      // === TUTUP SEMUA MODAL DENGAN TOMBOL ESC ===
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
           if (modalEksplor && modalEksplor.classList.contains('active')) closeEksplor();
