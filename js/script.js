@@ -2,20 +2,55 @@ import { rtdb } from './firebase-config.js';
 import { ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const pengumumanRef = ref(rtdb, 'config/pengumuman_login');
+const infoBoxEl = document.getElementById('infoBerjalan');
+const slideEl = document.getElementById('infoSlide');
+const judulEl = document.getElementById('infoJudul');
+const teksEl = document.getElementById('infoTeks');
+
+let currentIndex = 0;
+let rotationTimer;
+
+function startRotation(daftar) {
+  if (!daftar || daftar.length === 0) {
+    infoBoxEl.style.display = 'none';
+    return;
+  }
+  infoBoxEl.style.display = 'flex';
+  showSlide(daftar, currentIndex);
+}
+
+function showSlide(daftar, index) {
+  const item = daftar[index];
+  
+  slideEl.classList.add('slide-out');
+  
+  setTimeout(() => {
+    judulEl.textContent = item.judul;
+    teksEl.textContent = item.isi;
+    
+    slideEl.classList.remove('slide-out');
+    slideEl.classList.add('slide-in');
+    
+    setTimeout(() => {
+      slideEl.classList.remove('slide-in');
+      
+      const randomDuration = Math.floor(Math.random() * 6000) + 6000;
+      currentIndex = (index + 1) % daftar.length;
+      
+      rotationTimer = setTimeout(() => showSlide(daftar, currentIndex), randomDuration);
+    }, 500);
+  }, 500);
+}
 
 onValue(pengumumanRef, (snapshot) => {
-  const teksInfoEl = document.getElementById('teksInfo');
-  const infoBoxEl = document.getElementById('infoBerjalan');
+  if (rotationTimer) clearTimeout(rotationTimer);
   
-  if (teksInfoEl && infoBoxEl) {
-    const data = snapshot.val();
-    
-    if (data && data.teks && data.teks.trim() !== "") {
-      teksInfoEl.textContent = data.teks;
-      infoBoxEl.style.display = 'flex';
-    } else {
-      infoBoxEl.style.display = 'none';
-    }
+  const data = snapshot.val();
+  if (data && data.aktif !== false && data.daftar && Array.isArray(data.daftar) && data.daftar.length > 0) {
+    currentIndex = 0;
+    startRotation(data.daftar);
+  } else {
+    infoBoxEl.style.display = 'none';
   }
 });
 
@@ -88,12 +123,10 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
   try {
     console.log('✅ Captcha benar. Menghubungi Firebase...');
     await window.handleEmailLogin(email, password);
-    
   } catch (error) {
     console.error('❌ Login gagal:', error);
     if (loading) loading.style.display = 'none';
     if (submitBtn) submitBtn.disabled = false;
-    
     refreshCaptcha();
     alert('❌ ' + error.message);
   }
@@ -105,9 +138,8 @@ function forgotPassword() {
 
 window.addEventListener('DOMContentLoaded', function() {
   generateCaptcha();
-  
   if (typeof window.handleEmailLogin !== 'function') {
-    console.error('⚠️ CRITICAL: auth-login.js belum ter-load! Pastikan path dan type="module" sudah benar.');
+    console.error('⚠️ CRITICAL: auth-login.js belum ter-load!');
   } else {
     console.log('✅ Sistem login REAL & Captcha siap digunakan');
   }
