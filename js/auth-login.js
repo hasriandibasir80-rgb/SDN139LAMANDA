@@ -37,6 +37,26 @@ async function registerSession(userId, deviceId) {
   }
 }
 
+// === ✅ BARU: Fungsi untuk membaca role user dari Firebase ===
+async function getUserRole(uid) {
+  try {
+    const roleRef = ref(rtdb, `users/${uid}/role`);
+    const snapshot = await get(roleRef);
+    
+    if (snapshot.exists()) {
+      const role = snapshot.val();
+      console.log('✅ Role user ditemukan:', role);
+      return role;
+    } else {
+      console.log('ℹ️ Role tidak ditemukan, default ke "user"');
+      return 'user';
+    }
+  } catch (error) {
+    console.warn('⚠️ Gagal membaca role dari Firebase:', error);
+    return 'user'; // Fallback ke user biasa jika ada error
+  }
+}
+
 // === 1. Handle Email/Password Login (REAL FIREBASE ONLY) ===
 async function handleEmailLogin(email, password) {
   try {
@@ -47,12 +67,20 @@ async function handleEmailLogin(email, password) {
     console.log('✅ Firebase login BERHASIL untuk:', user.email);
     console.log('✅ UID Asli dari Firebase:', user.uid);
     
+    // ✅ BARU: Baca role user dari Firebase Realtime Database
+    const userRole = await getUserRole(user.uid);
+    console.log('✅ Role user:', userRole);
+    
     // Simpan data user ASLI dari Firebase ke localStorage agar dashboard bisa membacanya
     localStorage.setItem('currentUser', JSON.stringify({
       uid: user.uid, 
       email: user.email,
-      displayName: user.displayName || email.split('@')[0]
+      displayName: user.displayName || email.split('@')[0],
+      role: userRole // ✅ BARU: Simpan role di currentUser juga
     }));
+    
+    // ✅ BARU: Simpan role secara terpisah untuk akses cepat oleh dashboard.js
+    localStorage.setItem('userRole', userRole);
     
     // Register session device di Realtime Database
     const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
@@ -96,6 +124,7 @@ async function handleLogout() {
     
     await signOut(auth);
     localStorage.removeItem('currentUser');
+    localStorage.removeItem('userRole'); // ✅ BARU: Hapus role saat logout
     
     console.log('✅ Logout berhasil');
     window.location.href = './index.html';
