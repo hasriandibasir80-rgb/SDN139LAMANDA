@@ -1,14 +1,14 @@
 // =========================================
-// MODUL: ARSIP UPLOAD (GOOGLE DRIVE BRIDGE)
-// METODE: postMessage API (100% Anti-CORS)
+// MODUL: ARSIP UPLOAD (CHUNKED UPLOAD)
+// METODE: Chunked Fetch + Apps Script Router
 // =========================================
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ✅ URL Web App Google Apps Script (URL TERBARU - SUDAH DIUPDATE)
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFEttY-1C1uPvblg5nOZVl55kvPDV6zH6wd2zc1lORS2A_hHyq5tQQI-dnQqLhN_DjAQ/exec'; 
+// ✅ URL Web App Google Apps Script (VERSI CHUNKED)
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyFEttY-1C1uPvblg5nOZVl55kvPDV6zH6wd2zc1lORS2A_hHyq5tQQI-dnQqLhN_DjAQ/exec';
 
 // 1. KEAMANAN: Cek Admin
 const userRole = localStorage.getItem('userRole');
@@ -28,7 +28,12 @@ const btnUpload = document.getElementById('btnUpload');
 const btnText = document.getElementById('btnText');
 const status = document.getElementById('uploadStatus');
 
-// 3. DRAG & DROP Handler
+// 3. STATE
+let currentUploadData = {};
+let uploadAborted = false;
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
+
+// 4. DRAG & DROP Handler
 ['dragenter', 'dragover'].forEach(evt => {
   dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
 });
@@ -57,12 +62,14 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// 4. LISTENER untuk postMessage dari Google Apps Script
+// 5. LISTENER postMessage (untuk trigger simpan metadata)
 window.addEventListener('message', async (event) => {
   const result = event.data;
   
   if (!result || !result.status) return;
   
+  console.log('✅ Pesan diterima:', result);
+
   if (result.status === 'success') {
     try {
       showStatus('loading', '💾 Menyimpan metadata ke database...');
@@ -103,75 +110,97 @@ window.addEventListener('message', async (event) => {
   }
 });
 
-let currentUploadData = {};
-
-// 5. PROSES UPLOAD VIA FORM SUBMISSION + postMessage
+// 6. PROSES UPLOAD VIA CHUNKED FETCH
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  
+
   const namaDokumen = document.getElementById('namaDokumen').value.trim();
   const kategori = document.getElementById('kategori').value;
   const levelAkses = document.getElementById('levelAkses').value;
   const deskripsi = document.getElementById('deskripsi').value.trim();
   const file = fileInput.files[0];
-  
-  if (!file) { 
-    showStatus('error', '⚠️ Silakan pilih file terlebih dahulu.'); 
-    return; 
+
+  if (!file) {
+    showStatus('error', '⚠️ Silakan pilih file terlebih dahulu.');
+    return;
   }
-  
+
   currentUploadData = { namaDokumen, kategori, levelAkses, deskripsi, file };
-  
+  uploadAborted = false;
+
   btnUpload.disabled = true;
-  btnText.textContent = '⏳ Memproses file...';
-  showStatus('loading', '📤 Mengonversi file...');
-  
+  btnText.textContent = '⏳ Menyiapkan upload...';
+  showStatus('loading', '📤 Memulai upload chunk...');
+
   try {
-    const base64String = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+    // Step 1: Init upload session di Apps Script
+    showStatus('loading', '📤 Menginisialisasi session upload...');
+    
+    const sessionRes = await fetch(APP_SCRIPT_URL + '?action=initUpload', {
+      method: 'POST',
+      body: JSON.stringify({
+        fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
+        mimeType: file.type || 'application/octet-stream',
+        folderName: kategori,
+        totalSize: file.size
+      })
     });
+    
+    const sessionData = await sessionRes.json();
 
-    showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu 10-30 detik)...');
-
-    const iframe = document.createElement('iframe');
-    iframe.name = 'upload_iframe_' + Date.now();
-    iframe.id = iframe.name;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    const uploadForm = document.createElement('form');
-    uploadForm.method = 'POST';
-    uploadForm.action = APP_SCRIPT_URL;
-    uploadForm.target = iframe.name;
-    uploadForm.id = 'upload_form_' + Date.now();
-    uploadForm.style.display = 'none';
-
-    const fields = {
-      fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
-      folderName: kategori,
-      file: base64String
-    };
-
-    for (const [key, value] of Object.entries(fields)) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = value;
-      uploadForm.appendChild(input);
+    if (sessionData.status !== 'ready') {
+      throw new Error(sessionData.message || 'Gagal inisialisasi upload');
     }
+    
+    const { uploadId, fileId } = sessionData;
+    console.log('✅ Upload session dibuat:', uploadId);
 
-    document.body.appendChild(uploadForm);
-    uploadForm.submit();
+    // Step 2: Upload per chunk
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    console.log('📦 Total chunk:', totalChunks);
 
-    setTimeout(() => {
-      if (btnUpload.disabled) {
-        showStatus('error', '⚠️ Upload timeout. Silakan cek Google Drive Anda secara manual.');
-        cleanupUpload();
+    for (let i = 0; i < totalChunks; i++) {
+      if (uploadAborted) throw new Error('Upload dibatalkan');
+
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+      const base64Chunk = await blobToBase64(chunk);
+
+      btnText.textContent = `⏳ Upload ${i+1}/${totalChunks}`;
+      showStatus('loading', `☁️ Mengunggah chunk ${i+1} dari ${totalChunks}... ${(end/file.size*100).toFixed(1)}%`);
+
+      const chunkRes = await fetch(APP_SCRIPT_URL + '?action=uploadChunk', {
+        method: 'POST',
+        body: JSON.stringify({
+          uploadId,
+          fileId,
+          chunkIndex: i,
+          totalChunks,
+          data: base64Chunk.split(',')[1] // buang prefix "data:...;base64,"
+        })
+      });
+
+      const chunkResult = await chunkRes.json();
+      
+      if (chunkResult.status === 'error') {
+        throw new Error(chunkResult.message || 'Gagal upload chunk');
       }
-    }, 60000);
+
+      // Kalau chunk terakhir, trigger simpan metadata
+      if (i === totalChunks - 1 && chunkResult.status === 'complete') {
+        console.log('✅ Upload selesai, URL:', chunkResult.url);
+        
+        // Trigger listener postMessage manual
+        window.postMessage({
+          status: 'success',
+          url: chunkResult.url,
+          id: chunkResult.id,
+          name: chunkResult.name
+        }, '*');
+        return;
+      }
+    }
 
   } catch (error) {
     console.error('Upload error:', error);
@@ -180,13 +209,18 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
+// 7. HELPER FUNCTIONS
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 function cleanupUpload() {
-  const iframes = document.querySelectorAll('iframe[name^="upload_iframe_"]');
-  iframes.forEach(iframe => iframe.remove());
-  
-  const forms = document.querySelectorAll('form[id^="upload_form_"]');
-  forms.forEach(form => form.remove());
-  
+  uploadAborted = true;
   btnUpload.disabled = false;
   btnText.textContent = '💾 Upload & Simpan Metadata';
 }
@@ -196,7 +230,7 @@ function showStatus(type, message) {
   status.textContent = message;
 }
 
-// 6. MUAT RECENT UPLOADS
+// 8. MUAT RECENT UPLOADS
 async function muatRecentUploads() {
   try {
     const q = query(
@@ -241,6 +275,8 @@ async function muatRecentUploads() {
   }
 }
 
+// 9. INIT
 document.addEventListener('DOMContentLoaded', () => { 
+  console.log('✅ Modul Arsip Upload (Chunked) dimuat');
   muatRecentUploads(); 
 });
