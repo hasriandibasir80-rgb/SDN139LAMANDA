@@ -1,6 +1,6 @@
 // =========================================
 // MODUL: ARSIP UPLOAD (GOOGLE DRIVE BRIDGE)
-// METODE: Form Submission via Iframe (Anti-CORS)
+// METODE: postMessage API (100% Anti-CORS)
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -57,7 +57,61 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// 4. PROSES UPLOAD VIA FORM SUBMISSION (ANTI-CORS)
+// 4. LISTENER untuk postMessage dari Google Apps Script
+window.addEventListener('message', async (event) => {
+  // Optional: Verifikasi origin (untuk keamanan)
+  // if (event.origin !== 'https://script.google.com') return;
+  
+  const result = event.data;
+  
+  // Pastikan ini adalah response dari upload kita
+  if (!result || !result.status) return;
+  
+  if (result.status === 'success') {
+    try {
+      // Simpan metadata ke Firestore
+      showStatus('loading', '💾 Menyimpan metadata ke database...');
+      
+      const metadata = {
+        namaDokumen: currentUploadData.namaDokumen,
+        kategori: currentUploadData.kategori,
+        levelAkses: currentUploadData.levelAkses,
+        deskripsi: currentUploadData.deskripsi,
+        namaFile: currentUploadData.file.name,
+        ukuranFile: currentUploadData.file.size,
+        tipeFile: currentUploadData.file.type || 'unknown',
+        urlFile: result.url,
+        driveFileId: result.id,
+        uploaderUid: currentUser.uid,
+        uploaderEmail: currentUser.email,
+        tanggalUpload: serverTimestamp(),
+        versi: 1,
+        status: 'aktif'
+      };
+      
+      await addDoc(collection(db, 'documents'), metadata);
+      
+      showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
+      form.reset();
+      fileInfo.style.display = 'none';
+      muatRecentUploads();
+      
+    } catch (error) {
+      console.error('Error saving metadata:', error);
+      showStatus('error', `❌ File berhasil upload tapi gagal simpan metadata: ${error.message}`);
+    } finally {
+      cleanupUpload();
+    }
+  } else {
+    showStatus('error', `❌ Gagal upload: ${result.message}`);
+    cleanupUpload();
+  }
+});
+
+// Variable untuk menyimpan data upload sementara
+let currentUploadData = {};
+
+// 5. PROSES UPLOAD VIA FORM SUBMISSION + postMessage
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   
@@ -71,6 +125,9 @@ form.addEventListener('submit', async (e) => {
     showStatus('error', '⚠️ Silakan pilih file terlebih dahulu.'); 
     return; 
   }
+  
+  // Simpan data untuk digunakan di listener postMessage
+  currentUploadData = { namaDokumen, kategori, levelAkses, deskripsi, file };
   
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Memproses file...';
@@ -87,9 +144,10 @@ form.addEventListener('submit', async (e) => {
 
     showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu 10-30 detik)...');
 
-    // B. Buat iframe tersembunyi untuk menerima response
+    // B. Buat iframe tersembunyi
     const iframe = document.createElement('iframe');
     iframe.name = 'upload_iframe_' + Date.now();
+    iframe.id = iframe.name;
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
 
@@ -98,6 +156,7 @@ form.addEventListener('submit', async (e) => {
     uploadForm.method = 'POST';
     uploadForm.action = APP_SCRIPT_URL;
     uploadForm.target = iframe.name;
+    uploadForm.id = 'upload_form_' + Date.now();
     uploadForm.style.display = 'none';
 
     // D. Tambahkan field data
@@ -117,91 +176,42 @@ form.addEventListener('submit', async (e) => {
 
     document.body.appendChild(uploadForm);
 
-    // E. Listen untuk response dari iframe
-    let uploadComplete = false;
-    iframe.onload = async () => {
-      if (uploadComplete) return;
-      uploadComplete = true;
-
-      try {
-        // Coba baca response dari iframe
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        const responseText = iframeDoc.body.innerText || iframeDoc.body.textContent;
-        
-        // Parse JSON response
-        const result = JSON.parse(responseText);
-        
-        if (result.status === 'success') {
-          // F. Simpan Metadata ke Firestore
-          showStatus('loading', '💾 Menyimpan metadata ke database...');
-          
-          const metadata = {
-            namaDokumen,
-            kategori,
-            levelAkses,
-            deskripsi,
-            namaFile: file.name,
-            ukuranFile: file.size,
-            tipeFile: file.type || 'unknown',
-            urlFile: result.url,
-            driveFileId: result.id,
-            uploaderUid: currentUser.uid,
-            uploaderEmail: currentUser.email,
-            tanggalUpload: serverTimestamp(),
-            versi: 1,
-            status: 'aktif'
-          };
-          
-          await addDoc(collection(db, 'documents'), metadata);
-          
-          showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
-          form.reset();
-          fileInfo.style.display = 'none';
-          muatRecentUploads();
-        } else {
-          throw new Error(result.message || 'Upload gagal');
-        }
-      } catch (error) {
-        console.error('Error parsing response:', error);
-        showStatus('error', `❌ Gagal upload: ${error.message}`);
-      } finally {
-        // Cleanup
-        document.body.removeChild(uploadForm);
-        document.body.removeChild(iframe);
-        btnUpload.disabled = false;
-        btnText.textContent = '💾 Upload & Simpan Metadata';
-      }
-    };
-
-    // F. Submit form
+    // E. Submit form
     uploadForm.submit();
 
-    // G. Timeout fallback (jika iframe tidak merespons dalam 60 detik)
+    // F. Timeout fallback (60 detik)
     setTimeout(() => {
-      if (!uploadComplete) {
-        uploadComplete = true;
-        showStatus('error', '⚠️ Upload timeout. Silakan coba lagi.');
-        document.body.removeChild(uploadForm);
-        document.body.removeChild(iframe);
-        btnUpload.disabled = false;
-        btnText.textContent = '💾 Upload & Simpan Metadata';
+      if (btnUpload.disabled) {
+        showStatus('error', '⚠️ Upload timeout. Silakan cek Google Drive Anda secara manual.');
+        cleanupUpload();
       }
     }, 60000);
 
   } catch (error) {
     console.error('Upload error:', error);
     showStatus('error', `❌ Gagal upload: ${error.message}`);
-    btnUpload.disabled = false;
-    btnText.textContent = '💾 Upload & Simpan Metadata';
+    cleanupUpload();
   }
 });
+
+// Fungsi cleanup
+function cleanupUpload() {
+  const iframes = document.querySelectorAll('iframe[name^="upload_iframe_"]');
+  iframes.forEach(iframe => iframe.remove());
+  
+  const forms = document.querySelectorAll('form[id^="upload_form_"]');
+  forms.forEach(form => form.remove());
+  
+  btnUpload.disabled = false;
+  btnText.textContent = '💾 Upload & Simpan Metadata';
+}
 
 function showStatus(type, message) {
   status.className = `upload-status ${type}`;
   status.textContent = message;
 }
 
-// 5. MUAT RECENT UPLOADS
+// 6. MUAT RECENT UPLOADS
 async function muatRecentUploads() {
   try {
     const q = query(
