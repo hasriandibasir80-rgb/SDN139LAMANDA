@@ -7,8 +7,8 @@ import { db } from '../firebase-config.js';
 import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ✅ URL Web App Google Apps Script
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOEmBth8cUxXNkTeExNttEi68rqlg0ZU3LeMzEhEzeJWsVAgWRKES7H115IgFkQRUabg/exec'; 
+// ✅ URL Web App Google Apps Script (URL TERBARU - SUDAH DIUPDATE)
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw4wUgtGffn5QH6LowJ4VCPP9aGPpXBhnedAtprWX9XlbnglAtZmjUwAX8-eA24Drby/exec'; 
 
 // 1. KEAMANAN: Cek Admin
 const userRole = localStorage.getItem('userRole');
@@ -59,17 +59,12 @@ function tampilkanInfoFile(file) {
 
 // 4. LISTENER untuk postMessage dari Google Apps Script
 window.addEventListener('message', async (event) => {
-  // Optional: Verifikasi origin (untuk keamanan)
-  // if (event.origin !== 'https://script.google.com') return;
-  
   const result = event.data;
   
-  // Pastikan ini adalah response dari upload kita
   if (!result || !result.status) return;
   
   if (result.status === 'success') {
     try {
-      // Simpan metadata ke Firestore
       showStatus('loading', '💾 Menyimpan metadata ke database...');
       
       const metadata = {
@@ -108,7 +103,6 @@ window.addEventListener('message', async (event) => {
   }
 });
 
-// Variable untuk menyimpan data upload sementara
 let currentUploadData = {};
 
 // 5. PROSES UPLOAD VIA FORM SUBMISSION + postMessage
@@ -126,7 +120,6 @@ form.addEventListener('submit', async (e) => {
     return; 
   }
   
-  // Simpan data untuk digunakan di listener postMessage
   currentUploadData = { namaDokumen, kategori, levelAkses, deskripsi, file };
   
   btnUpload.disabled = true;
@@ -134,7 +127,6 @@ form.addEventListener('submit', async (e) => {
   showStatus('loading', '📤 Mengonversi file...');
   
   try {
-    // A. Baca file sebagai Base64
     const base64String = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -144,14 +136,12 @@ form.addEventListener('submit', async (e) => {
 
     showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu 10-30 detik)...');
 
-    // B. Buat iframe tersembunyi
     const iframe = document.createElement('iframe');
     iframe.name = 'upload_iframe_' + Date.now();
     iframe.id = iframe.name;
     iframe.style.display = 'none';
     document.body.appendChild(iframe);
 
-    // C. Buat form dinamis
     const uploadForm = document.createElement('form');
     uploadForm.method = 'POST';
     uploadForm.action = APP_SCRIPT_URL;
@@ -159,7 +149,6 @@ form.addEventListener('submit', async (e) => {
     uploadForm.id = 'upload_form_' + Date.now();
     uploadForm.style.display = 'none';
 
-    // D. Tambahkan field data
     const fields = {
       fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
       folderName: kategori,
@@ -175,11 +164,8 @@ form.addEventListener('submit', async (e) => {
     }
 
     document.body.appendChild(uploadForm);
-
-    // E. Submit form
     uploadForm.submit();
 
-    // F. Timeout fallback (60 detik)
     setTimeout(() => {
       if (btnUpload.disabled) {
         showStatus('error', '⚠️ Upload timeout. Silakan cek Google Drive Anda secara manual.');
@@ -194,7 +180,6 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-// Fungsi cleanup
 function cleanupUpload() {
   const iframes = document.querySelectorAll('iframe[name^="upload_iframe_"]');
   iframes.forEach(iframe => iframe.remove());
