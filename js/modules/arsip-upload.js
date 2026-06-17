@@ -7,8 +7,7 @@ import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimest
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ✅ URL Web App Google Apps Script (SUDAH DIISI)
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxgQ_bPgO8WPYT-LCiIGQzzyBlWm-WWq3ItnhulkxHXUDCWAYXw6BKVClo4ZFcxyGD_JA/exec'; 
-
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOEmBth8cUxXNkTeExNttEi68rqlg0ZU3LeMzEhEzeJWsVAgWRKES7H115IgFkQRUabg/exec';
 // 1. KEAMANAN: Cek Admin
 const userRole = localStorage.getItem('userRole');
 if (userRole !== 'admin') {
