@@ -6,8 +6,9 @@ import { db } from '../firebase-config.js';
 import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ✅ URL Web App Google Apps Script (SUDAH DIISI)
-const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOEmBth8cUxXNkTeExNttEi68rqlg0ZU3LeMzEhEzeJWsVAgWRKES7H115IgFkQRUabg/exec';
+// ✅ URL Web App Google Apps Script
+const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyOEmBth8cUxXNkTeExNttEi68rqlg0ZU3LeMzEhEzeJWsVAgWRKES7H115IgFkQRUabg/exec'; 
+
 // 1. KEAMANAN: Cek Admin
 const userRole = localStorage.getItem('userRole');
 if (userRole !== 'admin') {
@@ -48,7 +49,7 @@ function tampilkanInfoFile(file) {
   fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
   fileInfo.style.display = 'block';
   
-  if (file.size > 50 * 1024 * 1024) { // Limit 50MB untuk Apps Script
+  if (file.size > 50 * 1024 * 1024) {
     showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB untuk metode ini.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
@@ -80,21 +81,19 @@ form.addEventListener('submit', async (e) => {
       reader.readAsDataURL(file);
     });
 
-    // B. Kirim ke Google Apps Script (DENGAN KONFIGURASI ANTI-CORS)
-    showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu, ini mungkin memakan waktu 10-30 detik)...');
+    // B. Kirim ke Google Apps Script (TANPA HEADER - Anti CORS)
+    showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu 10-30 detik)...');
     
     const response = await fetch(APP_SCRIPT_URL, {
       method: 'POST',
-      // Trik anti-CORS: Gunakan text/plain untuk menghindari preflight OPTIONS request
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
+      // PENTING: JANGAN tambahkan header apapun!
+      // Google Apps Script tidak mendukung preflight OPTIONS request.
       body: JSON.stringify({
         fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
         folderName: kategori,
         file: base64String
       }),
-      redirect: 'follow' // Wajib: Agar fetch mengikuti redirect dari Google
+      redirect: 'follow'
     });
     
     const result = await response.json();
@@ -114,7 +113,7 @@ form.addEventListener('submit', async (e) => {
       namaFile: file.name,
       ukuranFile: file.size,
       tipeFile: file.type || 'unknown',
-      urlFile: result.url, // URL dari Google Drive
+      urlFile: result.url,
       driveFileId: result.id,
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email,
@@ -144,10 +143,15 @@ function showStatus(type, message) {
   status.textContent = message;
 }
 
-// 5. MUAT RECENT UPLOADS (Sama seperti sebelumnya)
+// 5. MUAT RECENT UPLOADS
 async function muatRecentUploads() {
   try {
-    const q = query(collection(db, 'documents'), where('uploaderUid', '==', currentUser.uid), orderBy('tanggalUpload', 'desc'), limit(5));
+    const q = query(
+      collection(db, 'documents'), 
+      where('uploaderUid', '==', currentUser.uid), 
+      orderBy('tanggalUpload', 'desc'), 
+      limit(5)
+    );
     const snapshot = await getDocs(q);
     const container = document.getElementById('recentList');
     
@@ -159,8 +163,14 @@ async function muatRecentUploads() {
     container.innerHTML = '';
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      const tanggal = data.tanggalUpload ? new Date(data.tanggalUpload.toDate()).toLocaleDateString('id-ID') : '-';
-      const iconMap = { 'application/pdf': '📕', 'image/jpeg': '🖼️', 'image/png': '🖼️' };
+      const tanggal = data.tanggalUpload 
+        ? new Date(data.tanggalUpload.toDate()).toLocaleDateString('id-ID') 
+        : '-';
+      const iconMap = { 
+        'application/pdf': '📕', 
+        'image/jpeg': '🖼️', 
+        'image/png': '🖼️' 
+      };
       const icon = iconMap[data.tipeFile] || '📄';
       const badge = `<span class="badge badge-${data.levelAkses}">${data.levelAkses}</span>`;
       
@@ -173,7 +183,11 @@ async function muatRecentUploads() {
           </div>
         </div>`;
     });
-  } catch (error) { console.error('Error loading recent:', error); }
+  } catch (error) { 
+    console.error('Error loading recent:', error); 
+  }
 }
 
-document.addEventListener('DOMContentLoaded', () => { muatRecentUploads(); });
+document.addEventListener('DOMContentLoaded', () => { 
+  muatRecentUploads(); 
+});
