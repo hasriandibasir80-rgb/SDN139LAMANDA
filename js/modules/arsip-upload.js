@@ -1,5 +1,6 @@
 // =========================================
 // MODUL: ARSIP UPLOAD (GOOGLE DRIVE BRIDGE)
+// METODE: Form Submission via Iframe (Anti-CORS)
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -56,7 +57,7 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// 4. PROSES UPLOAD KE GOOGLE DRIVE VIA APPS SCRIPT
+// 4. PROSES UPLOAD VIA FORM SUBMISSION (ANTI-CORS)
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   
@@ -66,11 +67,14 @@ form.addEventListener('submit', async (e) => {
   const deskripsi = document.getElementById('deskripsi').value.trim();
   const file = fileInput.files[0];
   
-  if (!file) { showStatus('error', '⚠️ Silakan pilih file terlebih dahulu.'); return; }
+  if (!file) { 
+    showStatus('error', '⚠️ Silakan pilih file terlebih dahulu.'); 
+    return; 
+  }
   
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Memproses file...';
-  showStatus('loading', '📤 Mengonversi dan mengirim file ke Google Drive...');
+  showStatus('loading', '📤 Mengonversi file...');
   
   try {
     // A. Baca file sebagai Base64
@@ -81,58 +85,112 @@ form.addEventListener('submit', async (e) => {
       reader.readAsDataURL(file);
     });
 
-    // B. Kirim ke Google Apps Script (TANPA HEADER - Anti CORS)
     showStatus('loading', '☁️ Mengunggah ke Google Drive (mohon tunggu 10-30 detik)...');
-    
-    const response = await fetch(APP_SCRIPT_URL, {
-      method: 'POST',
-      // PENTING: JANGAN tambahkan header apapun!
-      // Google Apps Script tidak mendukung preflight OPTIONS request.
-      body: JSON.stringify({
-        fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
-        folderName: kategori,
-        file: base64String
-      }),
-      redirect: 'follow'
-    });
-    
-    const result = await response.json();
-    
-    if (result.status !== 'success') {
-      throw new Error(result.message || 'Gagal upload ke Drive');
+
+    // B. Buat iframe tersembunyi untuk menerima response
+    const iframe = document.createElement('iframe');
+    iframe.name = 'upload_iframe_' + Date.now();
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // C. Buat form dinamis
+    const uploadForm = document.createElement('form');
+    uploadForm.method = 'POST';
+    uploadForm.action = APP_SCRIPT_URL;
+    uploadForm.target = iframe.name;
+    uploadForm.style.display = 'none';
+
+    // D. Tambahkan field data
+    const fields = {
+      fileName: `${Date.now()}_${file.name.replace(/\s+/g, '_')}`,
+      folderName: kategori,
+      file: base64String
+    };
+
+    for (const [key, value] of Object.entries(fields)) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      uploadForm.appendChild(input);
     }
 
-    // C. Simpan Metadata ke Firestore
-    showStatus('loading', '💾 Menyimpan metadata ke database...');
-    
-    const metadata = {
-      namaDokumen,
-      kategori,
-      levelAkses,
-      deskripsi,
-      namaFile: file.name,
-      ukuranFile: file.size,
-      tipeFile: file.type || 'unknown',
-      urlFile: result.url,
-      driveFileId: result.id,
-      uploaderUid: currentUser.uid,
-      uploaderEmail: currentUser.email,
-      tanggalUpload: serverTimestamp(),
-      versi: 1,
-      status: 'aktif'
+    document.body.appendChild(uploadForm);
+
+    // E. Listen untuk response dari iframe
+    let uploadComplete = false;
+    iframe.onload = async () => {
+      if (uploadComplete) return;
+      uploadComplete = true;
+
+      try {
+        // Coba baca response dari iframe
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        const responseText = iframeDoc.body.innerText || iframeDoc.body.textContent;
+        
+        // Parse JSON response
+        const result = JSON.parse(responseText);
+        
+        if (result.status === 'success') {
+          // F. Simpan Metadata ke Firestore
+          showStatus('loading', '💾 Menyimpan metadata ke database...');
+          
+          const metadata = {
+            namaDokumen,
+            kategori,
+            levelAkses,
+            deskripsi,
+            namaFile: file.name,
+            ukuranFile: file.size,
+            tipeFile: file.type || 'unknown',
+            urlFile: result.url,
+            driveFileId: result.id,
+            uploaderUid: currentUser.uid,
+            uploaderEmail: currentUser.email,
+            tanggalUpload: serverTimestamp(),
+            versi: 1,
+            status: 'aktif'
+          };
+          
+          await addDoc(collection(db, 'documents'), metadata);
+          
+          showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
+          form.reset();
+          fileInfo.style.display = 'none';
+          muatRecentUploads();
+        } else {
+          throw new Error(result.message || 'Upload gagal');
+        }
+      } catch (error) {
+        console.error('Error parsing response:', error);
+        showStatus('error', `❌ Gagal upload: ${error.message}`);
+      } finally {
+        // Cleanup
+        document.body.removeChild(uploadForm);
+        document.body.removeChild(iframe);
+        btnUpload.disabled = false;
+        btnText.textContent = '💾 Upload & Simpan Metadata';
+      }
     };
-    
-    await addDoc(collection(db, 'documents'), metadata);
-    
-    showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
-    form.reset();
-    fileInfo.style.display = 'none';
-    muatRecentUploads();
-    
+
+    // F. Submit form
+    uploadForm.submit();
+
+    // G. Timeout fallback (jika iframe tidak merespons dalam 60 detik)
+    setTimeout(() => {
+      if (!uploadComplete) {
+        uploadComplete = true;
+        showStatus('error', '⚠️ Upload timeout. Silakan coba lagi.');
+        document.body.removeChild(uploadForm);
+        document.body.removeChild(iframe);
+        btnUpload.disabled = false;
+        btnText.textContent = '💾 Upload & Simpan Metadata';
+      }
+    }, 60000);
+
   } catch (error) {
     console.error('Upload error:', error);
     showStatus('error', `❌ Gagal upload: ${error.message}`);
-  } finally {
     btnUpload.disabled = false;
     btnText.textContent = '💾 Upload & Simpan Metadata';
   }
