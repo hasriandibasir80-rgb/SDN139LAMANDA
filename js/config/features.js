@@ -1,5 +1,6 @@
 // js/config/features.js
 // Berisi daftar semua fitur dan sub-fitur aplikasi
+// Path link bersifat RELATIF terhadap dashboard.html (root folder)
 
 export const konfigurasiFitur = {
   'layanan-portal': [
@@ -28,14 +29,20 @@ export const konfigurasiFitur = {
     { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/prestasi.html' }
   ],
   
+  // ✅ UPDATED: Mengarah ke file adm-pembelajaran.html yang baru dibuat
   'admin-pembelajaran': [
-    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '📚', link: 'admin-pembelajaran/sub-1.html' }
+    { 
+      nama: 'Administrasi Pembelajaran', 
+      icon: '📚', 
+      link: 'modules/admin-pembelajaran/adm-pembelajaran.html' 
+    }
   ],
+  
   'kolaborasi-global': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '🤝', link: 'kolaborasi/sub-1.html' }
   ],
   'monitoring': [
-    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '️', link: 'monitoring/sub-1.html' }
+    { nama: 'Sub-Fitur 1 (Placeholder)', icon: '👁️', link: 'monitoring/sub-1.html' }
   ]
 };
 
