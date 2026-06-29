@@ -1,5 +1,5 @@
 // js/controllers/dashboard-controller.js
-import { konfigurasiFitur, controlCenterFitur } from '../config/features.js';
+import { konfigurasiFitur, controlCenterFitur } from '../config/service-menu.js';
 
 export class DashboardController {
   constructor() {
