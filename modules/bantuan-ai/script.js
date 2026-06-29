@@ -143,6 +143,13 @@ async function sendMessage() {
   container.appendChild(loadingDiv);
   container.scrollTop = container.scrollHeight;
   
+  // ✅ PERBAIKAN 1: Konversi role 'ai' → 'assistant' untuk Groq API
+  // Groq hanya menerima: 'system', 'user', 'assistant'
+  const validMessages = chatHistory.map(msg => ({
+    role: msg.role === 'ai' ? 'assistant' : msg.role,
+    content: msg.content
+  }));
+  
   // ✅ TRY MULTIPLE KEYS (dengan fallback)
   let lastError = null;
   let success = false;
@@ -161,7 +168,7 @@ async function sendMessage() {
           model: API_MODEL,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            ...chatHistory
+            ...validMessages // ✅ Gunakan messages yang sudah dikonversi
           ],
           temperature: 0.7,
           max_tokens: 2048
@@ -174,7 +181,12 @@ async function sendMessage() {
         
         loadingDiv.remove();
         appendMessage('ai', aiMessage);
-        await logUsage(userMessage, aiMessage);
+        
+        // ✅ PERBAIKAN 2: logUsage tidak boleh mengganggu flow utama
+        // Gunakan .catch() agar error permission tidak menghentikan chat
+        logUsage(userMessage, aiMessage).catch(err => {
+          console.warn('⚠️ Log usage gagal (tidak kritis):', err.message);
+        });
         
         success = true;
         break; // Success, exit loop
@@ -238,5 +250,7 @@ async function logUsage(question, answer) {
     });
   } catch (error) {
     console.warn('Gagal log penggunaan AI:', error);
+    // ✅ PERBAIKAN 3: Re-throw error agar bisa di-catch oleh caller
+    throw error;
   }
 }
