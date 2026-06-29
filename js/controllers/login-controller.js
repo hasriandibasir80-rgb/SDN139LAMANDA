@@ -1,9 +1,10 @@
-import { signInWithEmailAndPassword, auth } from '../firebase-config.js';
-import { Captcha } from '../components/captcha.js';
+// js/controllers/login-controller.js
+import { auth } from '../firebase-config.js';
 
 export class LoginController {
-  constructor() {
-    this.captcha = new Captcha();
+  // ✅ PERBAIKAN 1: Terima instance captcha dari luar
+  constructor(captchaInstance) {
+    this.captcha = captchaInstance; 
     this.form = document.getElementById('loginForm');
     this.loading = document.getElementById('loading');
     this.submitBtn = this.form?.querySelector('button[type="submit"]');
@@ -23,6 +24,7 @@ export class LoginController {
     const password = document.getElementById('password').value;
     const userCaptcha = document.getElementById('captchaInput').value.trim();
 
+    // Validasi captcha
     if (!this.captcha.validate(userCaptcha)) {
       alert('❌ Kode Captcha salah!');
       this.captcha.refresh();
@@ -31,9 +33,32 @@ export class LoginController {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Jika berhasil, redirect ke dashboard
-      window.location.href = 'dashboard.html'; 
+      // ✅ PERBAIKAN 2: Gunakan fungsi login asli dari auth-login.js 
+      // agar data user otomatis tersimpan di localStorage dan role terbaca.
+      if (typeof window.handleEmailLogin === 'function') {
+        console.log('🔐 Menggunakan sistem login utama...');
+        await window.handleEmailLogin(email, password);
+        
+        // Beri jeda sedikit agar localStorage sempat tersimpan oleh auth-login.js
+        setTimeout(() => {
+          window.location.href = 'dashboard.html'; 
+        }, 500);
+      } else {
+        // Fallback jika auth-login.js tidak ter-load (Basic Firebase Login)
+        console.log('⚠️ Fallback login digunakan...');
+        const { signInWithEmailAndPassword } = await import('../firebase-config.js');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        
+        localStorage.setItem('currentUser', JSON.stringify({
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          isDemo: false,
+          isCustomId: false
+        }));
+        window.location.href = 'dashboard.html';
+      }
     } catch (error) {
       console.error('Login failed:', error);
       alert('❌ Login gagal: ' + error.message);
