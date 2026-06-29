@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Upload Dokumen Arsip - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ BARU: Design System Variables (Wajib dipanggil paling atas) -->
+  <link rel="stylesheet" href="../../css/core/variables.css">
+  
+  <!-- CSS Existing -->
   <link rel="stylesheet" href="../../css/style.css">
   <link rel="stylesheet" href="../../css/modules/arsip-upload.css">
 </head>
@@ -38,7 +43,7 @@
         </div>
 
         <div class="form-group">
-          <label for="levelAkses">🔒 Level Akses</label>
+          <label for="levelAkses"> Level Akses</label>
           <select id="levelAkses" class="form-control" required>
             <option value="publik">🟢 Publik Internal (Semua user)</option>
             <option value="guru">🟡 Khusus Guru</option>
@@ -47,7 +52,7 @@
         </div>
 
         <div class="form-group">
-          <label for="deskripsi">📝 Deskripsi (Opsional)</label>
+          <label for="deskripsi"> Deskripsi (Opsional)</label>
           <textarea id="deskripsi" class="form-control" placeholder="Tambahkan deskripsi singkat..." rows="3"></textarea>
         </div>
 
