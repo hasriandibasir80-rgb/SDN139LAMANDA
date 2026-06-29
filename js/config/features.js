@@ -37,7 +37,7 @@ export const konfigurasiFitur = {
       link: 'modules/admin-pembelajaran/adm-pembelajaran.html' 
     },
     { 
-      nama: 'Bantuan AI (Groq)', 
+      nama: 'Bantuan AI (umum)', 
       icon: '🤖', 
       link: 'modules/bantuan-ai/bantuan-ai.html' 
     }
