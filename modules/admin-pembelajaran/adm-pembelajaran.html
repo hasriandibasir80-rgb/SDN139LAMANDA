@@ -12,12 +12,17 @@
 </head>
 <body>
   <header class="header">
-    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Dashboard</button>
     <div class="logo-text">Adm. <span>Pembelajaran</span></div>
     <div style="width: 50px;"></div>
   </header>
 
   <div class="container">
+    <!-- Tombol Kembali (Hidden by default) -->
+    <button id="btnBackToMenu" class="btn-back" style="display:none;" onclick="backToMenu()">
+      ← Kembali ke Menu
+    </button>
+
     <!-- Menu Sub-Fitur (Grid) -->
     <div id="subMenuContainer" class="sub-menu-grid"></div>
 
