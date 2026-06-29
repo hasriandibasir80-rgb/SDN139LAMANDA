@@ -18,44 +18,23 @@
   </header>
 
   <div class="container">
-    <!-- Setup API Key -->
-    <div id="apiKeySetup" class="setup-box" style="display:none;">
-      <h3>🔑 Setup API Key AI</h3>
-      <p>Masukkan API Key untuk mulai menggunakan Bantuan AI.</p>
-      <p class="hint">💡 Hubungi admin untuk mendapatkan API Key Anda</p>
-      <div class="form-group">
-        <input type="password" id="apiKeyInput" class="form-control" placeholder="Masukkan API Key">
-      </div>
-      <button id="btnSaveApiKey" class="btn btn-primary">💾 Simpan API Key</button>
-      <button id="btnSkipSetup" class="btn btn-secondary">Lewati</button>
-    </div>
-
     <!-- Chat Container -->
     <div id="chatContainer" class="chat-container">
       <div class="message ai">
-        👋 Halo! Saya asisten AI untuk guru SDN 139 LAMANDA. 
-        Saya bisa membantu Anda membuat modul ajar, soal evaluasi, ide P5, dan banyak lagi. 
-        Silakan tanyakan apa saja!
+        Halo, saya asisten AI. silahkan beri perintah atau pertanyaan
       </div>
     </div>
 
     <!-- Input Area -->
     <div class="input-area">
-      <div class="quick-prompts">
-        <button class="prompt-chip" data-prompt="Buatkan modul ajar untuk mata pelajaran Matematika kelas 4 tentang pecahan">📚 Modul Ajar</button>
-        <button class="prompt-chip" data-prompt="Buatkan 5 soal pilihan ganda tentang IPA untuk kelas 5 SD">❓ Buat Soal</button>
-        <button class="prompt-chip" data-prompt="Berikan ide kegiatan P5 dengan tema Kearifan Lokal">🤝 Ide P5</button>
-        <button class="prompt-chip" data-prompt="Buatkan refleksi pembelajaran untuk hari ini">🔍 Refleksi</button>
-      </div>
-      
       <div class="input-box">
-        <textarea id="userInput" class="chat-input" placeholder="Tanyakan sesuatu ke AI..." rows="2"></textarea>
+        <textarea id="userInput" class="chat-input" placeholder="Ketik pertanyaan atau perintah Anda..." rows="2"></textarea>
         <button id="btnSend" class="btn-send">➤</button>
       </div>
       
       <div class="input-footer">
-        <button id="btnChangeApiKey" class="link-btn">🔑 Ganti API Key</button>
-        <button id="btnClearChat" class="link-btn">🗑️ Hapus Chat</button>
+        <!-- Tombol Atur API Key sudah dihapus -->
+        <button id="btnClearChat" class="link-btn">️ Hapus Chat</button>
         <span class="model-info">AI Assistant v1.0</span>
       </div>
     </div>
