@@ -1,9 +1,10 @@
+// modules/bantuan-ai/script.js
 // =========================================
-// MODUL: BANTUAN AI (AUTO CONNECT FIRESTORE)
+// MODUL: BANTUAN AI (MULTI-API KEY SUPPORT)
 // =========================================
 
 import { db } from '../../js/firebase-config.js';
-import { collection, doc, getDoc, serverTimestamp, addDoc } 
+import { doc, getDoc, collection, addDoc, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -12,12 +13,13 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// Konfigurasi API (disamarkan)
+// Konfigurasi API
 const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const API_MODEL = 'llama-3.3-70b-versatile';
 const STORAGE_KEY_CHAT = 'ai_chat_history';
 
-let apiKey = ''; // Akan diisi otomatis dari Firestore
+let apiKeys = []; // Array untuk menyimpan multiple keys
+let currentKeyIndex = 0;
 let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_CHAT) || '[]');
 
 const SYSTEM_PROMPT = `Anda adalah asisten AI yang membantu guru-guru di SDN 139 LAMANDA. 
@@ -25,35 +27,53 @@ Anda ahli dalam pembuatan modul ajar, soal evaluasi, ide P5, dan administrasi pe
 Berikan jawaban yang praktis, sesuai konteks SD di Indonesia, dan terstruktur rapi.`;
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadApiKeyAutomatically();
+  loadApiKeys();
   renderChatHistory();
   attachEventListeners();
 });
 
-// ✅ FUNGSI BARU: Load API Key otomatis dari Firestore
-async function loadApiKeyAutomatically() {
-  const container = document.getElementById('chatContainer');
-  
+// ✅ LOAD MULTI-API KEYS DARI FIRESTORE
+async function loadApiKeys() {
   try {
-    // Membaca dari collection 'system_config', document 'ai_api_key'
-    const docRef = doc(db, 'system_config', 'ai_api_key');
+    const docRef = doc(db, 'settings', 'api_key');
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      apiKey = docSnap.data().key;
-      console.log('✅ API Key berhasil dimuat dari Firestore');
+      const data = docSnap.data();
+      
+      if (data.keys) {
+        // Ambil semua key yang active
+        apiKeys = Object.values(data.keys)
+          .filter(key => key.active === true)
+          .map(key => key.value);
+        
+        console.log(`✅ Loaded ${apiKeys.length} API keys`);
+        
+        if (apiKeys.length === 0) {
+          appendMessage('ai', '⚠️ Tidak ada API Key yang aktif. Hubungi Admin.');
+        }
+      } else {
+        appendMessage('ai', '⚠️ Struktur API Key tidak valid di database.');
+      }
     } else {
-      console.warn('⚠️ Dokumen API Key tidak ditemukan di Firestore');
-      appendMessage('ai', '⚠️ Sistem AI belum dikonfigurasi oleh Admin. Silakan hubungi administrator.');
+      appendMessage('ai', '⚠️ Dokumen API Key tidak ditemukan. Hubungi Admin.');
     }
   } catch (error) {
-    console.error('❌ Gagal memuat API Key:', error);
-    appendMessage('ai', '❌ Terjadi kesalahan koneksi ke database. Silakan refresh halaman.');
+    console.error('Error loading API keys:', error);
+    appendMessage('ai', '❌ Gagal memuat konfigurasi API Key.');
   }
 }
 
+// ✅ GET NEXT AVAILABLE KEY (dengan fallback)
+function getNextApiKey() {
+  if (apiKeys.length === 0) return null;
+  
+  const key = apiKeys[currentKeyIndex];
+  currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length; // Round-robin
+  return key;
+}
+
 function attachEventListeners() {
-  // Tombol Hapus Chat
   document.getElementById('btnClearChat')?.addEventListener('click', () => {
     if (confirm('Hapus semua riwayat chat?')) {
       chatHistory = [];
@@ -62,10 +82,7 @@ function attachEventListeners() {
     }
   });
 
-  // Tombol Kirim
   document.getElementById('btnSend')?.addEventListener('click', sendMessage);
-  
-  // Enter untuk kirim
   document.getElementById('userInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -94,13 +111,6 @@ function renderChatHistory() {
   container.scrollTop = container.scrollHeight;
 }
 
-// Helper untuk menambah pesan baru ke UI dan History
-function appendMessage(role, text) {
-  chatHistory.push({ role, content: text });
-  saveChatHistory();
-  renderChatHistory();
-}
-
 function formatAIResponse(text) {
   return text
     .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
@@ -117,9 +127,8 @@ async function sendMessage() {
   
   if (!userMessage) return;
   
-  // Cek apakah API Key sudah dimuat
-  if (!apiKey) {
-    alert('⚠️ API Key belum dikonfigurasi di sistem. Hubungi Admin.');
+  if (apiKeys.length === 0) {
+    alert('⚠️ API Key belum dikonfigurasi. Hubungi Admin.');
     return;
   }
   
@@ -134,53 +143,81 @@ async function sendMessage() {
   container.appendChild(loadingDiv);
   container.scrollTop = container.scrollHeight;
   
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: API_MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...chatHistory
-        ],
-        temperature: 0.7,
-        max_tokens: 2048
-      })
-    });
+  // ✅ TRY MULTIPLE KEYS (dengan fallback)
+  let lastError = null;
+  let success = false;
+  
+  for (let attempt = 0; attempt < apiKeys.length; attempt++) {
+    const apiKey = getNextApiKey();
     
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+    try {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: API_MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...chatHistory
+          ],
+          temperature: 0.7,
+          max_tokens: 2048
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const aiMessage = data.choices[0].message.content;
+        
+        loadingDiv.remove();
+        appendMessage('ai', aiMessage);
+        await logUsage(userMessage, aiMessage);
+        
+        success = true;
+        break; // Success, exit loop
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.warn(`API Key attempt failed:`, error);
+      lastError = error;
+      
+      // Continue to next key
+      if (attempt < apiKeys.length - 1) {
+        console.log(`Trying next API key... (${attempt + 2}/${apiKeys.length})`);
+      }
     }
-    
-    const data = await response.json();
-    const aiMessage = data.choices[0].message.content;
-    
-    loadingDiv.remove();
-    appendMessage('ai', aiMessage);
-    
-    logUsage(userMessage, aiMessage);
-    
-  } catch (error) {
-    console.error('API Error:', error);
+  }
+  
+  if (!success) {
     loadingDiv.remove();
     
-    let errorMsg = '❌ Maaf, terjadi kesalahan: ' + error.message;
-    if (error.message.includes('401')) {
-      errorMsg = ' API Key tidak valid atau kadaluarsa. Silakan hubungi Admin.';
-    } else if (error.message.includes('429')) {
-      errorMsg = '⚠️ Batas permintaan AI tercapai. Silakan coba lagi beberapa saat.';
+    let errorMsg = '❌ Maaf, terjadi kesalahan pada semua API Key.';
+    if (lastError) {
+      if (lastError.message.includes('401')) {
+        errorMsg = '❌ Semua API Key tidak valid. Hubungi Admin.';
+      } else if (lastError.message.includes('429')) {
+        errorMsg = '⚠️ Semua API Key mencapai batas permintaan. Silakan coba lagi nanti.';
+      } else {
+        errorMsg = `❌ Error: ${lastError.message}`;
+      }
     }
     
     appendMessage('ai', errorMsg);
-  } finally {
-    btnSend.disabled = false;
-    input.focus();
   }
+  
+  btnSend.disabled = false;
+  input.focus();
+}
+
+function appendMessage(role, text) {
+  chatHistory.push({ role, content: text });
+  saveChatHistory();
+  renderChatHistory();
 }
 
 function saveChatHistory() {
