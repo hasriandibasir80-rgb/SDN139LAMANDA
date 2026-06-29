@@ -104,7 +104,7 @@ const MENU_ITEMS = [
     icon: '📄', 
     title: 'LKPD', 
     path: './features/lkpd.js',
-    status: 'soon'
+    status: 'ready'
   }
 ];
 
