@@ -1,72 +1,4 @@
-// =========================================
-// MODUL: ARSIP UPLOAD (REFACTORED & STABLE)
-// =========================================
-
-import { db } from '../firebase-config.js';
-import { collection, addDoc, query, where, orderBy, limit, getDocs, serverTimestamp, deleteDoc, doc } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// URL Web App Google Apps Script
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyFEttY-1C1uPvblg5nOZVl55kvPDV6zH6wd2zc1lORS2A_hHyq5tQQI-dnQqLhN_DjAQ/exec"
-
-// 1. KEAMANAN: Cek Admin
-const userRole = localStorage.getItem('userRole');
-if (userRole !== 'admin') {
-  alert('⛔ Akses Ditolak: Fitur ini hanya untuk Administrator.');
-  window.location.href = '../../dashboard.html';
-}
-
-const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-
-// Validasi User
-if (!currentUser.uid) {
-  alert('⚠️ Sesi user tidak valid. Silakan login ulang.');
-  window.location.href = '../../index.html';
-}
-
-// 2. DOM Elements
-const form = document.getElementById('formUpload');
-const fileInput = document.getElementById('fileInput');
-const dropZone = document.getElementById('dropZone');
-const fileInfo = document.getElementById('fileInfo');
-const btnUpload = document.getElementById('btnUpload');
-const btnText = document.getElementById('btnText');
-const statusDiv = document.getElementById('uploadStatus');
-
-// 3. STATE
-let uploadAborted = false;
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
-
-// 4. DRAG & DROP Handler
-['dragenter', 'dragover'].forEach(evt => {
-  dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
-});
-['dragleave', 'drop'].forEach(evt => {
-  dropZone.addEventListener(evt, (e) => { e.preventDefault(); dropZone.classList.remove('dragover'); });
-});
-
-dropZone.addEventListener('drop', (e) => {
-  const files = e.dataTransfer.files;
-  if (files.length > 0) { fileInput.files = files; tampilkanInfoFile(files[0]); }
-});
-
-fileInput.addEventListener('change', (e) => {
-  if (e.target.files.length > 0) { tampilkanInfoFile(e.target.files[0]); }
-});
-
-function tampilkanInfoFile(file) {
-  const ukuranMB = (file.size / (1024 * 1024)).toFixed(2);
-  fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
-  fileInfo.style.display = 'block';
-  
-  if (file.size > 50 * 1024 * 1024) {
-    showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
-    fileInput.value = '';
-    fileInfo.style.display = 'none';
-  }
-}
-
-// 5. PROSES UPLOAD LANGSUNG (TANPA POSTMESSAGE)
+// 5. PROSES UPLOAD LANGSUNG (DENGAN FAIL-SAFE)
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -110,6 +42,7 @@ form.addEventListener('submit', async (e) => {
 
     // Step 2: Upload per chunk
     let finalResult = null;
+    let uploadSuccess = false;
 
     for (let i = 0; i < totalChunks; i++) {
       if (uploadAborted) throw new Error('Upload dibatalkan');
@@ -135,37 +68,49 @@ form.addEventListener('submit', async (e) => {
 
       const chunkResult = await chunkRes.json();
       
-      if (chunkResult.status === 'error') {
+      // ✅ ACCEPT 'complete', 'success', ATAU 'error' DENGAN FILE ID
+      if (chunkResult.status === 'error' && !chunkResult.id) {
         throw new Error(chunkResult.message || 'Gagal upload chunk');
       }
 
       // Simpan hasil chunk terakhir
       if (i === totalChunks - 1) {
         finalResult = chunkResult;
+        // ✅ Tandai sukses jika ada file ID atau status complete/success
+        uploadSuccess = chunkResult.id || chunkResult.status === 'complete' || chunkResult.status === 'success';
       }
     }
 
-    // Step 3: LANGSUNG SIMPAN METADATA (Tanpa postMessage)
-    if (finalResult && (finalResult.status === 'complete' || finalResult.status === 'success')) {
-      console.log('✅ Upload ke Drive selesai. Menyimpan metadata...');
-      await simpanMetadata({
-        namaDokumen, kategori, levelAkses, deskripsi, file,
-        url: finalResult.url,
-        id: finalResult.id,
-        name: finalResult.name
-      });
+    // Step 3: SIMPAN METADATA (Fail-Safe)
+    if (finalResult) {
+      console.log('📦 Hasil upload:', finalResult);
+      
+      // ✅ CEK: Apakah file ID ada? (artinya file sudah terupload ke Drive)
+      if (uploadSuccess || finalResult.id) {
+        console.log('✅ File terdeteksi sudah terupload ke Drive. Menyimpan metadata...');
+        
+        await simpanMetadata({
+          namaDokumen, kategori, levelAkses, deskripsi, file,
+          url: finalResult.url || `https://drive.google.com/file/d/${finalResult.id}/view`,
+          id: finalResult.id,
+          name: finalResult.name || file.name,
+          hasError: finalResult.status === 'error' // Flag untuk tracking
+        });
+      } else {
+        throw new Error('Upload selesai tapi tidak ada file ID dari Apps Script.');
+      }
     } else {
-      throw new Error('Upload chunk selesai tapi status tidak valid dari Apps Script.');
+      throw new Error('Tidak ada respons dari Apps Script.');
     }
 
   } catch (error) {
-    console.error(' Upload error:', error);
+    console.error('❌ Upload error:', error);
     showStatus('error', `❌ Gagal upload: ${error.message}`);
     cleanupUpload();
   }
 });
 
-// 6. FUNGSI SIMPAN METADATA (DIPISAHKAN AGAR RAPI)
+// 6. FUNGSI SIMPAN METADATA (FAIL-SAFE VERSION)
 async function simpanMetadata(uploadData) {
   try {
     showStatus('loading', '💾 Menyimpan metadata ke Firestore...');
@@ -180,19 +125,26 @@ async function simpanMetadata(uploadData) {
       tipeFile: uploadData.file.type || 'unknown',
       urlFile: uploadData.url,
       driveFileId: uploadData.id,
-      uploaderUid: currentUser.uid, // Pastikan ini ada!
+      uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email || 'unknown',
       tanggalUpload: serverTimestamp(),
       versi: 1,
-      status: 'aktif'
+      status: uploadData.hasError ? 'warning' : 'aktif', // Track jika ada error
+      uploadError: uploadData.hasError ? 'File terupload tapi Apps Script mengembalikan error' : null
     };
     
-    console.log('📝 Data yang akan disimpan:', metadata);
+    console.log(' Data yang akan disimpan:', metadata);
     
     const docRef = await addDoc(collection(db, 'documents'), metadata);
     console.log('✅ Metadata berhasil disimpan dengan ID:', docRef.id);
     
-    showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
+    // ✅ PESAN YANG LEBIH AKURAT
+    if (uploadData.hasError) {
+      showStatus('warning', '⚠️ File berhasil terupload ke Drive, tapi ada error dari Apps Script. Metadata tetap disimpan.');
+    } else {
+      showStatus('success', '✅ Dokumen berhasil diunggah ke Google Drive dan disimpan!');
+    }
+    
     form.reset();
     fileInfo.style.display = 'none';
     
@@ -201,106 +153,11 @@ async function simpanMetadata(uploadData) {
     
   } catch (error) {
     console.error('❌ Error saving metadata:', error);
-    showStatus('warning', `⚠️ File terupload ke Drive, tapi GAGAL simpan ke Firestore: ${error.message}`);
+    
+    // ✅ FAIL-SAFE: Tampilkan URL manual jika Firestore gagal
+    const manualUrl = uploadData.url || `https://drive.google.com/file/d/${uploadData.id}/view`;
+    showStatus('error', `❌ Gagal simpan metadata: ${error.message}\n\n URL File (simpan manual): ${manualUrl}`);
   } finally {
     cleanupUpload();
   }
 }
-
-// 7. MUAT RECENT UPLOADS
-async function muatRecentUploads() {
-  const container = document.getElementById('recentList');
-  container.innerHTML = '<p class="loading-state">⏳ Memuat dokumen terbaru...</p>';
-  
-  try {
-    const q = query(
-      collection(db, 'documents'), 
-      where('uploaderUid', '==', currentUser.uid), 
-      orderBy('tanggalUpload', 'desc'), 
-      limit(5)
-    );
-    
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
-      container.innerHTML = `
-        <div class="empty-state-enhanced">
-          <div style="font-size: 40px; margin-bottom: 10px;">📭</div>
-          <p>Belum ada dokumen yang Anda upload.</p>
-        </div>
-      `;
-      return;
-    }
-    
-    container.innerHTML = '';
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      const tanggal = data.tanggalUpload 
-        ? new Date(data.tanggalUpload.toDate()).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) 
-        : '-';
-      
-      const iconMap = { 'application/pdf': '📕', 'image/jpeg': '🖼️', 'image/png': '🖼️' };
-      const icon = iconMap[data.tipeFile] || '📄';
-      const ukuranMB = data.ukuranFile ? (data.ukuranFile / (1024 * 1024)).toFixed(2) : '?';
-      
-      const itemEl = document.createElement('div');
-      itemEl.className = 'recent-item';
-      itemEl.innerHTML = `
-        <div class="file-icon">${icon}</div>
-        <div class="file-details">
-          <div class="file-name">${data.namaDokumen}</div>
-          <div class="file-meta">📅 ${tanggal} •  ${ukuranMB}MB • 📁 ${data.kategori}</div>
-        </div>
-        <div class="file-actions">
-          ${data.urlFile ? `<button class="btn-action btn-view" onclick="window.open('${data.urlFile}', '_blank')" title="Lihat File">👁️</button>` : ''}
-          <button class="btn-action btn-delete" onclick="hapusDokumen('${docSnap.id}', '${data.namaFile}')" title="Hapus">🗑️</button>
-        </div>
-      `;
-      container.appendChild(itemEl);
-    });
-    
-  } catch (error) { 
-    console.error('❌ Error loading recent:', error);
-    container.innerHTML = `<div class="error-state">Gagal memuat: ${error.message}</div>`;
-  }
-}
-
-// 8. FUNGSI HAPUS DOKUMEN
-window.hapusDokumen = async function(docId, namaFile) {
-  if (!confirm(`Hapus metadata dokumen "${namaFile}"?\n\n(File fisik di Google Drive tidak akan terhapus)`)) return;
-  
-  try {
-    await deleteDoc(doc(db, 'documents', docId));
-    alert('✅ Metadata berhasil dihapus!');
-    muatRecentUploads();
-  } catch (error) {
-    alert('❌ Gagal menghapus: ' + error.message);
-  }
-};
-
-// 9. HELPER FUNCTIONS
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
-function cleanupUpload() {
-  uploadAborted = true;
-  btnUpload.disabled = false;
-  btnText.textContent = '💾 Upload & Simpan Metadata';
-}
-
-function showStatus(type, message) {
-  statusDiv.className = `upload-status ${type}`;
-  statusDiv.textContent = message;
-}
-
-// 10. INIT
-document.addEventListener('DOMContentLoaded', () => { 
-  console.log('✅ Modul Arsip Upload dimuat. User UID:', currentUser.uid);
-  muatRecentUploads(); 
-});
