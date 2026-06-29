@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>SDN 139LAMANDA - sdn139 LAMANDA</title>
   
-  <!-- ✅ Design System (paling atas) -->
+  <!-- ✅ CSS MODULAR (Struktur Baru Fase 4) -->
   <link rel="stylesheet" href="css/core/variables.css">
-  
-  <!-- ✅ CSS Global -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/core/reset.css">
+  <link rel="stylesheet" href="css/layouts/main-layout.css">
+  <link rel="stylesheet" href="css/components/ui-components.css">
+  <link rel="stylesheet" href="css/components/animations.css">
   <link rel="stylesheet" href="css/modal.css">
   
   <style>
@@ -155,7 +156,7 @@
   <script type="module" src="js/firebase-config.js"></script>
   <script type="module" src="js/auth-login.js"></script>
 
-  <!-- ✅ MODULAR SCRIPTS (Perbaikan Captcha) -->
+  <!-- ✅ MODULAR SCRIPTS -->
   <script type="module">
     import { LoginController } from './js/controllers/login-controller.js';
     import { AnnouncementRotator } from './js/components/announcement-rotator.js';
@@ -163,14 +164,11 @@
     import { initNavActiveState } from './js/components/nav-active-state.js';
     import { Captcha } from './js/components/captcha.js';
 
-    // 1. Inisialisasi Captcha secara eksplisit
     const captchaManager = new Captcha();
     
-    // 2. Event Listener Tombol Refresh
     const btnRefresh = document.getElementById('btnRefreshCaptcha');
     if (btnRefresh) btnRefresh.addEventListener('click', () => captchaManager.refresh());
 
-    // 3. Event Listener Lupa Password
     const btnForgot = document.getElementById('btnForgotPassword');
     if (btnForgot) {
       btnForgot.addEventListener('click', () => {
@@ -178,12 +176,8 @@
       });
     }
 
-    // 4. Inisialisasi Modul Utama
     document.addEventListener('DOMContentLoaded', () => {
-      // Generate captcha pertama kali saat DOM siap
       captchaManager.generate();
-      
-      // Jalankan modul lain
       new LoginController().init();
       new AnnouncementRotator('infoBerjalan').init();
       new Sidebar().init();
@@ -194,7 +188,6 @@
   <!-- ✅ MODAL HANDLERS -->
   <script>
     (function() {
-      // Modal Eksplor
       const modalEksplor = document.getElementById('modalEksplor');
       const navEksplor = document.getElementById('navEksplor');
       const btnCloseEksplor = document.getElementById('btnCloseModal');
@@ -208,7 +201,6 @@
       btnCloseEksplorAction?.addEventListener('click', closeEksplor);
       modalEksplor?.addEventListener('click', function(e) { if (e.target === modalEksplor) closeEksplor(); });
 
-      // Modal Daftar
       const modalDaftar = document.getElementById('modalDaftar');
       const navDaftar = document.getElementById('navDaftar');
       const btnCloseDaftar = document.getElementById('btnCloseDaftar');
