@@ -3,23 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="css/core/variables.css">
-<link rel="stylesheet" href="css/dashboard.css">
   <title>Beranda - SDN 139 LAMANDA</title>
-  <link rel="stylesheet" href="css/dashboard.css" />
+  
+  <!-- ✅ Design System (paling atas) -->
+  <link rel="stylesheet" href="css/core/variables.css">
+  
+  <!-- ✅ CSS Dashboard -->
+  <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
   <div class="container">
     
-    <!-- ✅ HEADER LOGO (Menggantikan Teks "🏠 Beranda") -->
+    <!-- ✅ HEADER LOGO -->
     <div class="header-logo">
-      <!-- Path mengarah ke root: logo-aplikasi.png -->
       <img src="logo-aplikasi.png" alt="Logo Aplikasi SDN 139 LAMANDA" class="main-logo" 
            onerror="this.style.display='none'; document.getElementById('fallback-title').style.display='block';">
       
-      <!-- Fallback: Muncul hanya jika gambar logo gagal dimuat -->
+      <!-- Fallback jika logo gagal dimuat -->
       <h1 id="fallback-title" style="display:none; text-align:center; margin-bottom:24px; color:#2c3e50; font-size:1.8rem;">
-        🏠 Beranda SDN 139 LAMANDA
+         Beranda SDN 139 LAMANDA
       </h1>
     </div>
 
@@ -53,17 +55,25 @@
 
     <hr class="divider" />
 
-    <!-- WAKTU INI KOSONG, AKAN DIISI OTOMATIS OLEH JAVASCRIPT -->
+    <!-- Area Konten Dinamis -->
     <div id="contentArea" class="content-area"></div>
 
   </div>
 
-  <!-- Script -->
+  <!-- ✅ FIREBASE & AUTH -->
   <script type="module" src="./js/firebase-config.js"></script>
   <script type="module" src="./js/auth-login.js"></script>
-  <script src="js/dashboard.js"></script>
 
-  <!-- Auth Check & Logout Handler -->
+  <!-- ✅ MODULAR DASHBOARD CONTROLLER -->
+  <script type="module">
+    import { DashboardController } from './js/controllers/dashboard-controller.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      new DashboardController().init();
+    });
+  </script>
+
+  <!-- ✅ AUTH CHECK & LOGOUT HANDLER -->
   <script>
     function checkLoginState() {
       const currentUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -72,10 +82,10 @@
         return false;
       }
       const userDetail = document.getElementById('userDetail');
-      let info = `<div>🆔 UID: <strong>${currentUser.uid}</strong></div>`;
+      let info = `<div> UID: <strong>${currentUser.uid}</strong></div>`;
       if (currentUser.displayName) info += `<div>👤 Nama: <strong>${currentUser.displayName}</strong></div>`;
       if (currentUser.email) info += `<div>📧 Email: <strong>${currentUser.email}</strong></div>`;
-      if (currentUser.isDemo) info += `<div>🎭 Mode: <strong>Demo</strong></div>`;
+      if (currentUser.isDemo) info += `<div> Mode: <strong>Demo</strong></div>`;
       if (currentUser.isCustomId) info += `<div>🔑 Mode: <strong>Custom ID</strong></div>`;
       userDetail.innerHTML = info;
       return true;
