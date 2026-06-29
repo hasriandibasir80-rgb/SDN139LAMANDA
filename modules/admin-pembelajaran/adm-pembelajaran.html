@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Administrasi Pembelajaran - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ CSS MODULAR (Path mundur 2 level) -->
+  <link rel="stylesheet" href="../../css/core/variables.css">
+  <link rel="stylesheet" href="../../css/core/reset.css">
+  <link rel="stylesheet" href="../../css/layouts/main-layout.css">
+  
+  <!-- ✅ CSS KHUSUS MODUL INI -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <div class="logo-text">Adm. <span>Pembelajaran</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <div class="container">
+    <!-- Menu Sub-Fitur (Grid) -->
+    <div id="subMenuContainer" class="sub-menu-grid">
+      <!-- Tombol sub-fitur akan di-render otomatis oleh JS -->
+    </div>
+
+    <!-- Area Konten Dinamis -->
+    <div id="dynamicContent">
+      <div class="empty-state">
+         Silakan pilih salah satu sub-fitur di atas untuk memulai.
+      </div>
+    </div>
+  </div>
+
+  <!-- ✅ FIREBASE -->
+  <script type="module" src="../../js/firebase-config.js"></script>
+
+  <!-- ✅ SCRIPT MODUL INI -->
+  <script type="module" src="script.js"></script>
+</body>
+</html>
