@@ -30,7 +30,7 @@
     <button class="close-btn" id="closeSidebar">✕</button>
     <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">🏫 TENTANG KAMI</div>
     <a href="visi-misi.html" class="sidebar-link"><span></span> Visi & Misi Sekolah</a>
-    <a href="personil.html" class="sidebar-link"><span>👥</span> Personil</a>
+    <a href="personil.html" class="sidebar-link"><span></span> Personil</a>
     <a href="rubrik-info.html" class="sidebar-link"><span></span> Rubrik Info</a>
     <a href="layanan.html" class="sidebar-link"><span>🛠️</span> Kombel SAHABAT BERIMAN</a>
   </div>
@@ -113,12 +113,12 @@
     <div class="modal-eksplor-content">
       <button class="modal-eksplor-close" id="btnCloseModal" aria-label="Tutup">&times;</button>
       <div class="modal-eksplor-header">
-        <div class="modal-eksplor-icon">🗺️</div>
+        <div class="modal-eksplor-icon">️</div>
         <h2>Eksplorasi Dashboard</h2>
         <p>Selamat datang di Sistem Manajemen SDN 139 LAMANDA.</p>
       </div>
       <div class="modal-eksplor-body">
-        <h3 class="modal-section-title">🌐 6 Fitur Global Utama</h3>
+        <h3 class="modal-section-title"> 6 Fitur Global Utama</h3>
         <div class="feature-grid">
           <div class="feature-item"><div class="feature-icon-wrap portal"></div><div class="feature-text"><strong>Layanan Portal</strong><p>Akses cepat ke SIAGA Pendis, SIMPKB.</p></div></div>
           <div class="feature-item"><div class="feature-icon-wrap arsip"></div><div class="feature-text"><strong>Dokumen Arsip</strong><p>Penyimpanan dokumen penting.</p></div></div>
@@ -143,7 +143,7 @@
         <h2>Pilih Jenis Pendaftaran</h2>
       </div>
       <div class="modal-daftar-body">
-        <a href="daftar-member.html" class="choice-card"><div class="choice-icon member">👤</div><div class="choice-text"><h3>Member Dashboard</h3><p>Untuk Guru, Staf, atau Admin.</p></div><div class="choice-arrow">→</div></a>
+        <a href="daftar-member.html" class="choice-card"><div class="choice-icon member"></div><div class="choice-text"><h3>Member Dashboard</h3><p>Untuk Guru, Staf, atau Admin.</p></div><div class="choice-arrow">→</div></a>
         <a href="daftar-ppdb.html" class="choice-card"><div class="choice-icon ppdb"></div><div class="choice-text"><h3>Peserta Didik Baru</h3><p>Untuk calon siswa baru (PPDB).</p></div><div class="choice-arrow">→</div></a>
       </div>
       <div class="modal-daftar-footer"><button class="btn-modal-secondary" id="btnCancelDaftar">Batal</button></div>
@@ -156,7 +156,7 @@
   <script type="module" src="js/firebase-config.js"></script>
   <script type="module" src="js/auth-login.js"></script>
 
-  <!-- ✅ MODULAR SCRIPTS -->
+  <!-- ✅ MODULAR SCRIPTS (DIPERBAIKI) -->
   <script type="module">
     import { LoginController } from './js/controllers/login-controller.js';
     import { AnnouncementRotator } from './js/components/announcement-rotator.js';
@@ -164,11 +164,14 @@
     import { initNavActiveState } from './js/components/nav-active-state.js';
     import { Captcha } from './js/components/captcha.js';
 
+    // 1. Buat Captcha HANYA SATU KALI (instance tunggal)
     const captchaManager = new Captcha();
     
+    // 2. Event Listener Tombol Refresh
     const btnRefresh = document.getElementById('btnRefreshCaptcha');
     if (btnRefresh) btnRefresh.addEventListener('click', () => captchaManager.refresh());
 
+    // 3. Event Listener Lupa Password
     const btnForgot = document.getElementById('btnForgotPassword');
     if (btnForgot) {
       btnForgot.addEventListener('click', () => {
@@ -176,9 +179,16 @@
       });
     }
 
+    // 4. Inisialisasi Modul Utama
     document.addEventListener('DOMContentLoaded', () => {
+      // Generate captcha pertama kali
       captchaManager.generate();
-      new LoginController().init();
+      
+      // ✅ PERBAIKAN: Kirim 'captchaManager' ke LoginController
+      // agar Captcha dan Login menggunakan instance yang SAMA
+      const loginCtrl = new LoginController(captchaManager);
+      loginCtrl.init();
+      
       new AnnouncementRotator('infoBerjalan').init();
       new Sidebar().init();
       initNavActiveState();
