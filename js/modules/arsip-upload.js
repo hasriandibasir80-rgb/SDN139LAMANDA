@@ -31,6 +31,7 @@ const status = document.getElementById('uploadStatus');
 // 3. STATE
 let currentUploadData = {};
 let uploadAborted = false;
+let uploadTimeoutId = null; // ✅ BARU: Untuk track timeout
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
 // 4. DRAG & DROP Handler
@@ -70,6 +71,12 @@ window.addEventListener('message', async (event) => {
   
   console.log('✅ Pesan diterima:', result);
 
+  // ✅ BARU: Clear timeout jika ada response
+  if (uploadTimeoutId) {
+    clearTimeout(uploadTimeoutId);
+    uploadTimeoutId = null;
+  }
+
   if (result.status === 'success') {
     try {
       showStatus('loading', '💾 Menyimpan metadata ke database...');
@@ -100,7 +107,7 @@ window.addEventListener('message', async (event) => {
       
     } catch (error) {
       console.error('Error saving metadata:', error);
-      showStatus('error', `❌ File berhasil upload tapi gagal simpan metadata: ${error.message}`);
+      showStatus('warning', `⚠️ File berhasil upload tapi gagal simpan metadata: ${error.message}. Silakan screenshot URL file untuk dokumentasi.`);
     } finally {
       cleanupUpload();
     }
@@ -204,8 +211,50 @@ form.addEventListener('submit', async (e) => {
 
   } catch (error) {
     console.error('Upload error:', error);
-    showStatus('error', `❌ Gagal upload: ${error.message}`);
-    cleanupUpload();
+    
+    // ✅ BARU: Error handling yang lebih pintar
+    const errorMessage = error.message.toLowerCase();
+    
+    // Jika error terkait authorization/DriveApp, tampilkan pesan yang lebih helpful
+    if (errorMessage.includes('akses ditolak') || errorMessage.includes('driveapp')) {
+      showStatus('warning', 
+        `⚠️ File kemungkinan besar SUDAH terupload ke Google Drive, tapi terjadi masalah sinkronisasi.
+        
+        📌 Langkah yang perlu dilakukan:
+        1. Buka Google Drive Anda
+        2. Cek folder "ARSIP DARI SITUS SDN 139 LAMANDA"
+        3. Jika file ada, screenshot URL file untuk dokumentasi
+        4. Hubungi admin jika metadata tidak tersimpan`
+      );
+      
+      // Auto cleanup setelah 10 detik
+      setTimeout(() => {
+        cleanupUpload();
+        form.reset();
+        fileInfo.style.display = 'none';
+      }, 10000);
+      
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('network')) {
+      // Jika timeout/network error, file mungkin sudah terupload
+      showStatus('warning', 
+        `⚠️ Upload memakan waktu lebih lama dari biasanya. File mungkin SUDAH berhasil terupload.
+        
+        📌 Silakan:
+        1. Cek Google Drive Anda
+        2. Lihat folder "ARSIP DARI SITUS SDN 139 LAMANDA"
+        3. Refresh halaman jika file sudah ada`
+      );
+      
+      // Set timeout untuk cleanup
+      setTimeout(() => {
+        cleanupUpload();
+      }, 10000);
+      
+    } else {
+      // Error lainnya
+      showStatus('error', `❌ Gagal upload: ${error.message}`);
+      cleanupUpload();
+    }
   }
 });
 
@@ -221,6 +270,13 @@ function blobToBase64(blob) {
 
 function cleanupUpload() {
   uploadAborted = true;
+  
+  // ✅ BARU: Clear timeout jika ada
+  if (uploadTimeoutId) {
+    clearTimeout(uploadTimeoutId);
+    uploadTimeoutId = null;
+  }
+  
   btnUpload.disabled = false;
   btnText.textContent = '💾 Upload & Simpan Metadata';
 }
