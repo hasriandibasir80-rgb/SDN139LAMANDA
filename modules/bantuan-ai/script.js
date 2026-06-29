@@ -1,9 +1,9 @@
 // =========================================
-// MODUL: BANTUAN AI
+// MODUL: BANTUAN AI (AUTO CONNECT FIRESTORE)
 // =========================================
 
 import { db } from '../../js/firebase-config.js';
-import { collection, addDoc, serverTimestamp } 
+import { collection, doc, getDoc, serverTimestamp, addDoc } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -15,10 +15,9 @@ if (!currentUser.uid) {
 // Konfigurasi API (disamarkan)
 const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const API_MODEL = 'llama-3.3-70b-versatile';
-const STORAGE_KEY_API = 'ai_api_key';
 const STORAGE_KEY_CHAT = 'ai_chat_history';
 
-let apiKey = localStorage.getItem(STORAGE_KEY_API) || '';
+let apiKey = ''; // Akan diisi otomatis dari Firestore
 let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_CHAT) || '[]');
 
 const SYSTEM_PROMPT = `Anda adalah asisten AI yang membantu guru-guru di SDN 139 LAMANDA. 
@@ -26,34 +25,35 @@ Anda ahli dalam pembuatan modul ajar, soal evaluasi, ide P5, dan administrasi pe
 Berikan jawaban yang praktis, sesuai konteks SD di Indonesia, dan terstruktur rapi.`;
 
 document.addEventListener('DOMContentLoaded', () => {
-  checkApiKey();
+  loadApiKeyAutomatically();
   renderChatHistory();
   attachEventListeners();
 });
 
-function checkApiKey() {
-  const setupBox = document.getElementById('apiKeySetup');
-  if (!apiKey) {
-    setupBox.style.display = 'block';
-  } else {
-    setupBox.style.display = 'none';
+// ✅ FUNGSI BARU: Load API Key otomatis dari Firestore
+async function loadApiKeyAutomatically() {
+  const container = document.getElementById('chatContainer');
+  
+  try {
+    // Membaca dari collection 'system_config', document 'ai_api_key'
+    const docRef = doc(db, 'system_config', 'ai_api_key');
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      apiKey = docSnap.data().key;
+      console.log('✅ API Key berhasil dimuat dari Firestore');
+    } else {
+      console.warn('⚠️ Dokumen API Key tidak ditemukan di Firestore');
+      appendMessage('ai', '⚠️ Sistem AI belum dikonfigurasi oleh Admin. Silakan hubungi administrator.');
+    }
+  } catch (error) {
+    console.error('❌ Gagal memuat API Key:', error);
+    appendMessage('ai', '❌ Terjadi kesalahan koneksi ke database. Silakan refresh halaman.');
   }
 }
 
 function attachEventListeners() {
-  document.getElementById('btnSaveApiKey')?.addEventListener('click', saveApiKey);
-  document.getElementById('btnSkipSetup')?.addEventListener('click', () => {
-    document.getElementById('apiKeySetup').style.display = 'none';
-  });
-  document.getElementById('btnChangeApiKey')?.addEventListener('click', () => {
-    const newKey = prompt('Masukkan API Key baru:', apiKey);
-    if (newKey && newKey.trim()) {
-      apiKey = newKey.trim();
-      localStorage.setItem(STORAGE_KEY_API, apiKey);
-      alert('✅ API Key berhasil diperbarui!');
-      checkApiKey();
-    }
-  });
+  // Tombol Hapus Chat
   document.getElementById('btnClearChat')?.addEventListener('click', () => {
     if (confirm('Hapus semua riwayat chat?')) {
       chatHistory = [];
@@ -61,35 +61,17 @@ function attachEventListeners() {
       renderChatHistory();
     }
   });
+
+  // Tombol Kirim
   document.getElementById('btnSend')?.addEventListener('click', sendMessage);
+  
+  // Enter untuk kirim
   document.getElementById('userInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   });
-  document.querySelectorAll('.prompt-chip').forEach(chip => {
-    chip.addEventListener('click', () => {
-      const prompt = chip.getAttribute('data-prompt');
-      document.getElementById('userInput').value = prompt;
-      sendMessage();
-    });
-  });
-}
-
-function saveApiKey() {
-  const input = document.getElementById('apiKeyInput');
-  const key = input.value.trim();
-  
-  if (!key) {
-    alert('⚠️ API Key tidak boleh kosong!');
-    return;
-  }
-  
-  apiKey = key;
-  localStorage.setItem(STORAGE_KEY_API, apiKey);
-  document.getElementById('apiKeySetup').style.display = 'none';
-  alert('✅ API Key berhasil disimpan!');
 }
 
 function renderChatHistory() {
@@ -98,9 +80,7 @@ function renderChatHistory() {
   if (chatHistory.length === 0) {
     container.innerHTML = `
       <div class="message ai">
-        👋 Halo! Saya asisten AI untuk guru SDN 139 LAMANDA. 
-        Saya bisa membantu Anda membuat modul ajar, soal evaluasi, ide P5, dan banyak lagi. 
-        Silakan tanyakan apa saja!
+        Halo, saya asisten AI. silahkan beri perintah atau pertanyaan
       </div>
     `;
     return;
@@ -112,6 +92,13 @@ function renderChatHistory() {
   }).join('');
   
   container.scrollTop = container.scrollHeight;
+}
+
+// Helper untuk menambah pesan baru ke UI dan History
+function appendMessage(role, text) {
+  chatHistory.push({ role, content: text });
+  saveChatHistory();
+  renderChatHistory();
 }
 
 function formatAIResponse(text) {
@@ -130,16 +117,13 @@ async function sendMessage() {
   
   if (!userMessage) return;
   
+  // Cek apakah API Key sudah dimuat
   if (!apiKey) {
-    alert('⚠️ API Key belum diset!');
-    document.getElementById('apiKeySetup').style.display = 'block';
+    alert('⚠️ API Key belum dikonfigurasi di sistem. Hubungi Admin.');
     return;
   }
   
-  chatHistory.push({ role: 'user', content: userMessage });
-  saveChatHistory();
-  renderChatHistory();
-  
+  appendMessage('user', userMessage);
   input.value = '';
   btnSend.disabled = true;
   
@@ -177,10 +161,7 @@ async function sendMessage() {
     const aiMessage = data.choices[0].message.content;
     
     loadingDiv.remove();
-    
-    chatHistory.push({ role: 'ai', content: aiMessage });
-    saveChatHistory();
-    renderChatHistory();
+    appendMessage('ai', aiMessage);
     
     logUsage(userMessage, aiMessage);
     
@@ -190,14 +171,12 @@ async function sendMessage() {
     
     let errorMsg = '❌ Maaf, terjadi kesalahan: ' + error.message;
     if (error.message.includes('401')) {
-      errorMsg = '❌ API Key tidak valid.';
+      errorMsg = ' API Key tidak valid atau kadaluarsa. Silakan hubungi Admin.';
     } else if (error.message.includes('429')) {
-      errorMsg = '⚠️ Batas permintaan tercapai. Silakan coba lagi nanti.';
+      errorMsg = '⚠️ Batas permintaan AI tercapai. Silakan coba lagi beberapa saat.';
     }
     
-    chatHistory.push({ role: 'ai', content: errorMsg });
-    saveChatHistory();
-    renderChatHistory();
+    appendMessage('ai', errorMsg);
   } finally {
     btnSend.disabled = false;
     input.focus();
