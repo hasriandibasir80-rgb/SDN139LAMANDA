@@ -3,9 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="css/core/variables.css">
-  <link rel="stylesheet" href="css/style.css"> <!-- Pastikan ini di bawahnya -->
   <title>SDN 139LAMANDA - sdn139 LAMANDA</title>
+  
+  <!-- ✅ Design System (paling atas) -->
+  <link rel="stylesheet" href="css/core/variables.css">
+  
+  <!-- ✅ CSS Global -->
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/modal.css">
   
@@ -91,9 +94,9 @@
     <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">
       🏫 TENTANG KAMI
     </div>
-    <a href="visi-misi.html" class="sidebar-link"><span>🎯</span> Visi & Misi Sekolah</a>
+    <a href="visi-misi.html" class="sidebar-link"><span></span> Visi & Misi Sekolah</a>
     <a href="personil.html" class="sidebar-link"><span>👥</span> Personil</a>
-    <a href="rubrik-info.html" class="sidebar-link"><span>📰</span> Rubrik Info</a>
+    <a href="rubrik-info.html" class="sidebar-link"><span></span> Rubrik Info</a>
     <a href="layanan.html" class="sidebar-link"><span>🛠️</span> Kombel SAHABAT BERIMAN</a>
   </div>
 
@@ -125,25 +128,24 @@
             <span class="form-icon">🛡️</span>
             <input type="text" id="captchaInput" class="form-control" placeholder="Captcha" style="flex: 1;" required>
             <div class="captcha-image" id="captcha">angka random</div>
-            <button type="button" class="refresh-captcha" onclick="refreshCaptcha()">🔄</button>
+            <button type="button" class="refresh-captcha" id="btnRefreshCaptcha">🔄</button>
           </div>
         </div>
 
         <div class="button-group">
-          <button type="button" class="btn btn-secondary" onclick="forgotPassword()">Lupa Password</button>
+          <button type="button" class="btn btn-secondary" id="btnForgotPassword">Lupa Password</button>
           <button type="submit" class="btn btn-primary">Sign In</button>
         </div>
       </form>
     </div>
 
-    <!-- ✅ HANYA BAGIAN INI YANG DIUBAH UNTUK MENDUKUNG MULTIPLE PENGUMUMAN + SLIDE + RUNNING TEXT -->
+    <!-- Pengumuman Berjalan -->
     <div id="infoBerjalan" class="info-berjalan" style="display: none;">
       <div id="infoSlide" class="info-slide">
         <div class="info-judul" id="infoJudul"></div>
         <div class="info-isi-running" id="infoTeks"><span></span></div>
       </div>
     </div>
-    <!-- ✅ AKHIR DARI PERUBAHAN -->
 
     <div class="promo-banner">
       <div class="promo-title">🎮 SELAMAT DATANG! 🎮</div>
@@ -164,7 +166,7 @@
         <a href="#" class="social-icon instagram">📷</a>
         <a href="#" class="social-icon facebook">f</a>
         <a href="#" class="social-icon telegram">✈️</a>
-        <a href="#" class="social-icon twitter">𝕏</a>
+        <a href="#" class="social-icon twitter"></a>
         <a href="#" class="social-icon youtube">▶️</a>
         <a href="#" class="social-icon whatsapp">💬</a>
       </div>
@@ -190,6 +192,7 @@
     </a>
   </nav>
 
+  <!-- Modal Eksplor -->
   <div id="modalEksplor" class="modal-eksplor-overlay">
     <div class="modal-eksplor-content">
       <button class="modal-eksplor-close" id="btnCloseModal" aria-label="Tutup">&times;</button>
@@ -211,7 +214,7 @@
             </div>
           </div>
           <div class="feature-item">
-            <div class="feature-icon-wrap arsip">📁</div>
+            <div class="feature-icon-wrap arsip"></div>
             <div class="feature-text">
               <strong>Dokumen Arsip</strong>
               <p>Penyimpanan dan pengelolaan dokumen penting sekolah secara digital dan terstruktur.</p>
@@ -283,6 +286,7 @@
     </div>
   </div>
 
+  <!-- Modal Daftar -->
   <div id="modalDaftar" class="modal-overlay-base">
     <div class="modal-daftar-content">
       <button class="modal-daftar-close" id="btnCloseDaftar" aria-label="Tutup">&times;</button>
@@ -323,10 +327,45 @@
     <div class="spinner"></div>
   </div>
 
-  <script type="module" src="js/firebase-config.js?v=3"></script>
-  <script type="module" src="js/auth-login.js?v=3"></script>
-  <script type="module" src="js/script.js?v=3"></script>
+  <!-- ✅ FIREBASE & AUTH (Tetap dipertahankan) -->
+  <script type="module" src="js/firebase-config.js"></script>
+  <script type="module" src="js/auth-login.js"></script>
 
+  <!-- ✅ MODULAR SCRIPTS (Pengganti script.js) -->
+  <script type="module">
+    import { LoginController } from './js/controllers/login-controller.js';
+    import { AnnouncementRotator } from './js/components/announcement-rotator.js';
+    import { Sidebar } from './js/components/sidebar.js';
+    import { initNavActiveState } from './js/components/nav-active-state.js';
+    import { Captcha } from './js/components/captcha.js';
+
+    // Instance global untuk captcha (agar bisa diakses dari tombol refresh)
+    const captchaInstance = new Captcha();
+
+    // Tombol refresh captcha
+    const btnRefreshCaptcha = document.getElementById('btnRefreshCaptcha');
+    if (btnRefreshCaptcha) {
+      btnRefreshCaptcha.addEventListener('click', () => captchaInstance.refresh());
+    }
+
+    // Tombol lupa password
+    const btnForgotPassword = document.getElementById('btnForgotPassword');
+    if (btnForgotPassword) {
+      btnForgotPassword.addEventListener('click', () => {
+        alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
+      });
+    }
+
+    // Inisialisasi modul-modul utama
+    document.addEventListener('DOMContentLoaded', () => {
+      new LoginController().init();
+      new AnnouncementRotator('infoBerjalan').init();
+      new Sidebar().init();
+      initNavActiveState();
+    });
+  </script>
+
+  <!-- ✅ MODAL HANDLERS (Tetap dipertahankan karena spesifik untuk index.html) -->
   <script>
     (function() {
       const modalEksplor = document.getElementById('modalEksplor');
