@@ -1,4 +1,4 @@
-// js/config/features.js
+// js/config/serviceMenu.js
 // Berisi daftar semua fitur dan sub-fitur aplikasi
 // Path link bersifat RELATIF terhadap dashboard.html (root folder)
 
