@@ -19,7 +19,7 @@ const MENU_ITEMS = [
     icon: '🎯', 
     title: 'CP, TP, & ATP', 
     path: './features/cp-tp-atp.js',
-    status: 'soon' // Belum dibuat
+    status: 'soon'
   },
   { 
     id: 'prota', 
@@ -47,7 +47,7 @@ const MENU_ITEMS = [
     icon: '📝', 
     title: 'Jurnal Harian', 
     path: './features/jurnal.js',
-    status: 'ready' // ✅ Sudah dibuat
+    status: 'ready'
   },
   { 
     id: 'bank-soal', 
@@ -101,11 +101,9 @@ function renderMenu() {
 
 // ✅ LOAD FITUR (Dynamic Import)
 async function loadFeature(feature, clickedBtn) {
-  // Update active state
-  document.querySelectorAll('.sub-menu-btn').forEach(b => b.classList.remove('active'));
-  if (clickedBtn) clickedBtn.classList.add('active');
-
   const contentDiv = document.getElementById('dynamicContent');
+  const menuContainer = document.getElementById('subMenuContainer');
+  const btnBack = document.getElementById('btnBackToMenu');
 
   // Jika fitur belum dibuat
   if (feature.status === 'soon') {
@@ -127,6 +125,11 @@ async function loadFeature(feature, clickedBtn) {
     const module = await import(feature.path);
     
     if (typeof module.init === 'function') {
+      // ✅ HIDE MENU, SHOW TOMBOL KEMBALI
+      menuContainer.style.display = 'none';
+      if (btnBack) btnBack.style.display = 'inline-block';
+      
+      // Init fitur
       module.init(contentDiv, db);
     } else {
       throw new Error('Fungsi init() tidak ditemukan di modul');
@@ -142,3 +145,21 @@ async function loadFeature(feature, clickedBtn) {
     `;
   }
 }
+
+// ✅ FUNGSI GLOBAL: Kembali ke Menu
+window.backToMenu = function() {
+  const menuContainer = document.getElementById('subMenuContainer');
+  const contentDiv = document.getElementById('dynamicContent');
+  const btnBack = document.getElementById('btnBackToMenu');
+
+  // ✅ SHOW MENU, HIDE TOMBOL KEMBALI
+  menuContainer.style.display = 'grid';
+  if (btnBack) btnBack.style.display = 'none';
+  
+  // Reset konten
+  contentDiv.innerHTML = `
+    <div class="empty-state">
+      👆 Silakan pilih salah satu sub-fitur di atas untuk memulai.
+    </div>
+  `;
+};
