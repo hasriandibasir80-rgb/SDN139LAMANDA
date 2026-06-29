@@ -13,87 +13,21 @@
   <link rel="stylesheet" href="css/modal.css">
   
   <style>
-    .menu-btn {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-      color: #fff;
-      padding: 10px;
-    }
-
-    .sidebar {
-      position: fixed;
-      top: 0;
-      left: -280px;
-      width: 260px;
-      height: 100%;
-      background-color: #1a1a2e;
-      color: #fff;
-      transition: left 0.3s ease-in-out;
-      z-index: 1000;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.3);
-      padding-top: 60px;
-    }
-
-    .sidebar.active {
-      left: 0;
-    }
-
-    .close-btn {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: none;
-      border: none;
-      color: #fff;
-      font-size: 28px;
-      cursor: pointer;
-    }
-
-    .sidebar-link {
-      display: flex;
-      align-items: center;
-      padding: 15px 25px;
-      color: #e0e0e0;
-      text-decoration: none;
-      font-size: 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      transition: background 0.2s, color 0.2s;
-    }
-
-    .sidebar-link:hover {
-      background-color: #16213e;
-      color: #FFD700;
-    }
-
-    .sidebar-link span {
-      margin-right: 12px;
-      font-size: 20px;
-    }
-
-    .sidebar-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.5);
-      z-index: 999;
-      display: none;
-    }
-
-    .sidebar-overlay.active {
-      display: block;
-    }
+    .menu-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #fff; padding: 10px; }
+    .sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100%; background-color: #1a1a2e; color: #fff; transition: left 0.3s ease-in-out; z-index: 1000; box-shadow: 2px 0 10px rgba(0,0,0,0.3); padding-top: 60px; }
+    .sidebar.active { left: 0; }
+    .close-btn { position: absolute; top: 15px; right: 15px; background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; }
+    .sidebar-link { display: flex; align-items: center; padding: 15px 25px; color: #e0e0e0; text-decoration: none; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); transition: background 0.2s, color 0.2s; }
+    .sidebar-link:hover { background-color: #16213e; color: #FFD700; }
+    .sidebar-link span { margin-right: 12px; font-size: 20px; }
+    .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 999; display: none; }
+    .sidebar-overlay.active { display: block; }
   </style>
 </head>
 <body>
   <div class="sidebar" id="sidebar">
     <button class="close-btn" id="closeSidebar">✕</button>
-    <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">
-      🏫 TENTANG KAMI
-    </div>
+    <div style="padding: 20px 25px; font-size: 18px; font-weight: bold; border-bottom: 2px solid #FFD700; margin-bottom: 10px;">🏫 TENTANG KAMI</div>
     <a href="visi-misi.html" class="sidebar-link"><span></span> Visi & Misi Sekolah</a>
     <a href="personil.html" class="sidebar-link"><span>👥</span> Personil</a>
     <a href="rubrik-info.html" class="sidebar-link"><span></span> Rubrik Info</a>
@@ -127,7 +61,7 @@
           <div class="captcha-box">
             <span class="form-icon">🛡️</span>
             <input type="text" id="captchaInput" class="form-control" placeholder="Captcha" style="flex: 1;" required>
-            <div class="captcha-image" id="captcha">angka random</div>
+            <div class="captcha-image" id="captcha">...</div>
             <button type="button" class="refresh-captcha" id="btnRefreshCaptcha">🔄</button>
           </div>
         </div>
@@ -139,7 +73,6 @@
       </form>
     </div>
 
-    <!-- Pengumuman Berjalan -->
     <div id="infoBerjalan" class="info-berjalan" style="display: none;">
       <div id="infoSlide" class="info-slide">
         <div class="info-judul" id="infoJudul"></div>
@@ -149,14 +82,8 @@
 
     <div class="promo-banner">
       <div class="promo-title">🎮 SELAMAT DATANG! 🎮</div>
-      <div class="promo-subtitle">
-        MARI PENUHI<br>
-        LAKUKAN<br>
-        YANG BEDA DARI BIASANYA
-      </div>
-      <div style="background: #FFD700; color: #000; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold; margin-top: 10px;">
-        MUDAH SEGALANYA!
-      </div>
+      <div class="promo-subtitle">MARI PENUHI<br>LAKUKAN<br>YANG BEDA DARI BIASANYA</div>
+      <div style="background: #FFD700; color: #000; padding: 8px 20px; border-radius: 20px; display: inline-block; font-weight: bold; margin-top: 10px;">MUDAH SEGALANYA!</div>
       <a href="#" class="promo-cta">SILAHKAN COBA →</a>
     </div>
 
@@ -174,113 +101,33 @@
   </div>
 
   <nav class="bottom-nav">
-    <a href="#" class="nav-item active">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">BERANDA</span>
-    </a>
-    <a href="#" class="nav-item" id="navDaftar">
-      <span class="nav-icon">✍️</span>
-      <span class="nav-label">DAFTAR</span>
-    </a>
-    <a href="#" class="nav-item" id="navEksplor">
-      <span class="nav-icon">🎁</span>
-      <span class="nav-label">EKSPLOR</span>
-    </a>
-    <a href="#" class="nav-item">
-      <span class="nav-icon">💬</span>
-      <span class="nav-label">LIVECHAT</span>
-    </a>
+    <a href="#" class="nav-item active"><span class="nav-icon">🏠</span><span class="nav-label">BERANDA</span></a>
+    <a href="#" class="nav-item" id="navDaftar"><span class="nav-icon">✍️</span><span class="nav-label">DAFTAR</span></a>
+    <a href="#" class="nav-item" id="navEksplor"><span class="nav-icon">🎁</span><span class="nav-label">EKSPLOR</span></a>
+    <a href="#" class="nav-item"><span class="nav-icon">💬</span><span class="nav-label">LIVECHAT</span></a>
   </nav>
 
   <!-- Modal Eksplor -->
   <div id="modalEksplor" class="modal-eksplor-overlay">
     <div class="modal-eksplor-content">
       <button class="modal-eksplor-close" id="btnCloseModal" aria-label="Tutup">&times;</button>
-      
       <div class="modal-eksplor-header">
         <div class="modal-eksplor-icon">🗺️</div>
         <h2>Eksplorasi Dashboard</h2>
-        <p>Selamat datang di Sistem Manajemen SDN 139 LAMANDA. Berikut adalah gambaran fitur lengkap yang akan Anda dapatkan setelah login.</p>
+        <p>Selamat datang di Sistem Manajemen SDN 139 LAMANDA.</p>
       </div>
-
       <div class="modal-eksplor-body">
         <h3 class="modal-section-title">🌐 6 Fitur Global Utama</h3>
         <div class="feature-grid">
-          <div class="feature-item">
-            <div class="feature-icon-wrap portal">🌐</div>
-            <div class="feature-text">
-              <strong>Layanan Portal</strong>
-              <p>Akses cepat ke SIAGA Pendis, SIMPKB, dan portal pendidikan eksternal lainnya.</p>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon-wrap arsip"></div>
-            <div class="feature-text">
-              <strong>Dokumen Arsip</strong>
-              <p>Penyimpanan dan pengelolaan dokumen penting sekolah secara digital dan terstruktur.</p>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon-wrap statistik">📊</div>
-            <div class="feature-text">
-              <strong>Data Statistik</strong>
-              <p>Visualisasi data siswa, guru, dan pencapaian sekolah secara real-time.</p>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon-wrap admin">📚</div>
-            <div class="feature-text">
-              <strong>Administrasi Pembelajaran</strong>
-              <p>Modul ajar, penilaian, jadwal, dan perangkat ajar lainnya dalam satu tempat.</p>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon-wrap kolab">🤝</div>
-            <div class="feature-text">
-              <strong>Kolaborasi</strong>
-              <p>Ruang diskusi dan berbagi sumber daya antar tenaga pendidik secara efisien.</p>
-            </div>
-          </div>
-          <div class="feature-item">
-            <div class="feature-icon-wrap monitor">👁️</div>
-            <div class="feature-text">
-              <strong>Monitoring</strong>
-              <p>Pantau progres pembelajaran dan kehadiran secara terpusat dan mudah.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="how-it-works">
-          <h3 class="modal-section-title">⚙️ Cara Menggunakan Fitur Internal</h3>
-          <ol class="how-list">
-            <li>
-              <span class="step-number">1</span>
-              <div>Pilih salah satu <strong>6 Fitur Global</strong> pada menu dropdown "Pilih Layanan".</div>
-            </li>
-            <li>
-              <span class="step-number">2</span>
-              <div>Klik tombol <strong>"Simpan Layanan"</strong> untuk mengaktifkan.</div>
-            </li>
-            <li>
-              <span class="step-number">3</span>
-              <div>Dashboard akan otomatis menampilkan <strong>Sub-fitur (Fitur Internal)</strong> yang spesifik hanya untuk layanan tersebut.</div>
-            </li>
-          </ol>
-        </div>
-
-        <div class="keunggulan-box">
-          <h3 class="modal-section-title">✨ Keunggulan Sistem Ini</h3>
-          <ul class="keunggulan-list">
-            <li>✅ <strong>Mobile-First</strong> — Tampil sempurna di HP, tablet, maupun laptop</li>
-            <li>✅ <strong>Real-time</strong> — Data tersinkronisasi langsung dengan Firebase</li>
-            <li>✅ <strong>Terstruktur</strong> — Navigasi yang rapi dan mudah dipahami</li>
-            <li>✅ <strong>Aman</strong> — Login terproteksi dengan autentikasi Firebase</li>
-          </ul>
+          <div class="feature-item"><div class="feature-icon-wrap portal"></div><div class="feature-text"><strong>Layanan Portal</strong><p>Akses cepat ke SIAGA Pendis, SIMPKB.</p></div></div>
+          <div class="feature-item"><div class="feature-icon-wrap arsip"></div><div class="feature-text"><strong>Dokumen Arsip</strong><p>Penyimpanan dokumen penting.</p></div></div>
+          <div class="feature-item"><div class="feature-icon-wrap statistik">📊</div><div class="feature-text"><strong>Data Statistik</strong><p>Visualisasi data real-time.</p></div></div>
+          <div class="feature-item"><div class="feature-icon-wrap admin">📚</div><div class="feature-text"><strong>Administrasi Pembelajaran</strong><p>Modul ajar, penilaian, jadwal.</p></div></div>
+          <div class="feature-item"><div class="feature-icon-wrap kolab">🤝</div><div class="feature-text"><strong>Kolaborasi</strong><p>Ruang diskusi antar pendidik.</p></div></div>
+          <div class="feature-item"><div class="feature-icon-wrap monitor">👁️</div><div class="feature-text"><strong>Monitoring</strong><p>Pantau progres pembelajaran.</p></div></div>
         </div>
       </div>
-
       <div class="modal-eksplor-footer">
-        <p>Sudah siap menjelajah? Silakan login untuk mulai menggunakan semua fitur.</p>
         <button class="btn-modal-primary" id="btnCloseModalAction">Mengerti, Saya Siap Login</button>
       </div>
     </div>
@@ -290,48 +137,25 @@
   <div id="modalDaftar" class="modal-overlay-base">
     <div class="modal-daftar-content">
       <button class="modal-daftar-close" id="btnCloseDaftar" aria-label="Tutup">&times;</button>
-      
       <div class="modal-daftar-header">
         <div class="modal-daftar-icon">✍️</div>
         <h2>Pilih Jenis Pendaftaran</h2>
-        <p>Silakan pilih kategori pendaftaran yang sesuai dengan kebutuhan Anda.</p>
       </div>
-
       <div class="modal-daftar-body">
-        <a href="daftar-member.html" class="choice-card">
-          <div class="choice-icon member">👤</div>
-          <div class="choice-text">
-            <h3>Member Dashboard</h3>
-            <p>Untuk Guru, Staf, atau Admin yang membutuhkan akses ke sistem manajemen sekolah internal.</p>
-          </div>
-          <div class="choice-arrow">→</div>
-        </a>
-
-        <a href="daftar-ppdb.html" class="choice-card">
-          <div class="choice-icon ppdb">🎓</div>
-          <div class="choice-text">
-            <h3>Peserta Didik Baru</h3>
-            <p>Untuk calon siswa baru yang ingin mendaftar pada Penerimaan Peserta Didik Baru (PPDB) tahun ajaran ini.</p>
-          </div>
-          <div class="choice-arrow">→</div>
-        </a>
+        <a href="daftar-member.html" class="choice-card"><div class="choice-icon member">👤</div><div class="choice-text"><h3>Member Dashboard</h3><p>Untuk Guru, Staf, atau Admin.</p></div><div class="choice-arrow">→</div></a>
+        <a href="daftar-ppdb.html" class="choice-card"><div class="choice-icon ppdb"></div><div class="choice-text"><h3>Peserta Didik Baru</h3><p>Untuk calon siswa baru (PPDB).</p></div><div class="choice-arrow">→</div></a>
       </div>
-
-      <div class="modal-daftar-footer">
-        <button class="btn-modal-secondary" id="btnCancelDaftar">Batal</button>
-      </div>
+      <div class="modal-daftar-footer"><button class="btn-modal-secondary" id="btnCancelDaftar">Batal</button></div>
     </div>
   </div>
 
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-  </div>
+  <div class="loading" id="loading"><div class="spinner"></div></div>
 
-  <!-- ✅ FIREBASE & AUTH (Tetap dipertahankan) -->
+  <!-- ✅ FIREBASE & AUTH -->
   <script type="module" src="js/firebase-config.js"></script>
   <script type="module" src="js/auth-login.js"></script>
 
-  <!-- ✅ MODULAR SCRIPTS (Pengganti script.js) -->
+  <!-- ✅ MODULAR SCRIPTS (Perbaikan Captcha) -->
   <script type="module">
     import { LoginController } from './js/controllers/login-controller.js';
     import { AnnouncementRotator } from './js/components/announcement-rotator.js';
@@ -339,25 +163,27 @@
     import { initNavActiveState } from './js/components/nav-active-state.js';
     import { Captcha } from './js/components/captcha.js';
 
-    // Instance global untuk captcha (agar bisa diakses dari tombol refresh)
-    const captchaInstance = new Captcha();
+    // 1. Inisialisasi Captcha secara eksplisit
+    const captchaManager = new Captcha();
+    
+    // 2. Event Listener Tombol Refresh
+    const btnRefresh = document.getElementById('btnRefreshCaptcha');
+    if (btnRefresh) btnRefresh.addEventListener('click', () => captchaManager.refresh());
 
-    // Tombol refresh captcha
-    const btnRefreshCaptcha = document.getElementById('btnRefreshCaptcha');
-    if (btnRefreshCaptcha) {
-      btnRefreshCaptcha.addEventListener('click', () => captchaInstance.refresh());
-    }
-
-    // Tombol lupa password
-    const btnForgotPassword = document.getElementById('btnForgotPassword');
-    if (btnForgotPassword) {
-      btnForgotPassword.addEventListener('click', () => {
+    // 3. Event Listener Lupa Password
+    const btnForgot = document.getElementById('btnForgotPassword');
+    if (btnForgot) {
+      btnForgot.addEventListener('click', () => {
         alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
       });
     }
 
-    // Inisialisasi modul-modul utama
+    // 4. Inisialisasi Modul Utama
     document.addEventListener('DOMContentLoaded', () => {
+      // Generate captcha pertama kali saat DOM siap
+      captchaManager.generate();
+      
+      // Jalankan modul lain
       new LoginController().init();
       new AnnouncementRotator('infoBerjalan').init();
       new Sidebar().init();
@@ -365,64 +191,39 @@
     });
   </script>
 
-  <!-- ✅ MODAL HANDLERS (Tetap dipertahankan karena spesifik untuk index.html) -->
+  <!-- ✅ MODAL HANDLERS -->
   <script>
     (function() {
+      // Modal Eksplor
       const modalEksplor = document.getElementById('modalEksplor');
       const navEksplor = document.getElementById('navEksplor');
       const btnCloseEksplor = document.getElementById('btnCloseModal');
       const btnCloseEksplorAction = document.getElementById('btnCloseModalAction');
 
-      function openEksplor(e) {
-        if (e) e.preventDefault();
-        modalEksplor.classList.add('active');
-        document.body.style.overflow = 'hidden';
-      }
+      function openEksplor(e) { if (e) e.preventDefault(); modalEksplor?.classList.add('active'); document.body.style.overflow = 'hidden'; }
+      function closeEksplor() { modalEksplor?.classList.remove('active'); document.body.style.overflow = ''; }
 
-      function closeEksplor() {
-        modalEksplor.classList.remove('active');
-        document.body.style.overflow = '';
-      }
+      navEksplor?.addEventListener('click', openEksplor);
+      btnCloseEksplor?.addEventListener('click', closeEksplor);
+      btnCloseEksplorAction?.addEventListener('click', closeEksplor);
+      modalEksplor?.addEventListener('click', function(e) { if (e.target === modalEksplor) closeEksplor(); });
 
-      if (navEksplor) navEksplor.addEventListener('click', openEksplor);
-      if (btnCloseEksplor) btnCloseEksplor.addEventListener('click', closeEksplor);
-      if (btnCloseEksplorAction) btnCloseEksplorAction.addEventListener('click', closeEksplor);
-      if (modalEksplor) {
-        modalEksplor.addEventListener('click', function(e) {
-          if (e.target === modalEksplor) closeEksplor();
-        });
-      }
-
+      // Modal Daftar
       const modalDaftar = document.getElementById('modalDaftar');
       const navDaftar = document.getElementById('navDaftar');
       const btnCloseDaftar = document.getElementById('btnCloseDaftar');
       const btnCancelDaftar = document.getElementById('btnCancelDaftar');
 
-      function openDaftar(e) {
-        if (e) e.preventDefault();
-        modalDaftar.classList.add('active');
-        document.body.style.overflow = 'hidden';
-      }
+      function openDaftar(e) { if (e) e.preventDefault(); modalDaftar?.classList.add('active'); document.body.style.overflow = 'hidden'; }
+      function closeDaftar() { modalDaftar?.classList.remove('active'); document.body.style.overflow = ''; }
 
-      function closeDaftar() {
-        modalDaftar.classList.remove('active');
-        document.body.style.overflow = '';
-      }
-
-      if (navDaftar) navDaftar.addEventListener('click', openDaftar);
-      if (btnCloseDaftar) btnCloseDaftar.addEventListener('click', closeDaftar);
-      if (btnCancelDaftar) btnCancelDaftar.addEventListener('click', closeDaftar);
-      if (modalDaftar) {
-        modalDaftar.addEventListener('click', function(e) {
-          if (e.target === modalDaftar) closeDaftar();
-        });
-      }
+      navDaftar?.addEventListener('click', openDaftar);
+      btnCloseDaftar?.addEventListener('click', closeDaftar);
+      btnCancelDaftar?.addEventListener('click', closeDaftar);
+      modalDaftar?.addEventListener('click', function(e) { if (e.target === modalDaftar) closeDaftar(); });
 
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-          if (modalEksplor && modalEksplor.classList.contains('active')) closeEksplor();
-          if (modalDaftar && modalDaftar.classList.contains('active')) closeDaftar();
-        }
+        if (e.key === 'Escape') { if (modalEksplor?.classList.contains('active')) closeEksplor(); if (modalDaftar?.classList.contains('active')) closeDaftar(); }
       });
     })();
   </script>
