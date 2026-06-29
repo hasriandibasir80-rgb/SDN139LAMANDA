@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR SEMUA SUB-FITUR (Menu + Path Script)
+// ✅ DAFTAR SEMUA SUB-FITUR (13 Fitur)
 const MENU_ITEMS = [
   { 
     id: 'cp-tp-atp', 
@@ -75,6 +75,35 @@ const MENU_ITEMS = [
     icon: '🔍', 
     title: 'Refleksi Guru', 
     path: './features/refleksi.js',
+    status: 'soon'
+  },
+  // ✅ 4 FITUR BARU
+  { 
+    id: 'kalender', 
+    icon: '📆', 
+    title: 'Kalender Pendidikan', 
+    path: './features/kalender.js',
+    status: 'soon'
+  },
+  { 
+    id: 'jadwal', 
+    icon: '🕐', 
+    title: 'Jadwal Pembelajaran', 
+    path: './features/jadwal.js',
+    status: 'soon'
+  },
+  { 
+    id: 'presensi', 
+    icon: '✅', 
+    title: 'Presensi Siswa', 
+    path: './features/presensi.js',
+    status: 'soon'
+  },
+  { 
+    id: 'lkpd', 
+    icon: '📄', 
+    title: 'LKPD', 
+    path: './features/lkpd.js',
     status: 'soon'
   }
 ];
