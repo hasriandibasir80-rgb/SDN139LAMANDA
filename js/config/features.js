@@ -29,12 +29,17 @@ export const konfigurasiFitur = {
     { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/prestasi.html' }
   ],
   
-  // ✅ UPDATED: Mengarah ke file adm-pembelajaran.html yang baru dibuat
+  // ✅ UPDATED: Administrasi Pembelajaran + Bantuan AI (Groq)
   'admin-pembelajaran': [
     { 
       nama: 'Administrasi Pembelajaran', 
       icon: '📚', 
       link: 'modules/admin-pembelajaran/adm-pembelajaran.html' 
+    },
+    { 
+      nama: 'Bantuan AI (Groq)', 
+      icon: '🤖', 
+      link: 'modules/bantuan-ai/bantuan-ai.html' 
     }
   ],
   
