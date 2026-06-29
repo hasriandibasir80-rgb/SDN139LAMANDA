@@ -5,10 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Beranda - SDN 139 LAMANDA</title>
   
-  <!-- ✅ Design System (paling atas) -->
+  <!-- ✅ CSS MODULAR (Struktur Baru Fase 4) -->
   <link rel="stylesheet" href="css/core/variables.css">
+  <link rel="stylesheet" href="css/core/reset.css">
+  <link rel="stylesheet" href="css/layouts/main-layout.css">
   
-  <!-- ✅ CSS Dashboard -->
+  <!-- ✅ CSS Dashboard (Spesifik untuk halaman ini) -->
   <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
@@ -21,7 +23,7 @@
       
       <!-- Fallback jika logo gagal dimuat -->
       <h1 id="fallback-title" style="display:none; text-align:center; margin-bottom:24px; color:#2c3e50; font-size:1.8rem;">
-         Beranda SDN 139 LAMANDA
+        🏠 Beranda SDN 139 LAMANDA
       </h1>
     </div>
 
@@ -82,10 +84,10 @@
         return false;
       }
       const userDetail = document.getElementById('userDetail');
-      let info = `<div> UID: <strong>${currentUser.uid}</strong></div>`;
+      let info = `<div>🆔 UID: <strong>${currentUser.uid}</strong></div>`;
       if (currentUser.displayName) info += `<div>👤 Nama: <strong>${currentUser.displayName}</strong></div>`;
       if (currentUser.email) info += `<div>📧 Email: <strong>${currentUser.email}</strong></div>`;
-      if (currentUser.isDemo) info += `<div> Mode: <strong>Demo</strong></div>`;
+      if (currentUser.isDemo) info += `<div>🎭 Mode: <strong>Demo</strong></div>`;
       if (currentUser.isCustomId) info += `<div>🔑 Mode: <strong>Custom ID</strong></div>`;
       userDetail.innerHTML = info;
       return true;
