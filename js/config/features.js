@@ -29,7 +29,7 @@ export const konfigurasiFitur = {
     { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/prestasi.html' }
   ],
   
-  // ✅ UPDATED: Administrasi Pembelajaran + Bantuan AI (Groq)
+  // ✅ UPDATED: Administrasi Pembelajaran + Bantuan AI (umum)
   'admin-pembelajaran': [
     { 
       nama: 'Administrasi Pembelajaran', 
