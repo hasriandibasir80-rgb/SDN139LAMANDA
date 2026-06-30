@@ -61,7 +61,7 @@ const MENU_ITEMS = [
     icon: '📊', 
     title: 'Analisis KKTP', 
     path: './features/kktp.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'p5', 
