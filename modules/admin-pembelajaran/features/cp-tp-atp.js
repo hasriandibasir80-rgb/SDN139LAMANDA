@@ -1,7 +1,7 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// INPUT: Elemen (OPSIONAL) & Topik/Materi (WAJIB)
+// INPUT: Topik (WAJIB) + Elemen per topik (OPSIONAL)
 // OUTPUT: 3 Tabel Terpisah (CP, TP, ATP)
 // DOWNLOAD: Format Word (.doc)
 // =========================================
@@ -64,14 +64,10 @@ async function loadGroqApiKey() {
 
 /**
  * RENDER UI GENERATOR (UNIVERSAL)
- * ✅ REVISI: 
- * - Default nama sekolah: SDN 139 LAMANDA
- * - Hilangkan info-box panduan
  */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
   const userNama = currentUser.namaLengkap || '';
-  // ✅ REVISI 1: Default SDN 139 LAMANDA jika kosong
   const userSekolah = currentUser.namaSekolah || 'SDN 139 LAMANDA';
 
   container.innerHTML = `
@@ -131,16 +127,18 @@ function renderCTAGenerator(container) {
           <input type="text" id="cta-mapel" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia, PJOK" required>
         </div>
 
-        <div class="section-title">2. Input Elemen & Topik/Materi</div>
+        <div class="section-title">2. Input Topik & Elemen</div>
+        <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">
+          Setiap <strong style="color: #2563eb;">Topik</strong> memiliki <strong style="color: #059669;">Elemen</strong> sendiri. 
+          Tambahkan topik sebanyak yang diperlukan, elemen boleh dikosongkan.
+        </p>
         
-        <!-- ✅ REVISI 2: Info-box dihapus -->
-        
-        <div id="elemen-container">
-          <!-- Elemen akan ditambahkan di sini secara dinamis -->
+        <div id="topik-container">
+          <!-- Topik items akan ditambahkan di sini secara dinamis -->
         </div>
 
-        <button type="button" id="btn-tambah-elemen" class="btn-secondary" style="margin-top: 15px; width: auto; padding: 10px 20px;">
-          ➕ Tambah Elemen Baru
+        <button type="button" id="btn-tambah-topik" class="btn-tambah-topik-main" style="margin-top: 15px;">
+          ➕ Tambah Topik Baru
         </button>
 
         <button type="button" id="btn-generate" class="btn-generate" style="margin-top: 20px;">✨ Generate CP, TP, & ATP dengan AI</button>
@@ -169,128 +167,72 @@ function renderCTAGenerator(container) {
     </div>
   `;
 
-  tambahElemenBaru();
+  tambahTopikBaru();
 }
 
 /**
- * TAMBAH ELEMEN BARU (DINAMIS) - ELEMEN OPSIONAL
- * ✅ REVISI 3: Auto-numbering + Input diperbesar (textarea)
+ * TAMBAH TOPIK BARU (dengan Elemen otomatis)
  */
-function tambahElemenBaru() {
-  const container = document.getElementById('elemen-container');
+function tambahTopikBaru() {
+  const container = document.getElementById('topik-container');
   if (!container) return;
-
-  const elemenId = Date.now();
-  const elemenDiv = document.createElement('div');
-  elemenDiv.className = 'elemen-item';
-  elemenDiv.dataset.id = elemenId;
-  
-  // ✅ REVISI: Hitung nomor elemen
-  const elemenNumber = container.querySelectorAll('.elemen-item').length + 1;
-  
-  // ✅ REVISI: Input diperbesar dengan textarea + label nomor
-  elemenDiv.innerHTML = `
-    <div class="elemen-header">
-      <label class="elemen-label">Elemen ${elemenNumber}:</label>
-      <textarea class="elemen-nama" placeholder="Nama Elemen (OPSIONAL - contoh: Bilangan, Gerak Dasar)" rows="2"></textarea>
-      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">🗑️ Hapus</button>
-    </div>
-    <div class="topik-list" id="topik-list-${elemenId}">
-      <!-- Topik items akan ditambahkan di sini -->
-    </div>
-    <button type="button" class="btn-tambah-topik" onclick="tambahTopik(${elemenId})">
-      ➕ Tambah Topik/Materi
-    </button>
-  `;
-
-  container.appendChild(elemenDiv);
-  tambahTopik(elemenId);
-}
-
-/**
- * TAMBAH TOPIK KE ELEMEN - TOPIK WAJIB
- * ✅ REVISI 4: Auto-numbering + Input diperbesar (textarea)
- */
-window.tambahTopik = function(elemenId) {
-  const topikList = document.getElementById(`topik-list-${elemenId}`);
-  if (!topikList) return;
 
   const topikId = Date.now() + Math.random();
   const topikDiv = document.createElement('div');
-  topikDiv.className = 'topik-item';
+  topikDiv.className = 'topik-item-new';
   topikDiv.dataset.id = topikId;
   
-  // ✅ REVISI: Hitung nomor topik
-  const topikNumber = topikList.querySelectorAll('.topik-item').length + 1;
+  const topikNumber = container.querySelectorAll('.topik-item-new').length + 1;
   
-  // ✅ REVISI: Input diperbesar dengan textarea + label nomor
   topikDiv.innerHTML = `
-    <label class="topik-label">Topik ${topikNumber}:</label>
-    <textarea class="topik-nama" placeholder="Topik/Materi (WAJIB - contoh: Penjumlahan, Senam Lantai)" rows="2" required></textarea>
-    <button type="button" class="btn-hapus-topik" onclick="hapusTopik(${topikId})">🗑️</button>
+    <div class="topik-item-header">
+      <span class="topik-number-badge">Topik ${topikNumber}</span>
+      <button type="button" class="btn-hapus-topik-new" onclick="hapusTopikItem(${topikId})">🗑️ Hapus</button>
+    </div>
+    
+    <div class="topik-input-group">
+      <label class="topik-label-new">📝 Topik/Materi <span style="color: #ef4444;">*</span></label>
+      <textarea class="topik-nama-new" placeholder="Contoh: Penjumlahan, Senam Lantai, Surat Al-Fatihah" rows="2" required></textarea>
+    </div>
+    
+    <div class="elemen-input-group">
+      <label class="elemen-label-new">📁 Elemen <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
+      <textarea class="elemen-nama-new" placeholder="Contoh: Bilangan, Gerak Dasar, Al-Qur'an & Hadis (boleh dikosongkan)" rows="4"></textarea>
+    </div>
   `;
 
-  topikList.appendChild(topikDiv);
-};
-
-/**
- * HAPUS ELEMEN
- * ✅ REVISI: Update nomor setelah hapus
- */
-window.hapusElemen = function(elemenId) {
-  const elemen = document.querySelector(`.elemen-item[data-id="${elemenId}"]`);
-  if (elemen) {
-    if (confirm('Hapus elemen ini beserta semua topiknya?')) {
-      elemen.remove();
-      updateNomorElemen(); // ✅ Update nomor setelah hapus
-    }
-  }
-};
-
-/**
- * HAPUS TOPIK
- * ✅ REVISI: Update nomor setelah hapus
- */
-window.hapusTopik = function(topikId) {
-  const topik = document.querySelector(`.topik-item[data-id="${topikId}"]`);
-  if (topik) {
-    topik.remove();
-    updateNomorTopik(); // ✅ Update nomor setelah hapus
-  }
-};
-
-/**
- * ✅ REVISI BARU: Update nomor elemen secara otomatis
- */
-function updateNomorElemen() {
-  const elemenItems = document.querySelectorAll('.elemen-item');
-  elemenItems.forEach((elemen, idx) => {
-    const label = elemen.querySelector('.elemen-label');
-    if (label) {
-      label.textContent = `Elemen ${idx + 1}:`;
-    }
-  });
+  container.appendChild(topikDiv);
 }
 
 /**
- * ✅ REVISI BARU: Update nomor topik secara otomatis
+ * HAPUS TOPIK ITEM
+ */
+window.hapusTopikItem = function(topikId) {
+  const item = document.querySelector(`.topik-item-new[data-id="${topikId}"]`);
+  if (item) {
+    if (confirm('Hapus topik ini?')) {
+      item.remove();
+      updateNomorTopik();
+    }
+  }
+};
+
+/**
+ * Update nomor topik secara otomatis
  */
 function updateNomorTopik() {
-  const elemenItems = document.querySelectorAll('.elemen-item');
-  elemenItems.forEach(elemen => {
-    const topikItems = elemen.querySelectorAll('.topik-item');
-    topikItems.forEach((topik, idx) => {
-      const label = topik.querySelector('.topik-label');
-      if (label) {
-        label.textContent = `Topik ${idx + 1}:`;
-      }
-    });
+  const topikItems = document.querySelectorAll('.topik-item-new');
+  topikItems.forEach((item, idx) => {
+    const badge = item.querySelector('.topik-number-badge');
+    if (badge) {
+      badge.textContent = `Topik ${idx + 1}`;
+    }
   });
 }
 
 function attachEventListeners(container) {
-  const btnTambahElemen = container.querySelector('#btn-tambah-elemen');
-  if (btnTambahElemen) btnTambahElemen.addEventListener('click', tambahElemenBaru);
+  const btnTambahTopik = container.querySelector('#btn-tambah-topik');
+  if (btnTambahTopik) btnTambahTopik.addEventListener('click', tambahTopikBaru);
 
   const btnGenerate = container.querySelector('#btn-generate');
   if (btnGenerate) btnGenerate.addEventListener('click', () => handleGenerate(container));
@@ -334,38 +276,30 @@ async function handleGenerate(container) {
     return;
   }
 
-  const elemenItems = container.querySelectorAll('.elemen-item');
-  if (elemenItems.length === 0) { 
-    showToast('⚠️ Tambahkan minimal 1 grup elemen/topik!', 'error'); 
+  const topikItems = container.querySelectorAll('.topik-item-new');
+  if (topikItems.length === 0) { 
+    showToast('⚠️ Tambahkan minimal 1 topik!', 'error'); 
     return; 
   }
 
-  const dataElemen = [];
+  const dataTopik = [];
   let totalTopikValid = 0;
 
-  elemenItems.forEach((elemen) => {
-    const nama = elemen.querySelector('.elemen-nama')?.value.trim();
-    const topikItems = elemen.querySelectorAll('.topik-item');
-    const topikList = [];
+  topikItems.forEach(item => {
+    const topikNama = item.querySelector('.topik-nama-new')?.value.trim();
+    const elemenNama = item.querySelector('.elemen-nama-new')?.value.trim();
     
-    topikItems.forEach(topik => {
-      const namaTopik = topik.querySelector('.topik-nama')?.value.trim();
-      if (namaTopik) {
-        topikList.push(namaTopik);
-        totalTopikValid++;
-      }
-    });
-
-    if (topikList.length > 0) {
-      dataElemen.push({ 
-        nama: nama || 'Umum', 
-        topik: topikList 
+    if (topikNama) {
+      dataTopik.push({ 
+        topik: topikNama,
+        elemen: elemenNama || 'Umum'
       });
+      totalTopikValid++;
     }
   });
 
   if (totalTopikValid === 0) { 
-    showToast('⚠️ Minimal isi 1 Topik/Materi! (Elemen boleh dikosongkan)', 'error'); 
+    showToast('⚠️ Minimal isi 1 Topik/Materi!', 'error'); 
     return; 
   }
 
@@ -380,7 +314,7 @@ async function handleGenerate(container) {
   resultContainer.innerHTML = '<p class="loading">⏳ AI sedang membuat CP, TP, dan ATP...</p>';
 
   try {
-    const prompt = buildPrompt(dataElemen, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
+    const prompt = buildPrompt(dataTopik, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
     
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -388,7 +322,7 @@ async function handleGenerate(container) {
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Tugas Anda adalah membuat Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Alur Tujuan Pembelajaran (ATP) berdasarkan Elemen dan Topik yang diberikan. Output HARUS berupa JSON valid.' },
+          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Tugas Anda adalah membuat Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Alur Tujuan Pembelajaran (ATP) berdasarkan Topik dan Elemen yang diberikan. Output HARUS berupa JSON valid.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
@@ -421,17 +355,17 @@ async function handleGenerate(container) {
 /**
  * BUILD PROMPT UNTUK AI
  */
-function buildPrompt(dataElemen, metadata) {
+function buildPrompt(dataTopik, metadata) {
   let prompt = `Buatkan CP, TP, dan ATP untuk:\n`;
   prompt += `- Mata Pelajaran: ${metadata.mapel}\n`;
   prompt += `- Jenjang: ${metadata.jenjang.toUpperCase()}\n`;
   prompt += `- Kelas: ${metadata.kelas}\n`;
   prompt += `- Semester: ${metadata.semester}\n\n`;
   
-  prompt += `Data Elemen dan Topik:\n`;
-  dataElemen.forEach((elemen, idx) => {
-    prompt += `${idx + 1}. Elemen: ${elemen.nama}\n`;
-    prompt += `   Topik: ${elemen.topik.join(', ')}\n\n`;
+  prompt += `Data Topik dan Elemen:\n`;
+  dataTopik.forEach((item, idx) => {
+    prompt += `${idx + 1}. Topik: ${item.topik}\n`;
+    prompt += `   Elemen: ${item.elemen}\n\n`;
   });
 
   prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan):\n`;
@@ -439,7 +373,7 @@ function buildPrompt(dataElemen, metadata) {
   prompt += `  "cp": [{"elemen": "Nama Elemen", "deskripsi": "Deskripsi CP..."}],\n`;
   prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["TP 1...", "TP 2..."]}],\n`;
   prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["ATP 1...", "ATP 2..."]}]}\n`;
-  prompt += `Pastikan jumlah item di TP dan ATP sesuai dengan jumlah topik yang relevan.`;
+  prompt += `Kelompokkan TP dan ATP berdasarkan Elemen yang sama.`;
 
   return prompt;
 }
@@ -542,8 +476,7 @@ async function autoSaveToFirestore(container, result, metadata) {
 }
 
 /**
- * ✅ UPDATE: DOWNLOAD HASIL - FORMAT WORD (.doc)
- * Menggunakan HTML dengan namespace Microsoft Office agar bisa dibuka di Word
+ * DOWNLOAD HASIL - FORMAT WORD (.doc)
  */
 function downloadCTAResult(container) {
   const resultContainer = container.querySelector('#result-table-container');
@@ -560,7 +493,6 @@ function downloadCTAResult(container) {
   const guru = container.querySelector('#cta-guru')?.value || '';
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
 
-  // Buat HTML lengkap dengan namespace Microsoft Office
   let htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' 
           xmlns:w='urn:schemas-microsoft-com:office:word' 
@@ -578,97 +510,23 @@ function downloadCTAResult(container) {
       </xml>
       <![endif]-->
       <style>
-        @page {
-          size: A4;
-          margin: 2cm;
-        }
-        body { 
-          font-family: 'Times New Roman', Times, serif; 
-          font-size: 12pt; 
-          margin: 2cm;
-          line-height: 1.5;
-        }
-        h1 { 
-          text-align: center; 
-          font-size: 16pt; 
-          font-weight: bold; 
-          margin-bottom: 5px; 
-          text-transform: uppercase;
-        }
-        h2 { 
-          text-align: center; 
-          font-size: 14pt; 
-          font-weight: bold; 
-          margin: 5px 0 20px 0; 
-        }
-        h3 { 
-          font-size: 12pt; 
-          font-weight: bold; 
-          margin-top: 25px; 
-          margin-bottom: 10px; 
-          border-bottom: 2px solid #000; 
-          padding-bottom: 5px;
-        }
-        p { margin: 5px 0; }
-        table { 
-          border-collapse: collapse; 
-          width: 100%; 
-          margin-bottom: 20px; 
-        }
-        th { 
-          background-color: #f0f0f0; 
-          border: 1px solid #000; 
-          padding: 8px; 
-          text-align: left; 
-          font-weight: bold;
-          font-size: 11pt;
-        }
-        td { 
-          border: 1px solid #000; 
-          padding: 8px; 
-          vertical-align: top;
-          font-size: 11pt;
-        }
-        .col-elemen { 
-          width: 18%; 
-          font-weight: bold; 
-          background-color: #f9f9f9; 
-        }
-        .col-no { 
-          width: 8%; 
-          text-align: center; 
-          font-weight: bold; 
-          background-color: #f9f9f9;
-        }
-        .col-deskripsi { 
-          width: 74%; 
-        }
-        .header-info { 
-          margin-bottom: 30px; 
-        }
-        .header-info table { 
-          border: none; 
-          width: auto;
-          margin: 0 auto;
-        }
-        .header-info td { 
-          border: none; 
-          padding: 3px 5px; 
-          font-size: 11pt;
-        }
-        .page-break { 
-          page-break-after: always; 
-        }
-        .footer {
-          margin-top: 30px;
-          text-align: right;
-          font-size: 10pt;
-          color: #666;
-        }
+        @page { size: A4; margin: 2cm; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
+        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; }
+        td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; }
+        .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; }
+        .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; }
+        .col-deskripsi { width: 74%; }
+        .header-info table { border: none; width: auto; margin: 0 auto; }
+        .header-info td { border: none; padding: 3px 5px; font-size: 11pt; }
+        .page-break { page-break-after: always; }
       </style>
     </head>
     <body>
-      <!-- Header Informasi Dokumen -->
       <div class="header-info" style="text-align: center; margin-bottom: 30px;">
         <h1>PERANGKAT PEMBELAJARAN</h1>
         <h2>${mapel.toUpperCase()}</h2>
@@ -681,32 +539,22 @@ function downloadCTAResult(container) {
       </div>
   `;
 
-  // Extract tabel CP, TP, ATP
   const tables = resultContainer.querySelectorAll('.hasil-table');
-  const titles = [
-    '🎯 1. CAPAIAN PEMBELAJARAN (CP)',
-    '🏁 2. TUJUAN PEMBELAJARAN (TP)',
-    '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'
-  ];
+  const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
 
   tables.forEach((table, idx) => {
-    // Page break antar tabel (kecuali yang pertama)
     if (idx > 0) htmlContent += '<div class="page-break"></div>';
     
     htmlContent += `<h3>${titles[idx]}</h3>`;
     htmlContent += '<table>';
     
-    // Header tabel
     const headers = table.querySelectorAll('thead th');
     if (headers.length > 0) {
       htmlContent += '<thead><tr>';
-      headers.forEach(th => {
-        htmlContent += `<th>${th.textContent}</th>`;
-      });
+      headers.forEach(th => { htmlContent += `<th>${th.textContent}</th>`; });
       htmlContent += '</tr></thead>';
     }
     
-    // Body tabel - pertahankan rowspan
     htmlContent += '<tbody>';
     const rows = table.querySelectorAll('tbody tr');
     rows.forEach(row => {
@@ -723,9 +571,8 @@ function downloadCTAResult(container) {
     htmlContent += '</tbody></table>';
   });
 
-  // Footer
   htmlContent += `
-    <div class="footer">
+    <div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;">
       <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
       <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
     </div>
@@ -733,10 +580,7 @@ function downloadCTAResult(container) {
     </html>
   `;
 
-  // Download sebagai file .doc (HTML dengan ekstensi .doc)
-  const blob = new Blob(['\ufeff', htmlContent], { 
-    type: 'application/msword' 
-  });
+  const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -746,7 +590,7 @@ function downloadCTAResult(container) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 
-  showToast('✅ File Word berhasil diunduh! Buka dengan Microsoft Word.', 'success');
+  showToast('✅ File Word berhasil diunduh!', 'success');
 }
 
 /**
