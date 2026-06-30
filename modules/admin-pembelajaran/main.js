@@ -19,7 +19,7 @@ const MENU_ITEMS = [
     icon: '🎯', 
     title: 'CP, TP, & ATP', 
     path: './features/cp-tp-atp.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'prota', 
