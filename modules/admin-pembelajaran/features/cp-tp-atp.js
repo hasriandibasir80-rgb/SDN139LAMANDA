@@ -102,8 +102,6 @@ function renderCTAGenerator(container) {
             <select id="cta-jenjang" required>
               <option value="">Pilih</option>
               <option value="sd">SD</option>
-              <option value="smp">SMP</option>
-              <option value="sma">SMA</option>
             </select>
           </div>
           <div class="form-group">
