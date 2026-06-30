@@ -88,7 +88,7 @@ function renderCTAGenerator(container) {
         <div class="form-row">
           <div class="form-group">
             <label for="kop-tahun">Tahun Ajaran</label>
-            <input type="text" id="kop-tahun" value="2025/2026">
+            <input type="text" id="kop-tahun" value="2026/2027">
           </div>
           <div class="form-group">
             <label for="cta-guru">Nama Guru</label>
