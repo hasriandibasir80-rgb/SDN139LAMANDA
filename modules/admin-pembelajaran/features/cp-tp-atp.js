@@ -94,7 +94,7 @@ async function loadGroqApiKey() {
 }
 
 /**
- * Render UI Generator
+ * ✅ RENDER UI GENERATOR (VERSI UPDATE: TABEL TERPISAH + LATAR PUTIH)
  */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
@@ -177,25 +177,48 @@ function renderCTAGenerator(container) {
 
       <div id="cta-result" class="result-section hidden">
         <h3>📋 Hasil Generate</h3>
-        <table class="cta-result-table">
+        
+        <!-- ✅ TABEL TERPISAH: CAPAIAN PEMBELAJARAN -->
+        <table class="component-table">
           <thead>
             <tr>
-              <th class="label-col">Komponen</th>
-              <th class="content-col">Konten</th>
+              <th colspan="2">🎯 Capaian Pembelajaran (CP)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td class="label-col">🎯 Capaian Pembelajaran (CP)</td>
-              <td class="content-col" id="result-cp">CP akan muncul setelah generate...</td>
+              <td class="component-label">Deskripsi CP</td>
+              <td class="component-content" id="result-cp">CP akan muncul setelah generate...</td>
             </tr>
+          </tbody>
+        </table>
+
+        <!-- ✅ TABEL TERPISAH: TUJUAN PEMBELAJARAN -->
+        <table class="component-table">
+          <thead>
             <tr>
-              <td class="label-col">🏁 Tujuan Pembelajaran (TP)</td>
-              <td class="content-col" id="result-tp">TP akan muncul setelah generate...</td>
+              <th colspan="2">🏁 Tujuan Pembelajaran (TP)</th>
             </tr>
+          </thead>
+          <tbody>
             <tr>
-              <td class="label-col">📊 Alur Tujuan Pembelajaran (ATP)</td>
-              <td class="content-col" id="result-atp">ATP akan muncul setelah generate...</td>
+              <td class="component-label">Deskripsi TP</td>
+              <td class="component-content" id="result-tp">TP akan muncul setelah generate...</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- ✅ TABEL TERPISAH: ALUR TUJUAN PEMBELAJARAN -->
+        <table class="component-table">
+          <thead>
+            <tr>
+              <th colspan="2">📊 Alur Tujuan Pembelajaran (ATP)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="component-label">Deskripsi ATP</td>
+              <td class="component-content" id="result-atp">ATP akan muncul setelah generate...</td>
             </tr>
           </tbody>
         </table>
