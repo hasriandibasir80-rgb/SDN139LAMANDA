@@ -179,6 +179,18 @@ body .admin-pembelajaran-container,
    INPUT DINAMIS: ELEMEN & TOPIK
    ========================================= */
 
+/* ✅ BARU: Label untuk auto-numbering */
+.elemen-label, 
+.topik-label {
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  font-size: 14px !important;
+  margin-bottom: 5px !important;
+  display: block !important;
+  min-width: 90px !important;
+  flex-shrink: 0 !important;
+}
+
 /* ELEMEN - Box dengan border tebal, label jelas */
 .elemen-item {
   background: #ffffff !important;
@@ -203,17 +215,24 @@ body .admin-pembelajaran-container,
   display: flex; 
   gap: 10px; 
   margin-bottom: 15px; 
-  align-items: center; 
+  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
+/* ✅ UPDATE: Textarea untuk input elemen yang lebih besar */
 .elemen-nama { 
-  flex: 1; 
-  padding: 12px !important;
+  flex: 1 !important;
+  min-width: 200px !important;
+  min-height: 60px !important;
+  padding: 10px !important;
   border: 2px solid #059669 !important;
-  border-radius: 8px; 
+  border-radius: 8px !important; 
   font-size: 14px !important;
   background: #f0fdf4 !important; /* Hijau muda untuk Elemen */
-  font-weight: 600;
+  font-weight: 600 !important;
+  resize: vertical !important;
+  font-family: inherit !important;
+  line-height: 1.5 !important;
 }
 
 .elemen-nama::placeholder {
@@ -230,6 +249,7 @@ body .admin-pembelajaran-container,
   cursor: pointer; 
   font-size: 13px !important;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 .btn-hapus-elemen:hover { background: #dc2626 !important; }
 
@@ -244,10 +264,11 @@ body .admin-pembelajaran-container,
   display: flex; 
   gap: 10px; 
   margin-bottom: 10px; 
-  align-items: center; 
+  align-items: flex-start;
   background: #ffffff !important;
   padding: 8px;
   border-radius: 6px;
+  flex-wrap: wrap;
 }
 
 .topik-item::before {
@@ -256,13 +277,19 @@ body .admin-pembelajaran-container,
   margin-right: 5px;
 }
 
+/* ✅ UPDATE: Textarea untuk input topik yang lebih besar */
 .topik-nama {
-  flex: 1; 
+  flex: 1 !important;
+  min-width: 200px !important;
+  min-height: 60px !important;
   padding: 10px !important;
   border: 2px solid #3b82f6 !important; /* Biru untuk Topik */
-  border-radius: 6px;
+  border-radius: 6px !important;
   font-size: 14px !important;
   background: #eff6ff !important; /* Biru muda untuk Topik */
+  resize: vertical !important;
+  font-family: inherit !important;
+  line-height: 1.5 !important;
 }
 
 .topik-nama::placeholder {
@@ -278,6 +305,7 @@ body .admin-pembelajaran-container,
   cursor: pointer; 
   font-size: 12px !important;
   flex-shrink: 0;
+  align-self: flex-start;
 }
 .btn-hapus-topik:hover { background: #dc2626 !important; }
 
@@ -479,7 +507,7 @@ body .admin-pembelajaran-container,
 }
 .action-buttons button { flex: 1; }
 
-/* Info Box */
+/* Info Box (opsional - bisa dihapus jika tidak dipakai) */
 .info-box {
   background: #f0f9ff !important;
   border-left: 4px solid #0891b2 !important;
@@ -490,16 +518,45 @@ body .admin-pembelajaran-container,
   line-height: 1.6;
 }
 
-/* Responsive */
+/* =========================================
+   RESPONSIVE
+   ========================================= */
 @media (max-width: 768px) {
   .form-row, .form-row-3 { grid-template-columns: 1fr; }
   .action-buttons { flex-direction: column; }
   .hasil-table { font-size: 12px; }
   .hasil-table .col-elemen { width: 100px; }
   .hasil-table .col-no { width: 40px; }
+  
+  /* ✅ BARU: Responsive untuk elemen & topik */
+  .elemen-header {
+    flex-direction: column;
+  }
+  
+  .elemen-nama,
+  .topik-nama {
+    min-width: 100% !important;
+  }
+  
+  .elemen-label,
+  .topik-label {
+    min-width: auto !important;
+  }
+  
+  .btn-hapus-elemen,
+  .btn-hapus-topik {
+    width: 100%;
+    margin-top: 8px;
+  }
+  
+  .topik-item {
+    flex-direction: column;
+  }
 }
 
-/* Print */
+/* =========================================
+   PRINT STYLES
+   ========================================= */
 @media print {
   body { background: white !important; }
   
