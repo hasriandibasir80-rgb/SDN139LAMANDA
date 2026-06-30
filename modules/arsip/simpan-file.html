@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simpan File - SDN 139 LAMANDA</title>
+  
+  <!-- Design System -->
+  <link rel="stylesheet" href="../../css/core/variables.css">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/modules/arsip-upload.css">
+  
+  <style>
+    /* Warna header berbeda untuk membedakan dengan Upload Admin */
+    .header { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+    
+    /* Info box untuk status fitur */
+    .info-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+      color: #1e40af;
+    }
+    
+    .info-box strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #1e3a8a;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Dashboard</button>
+    <div class="logo-text">Simpan <span>File</span></div>
+    <div style="width: 50px;"></div>
+  </header>
+
+  <div class="container modul-container">
+    <div class="upload-card">
+      <h2 class="form-title">📂 Simpan File Baru</h2>
+      <p class="form-subtitle">Upload dokumen sekolah (Surat, SK, Laporan, dll). File akan otomatis masuk ke Katalog Arsip.</p>
+
+      <!-- Info Box -->
+      <div class="info-box">
+        <strong>ℹ️ Informasi Fitur</strong>
+        Fitur ini memungkinkan semua guru dan staff untuk menyimpan dokumen ke arsip digital sekolah. 
+        File yang Anda upload akan tersimpan aman dan dapat diakses melalui Katalog Arsip.
+      </div>
+
+      <form id="formSimpanFile">
+        <div class="form-group">
+          <label for="kategori">📁 Jenis Dokumen <span style="color:red">*</span></label>
+          <select id="kategori" class="form-control" required>
+            <option value="">-- Pilih Jenis Dokumen --</option>
+            <option value="Surat Masuk">📨 Surat Masuk</option>
+            <option value="Surat Keluar">📤 Surat Keluar</option>
+            <option value="Kalender Pendidikan">📅 Kalender Pendidikan</option>
+            <option value="SK Pembagian Tugas">📋 SK Pembagian Tugas</option>
+            <option value="Laporan Bulanan">📊 Laporan Bulanan</option>
+            <option value="Sertifikat/Piagam">🏆 Sertifikat/Piagam</option>
+            <option value="Notulen Rapat">📝 Notulen Rapat</option>
+            <option value="Lainnya">📄 Lainnya</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="namaDokumen">📝 Nama/Judul Dokumen <span style="color:red">*</span></label>
+          <input type="text" id="namaDokumen" class="form-control" placeholder="Contoh: Surat Dinas Pendidikan No. 123/2024" required>
+        </div>
+
+        <div class="form-group">
+          <label for="deskripsi">📄 Keterangan Singkat</label>
+          <textarea id="deskripsi" class="form-control" placeholder="Jelaskan isi dokumen secara singkat (opsional)..." rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="fileInput">📎 Pilih File (Max 10MB) <span style="color:red">*</span></label>
+          <div class="file-drop-zone" id="dropZone">
+            <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png" required>
+            <div class="drop-text">
+              <div style="font-size: 40px;">📁</div>
+              <p><strong>Klik atau seret file ke sini</strong></p>
+              <p class="drop-hint">Format: PDF, DOC, XLS, PPT, JPG, PNG</p>
+            </div>
+            <div id="fileInfo" class="file-info" style="display:none;"></div>
+          </div>
+        </div>
+
+        <button type="submit" id="btnUpload" class="btn-submit">
+          <span id="btnText">💾 Simpan File</span>
+        </button>
+
+        <div id="uploadStatus" class="upload-status"></div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="../../js/firebase-config.js"></script>
+  <script type="module" src="simpan-file.js"></script>
+</body>
+</html>
