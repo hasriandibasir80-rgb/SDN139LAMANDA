@@ -256,7 +256,7 @@ body .admin-pembelajaran-container,
   margin-bottom: 8px !important;
 }
 
-/* ✅ TEXTAREA ELEMEN DIPERBESAR (setara ukuran info-box lama) */
+/* TEXTAREA ELEMEN DIPERBESAR (setara ukuran info-box lama) */
 .elemen-nama-new {
   width: 100% !important;
   min-height: 120px !important;
@@ -367,11 +367,15 @@ body .admin-pembelajaran-container,
   font-weight: 600; 
 }
 
-.hasil-table .col-no { 
-  width: 50px; 
-  text-align: center; 
+/* KOLOM NOMOR DIPERLEBAR */
+.hasil-table .col-no {
+  width: 80px !important;
+  text-align: center !important;
+  font-weight: 600 !important;
   background: #ffffff !important;
-  font-weight: 600; 
+  padding: 10px 8px !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
 }
 
 .hasil-table .col-deskripsi { 
@@ -471,7 +475,7 @@ body .admin-pembelajaran-container,
   .action-buttons { flex-direction: column; }
   .hasil-table { font-size: 12px; }
   .hasil-table .col-elemen { width: 100px; }
-  .hasil-table .col-no { width: 40px; }
+  .hasil-table .col-no { width: 60px !important; }
   
   .topik-item-header {
     flex-direction: column;
