@@ -3,6 +3,7 @@
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
 // INPUT: Elemen (OPSIONAL) & Topik/Materi (WAJIB)
 // OUTPUT: 3 Tabel Terpisah (CP, TP, ATP)
+// DOWNLOAD: Format Word (.doc)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -22,7 +23,6 @@ const CSS_ID = 'cp-tp-atp-css';
 
 /**
  * Fungsi init - Dipanggil oleh main.js
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
  */
 export async function init(container, db) {
   loadFeatureCSS();
@@ -32,9 +32,6 @@ export async function init(container, db) {
   loadCTAData(container);
 }
 
-/**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
- */
 function loadFeatureCSS() {
   if (document.getElementById(CSS_ID)) return;
   const cssLink = document.createElement('link');
@@ -44,17 +41,11 @@ function loadFeatureCSS() {
   document.head.appendChild(cssLink);
 }
 
-/**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
- */
 export function cleanup() {
   const cssLink = document.getElementById(CSS_ID);
   if (cssLink) cssLink.remove();
 }
 
-/**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
- */
 async function loadGroqApiKey() {
   try {
     const docRef = doc(db, 'settings', 'api_key');
@@ -73,7 +64,6 @@ async function loadGroqApiKey() {
 
 /**
  * RENDER UI GENERATOR (UNIVERSAL)
- * ✅ UPDATE: Penjelasan visual Elemen (opsional) vs Topik (wajib)
  */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
@@ -143,7 +133,6 @@ function renderCTAGenerator(container) {
 
         <div class="section-title">2. Input Elemen & Topik/Materi</div>
         
-        <!-- ✅ UPDATE: Penjelasan visual yang jelas -->
         <div class="info-box" style="background: #f0f9ff; border-left: 4px solid #0891b2; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; line-height: 1.6;">
           <strong>📖 Panduan Pengisian:</strong><br>
           🟢 <strong style="color: #059669;">Elemen</strong> = Kategori besar mata pelajaran <span style="background: #fef3c7; padding: 2px 6px; border-radius: 3px; font-size: 11px;">OPSIONAL</span> (boleh dikosongkan)<br>
@@ -169,7 +158,7 @@ function renderCTAGenerator(container) {
 
         <div class="action-buttons">
           <button type="button" id="btn-print" class="btn-print">🖨️ Print</button>
-          <button type="button" id="btn-download" class="btn-download">💾 Download</button>
+          <button type="button" id="btn-download" class="btn-download">💾 Download Word</button>
           <button type="button" id="btn-save" class="btn-save">💾 Simpan Manual</button>
           <button type="button" id="btn-regenerate" class="btn-secondary">🔄 Ulang</button>
         </div>
@@ -184,13 +173,11 @@ function renderCTAGenerator(container) {
     </div>
   `;
 
-  // Inisialisasi dengan 1 elemen kosong
   tambahElemenBaru();
 }
 
 /**
- * TAMBAH ELEMEN BARU (DINAMIS)
- * ✅ UPDATE: Elemen sekarang OPSIONAL (hapus 'required', update placeholder)
+ * TAMBAH ELEMEN BARU (DINAMIS) - ELEMEN OPSIONAL
  */
 function tambahElemenBaru() {
   const container = document.getElementById('elemen-container');
@@ -201,11 +188,10 @@ function tambahElemenBaru() {
   elemenDiv.className = 'elemen-item';
   elemenDiv.dataset.id = elemenId;
   
-  // ✅ UPDATE: Hapus 'required', placeholder lebih deskriptif
   elemenDiv.innerHTML = `
     <div class="elemen-header">
       <input type="text" class="elemen-nama" placeholder="Nama Elemen (OPSIONAL - contoh: Bilangan, Gerak Dasar)">
-      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">🗑️ Hapus</button>
+      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">️ Hapus</button>
     </div>
     <div class="topik-list" id="topik-list-${elemenId}">
       <!-- Topik items akan ditambahkan di sini -->
@@ -216,12 +202,11 @@ function tambahElemenBaru() {
   `;
 
   container.appendChild(elemenDiv);
-  tambahTopik(elemenId); // Tambah 1 topik default
+  tambahTopik(elemenId);
 }
 
 /**
- * TAMBAH TOPIK KE ELEMEN
- * ✅ UPDATE: Topik WAJIB (pertahankan 'required'), placeholder lebih deskriptif
+ * TAMBAH TOPIK KE ELEMEN - TOPIK WAJIB
  */
 window.tambahTopik = function(elemenId) {
   const topikList = document.getElementById(`topik-list-${elemenId}`);
@@ -232,7 +217,6 @@ window.tambahTopik = function(elemenId) {
   topikDiv.className = 'topik-item';
   topikDiv.dataset.id = topikId;
   
-  // ✅ UPDATE: Pertahankan 'required', placeholder lebih jelas
   topikDiv.innerHTML = `
     <input type="text" class="topik-nama" placeholder="Topik/Materi (WAJIB - contoh: Penjumlahan, Senam Lantai)" required>
     <button type="button" class="btn-hapus-topik" onclick="hapusTopik(${topikId})">🗑️</button>
@@ -242,7 +226,7 @@ window.tambahTopik = function(elemenId) {
 };
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * HAPUS ELEMEN
  */
 window.hapusElemen = function(elemenId) {
   const elemen = document.querySelector(`.elemen-item[data-id="${elemenId}"]`);
@@ -252,16 +236,13 @@ window.hapusElemen = function(elemenId) {
 };
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * HAPUS TOPIK
  */
 window.hapusTopik = function(topikId) {
   const topik = document.querySelector(`.topik-item[data-id="${topikId}"]`);
   if (topik) topik.remove();
 };
 
-/**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
- */
 function attachEventListeners(container) {
   const btnTambahElemen = container.querySelector('#btn-tambah-elemen');
   if (btnTambahElemen) btnTambahElemen.addEventListener('click', tambahElemenBaru);
@@ -291,7 +272,6 @@ function attachEventListeners(container) {
 
 /**
  * HANDLE GENERATE
- * ✅ UPDATE: Validasi baru - Elemen opsional, Topik wajib
  */
 async function handleGenerate(container) {
   if (!currentUser.uid) { showToast('⚠️ Silakan login dulu!', 'error'); return; }
@@ -304,13 +284,11 @@ async function handleGenerate(container) {
   const tahun = container.querySelector('#kop-tahun')?.value;
   const guru = container.querySelector('#cta-guru')?.value;
 
-  // ✅ UPDATE: Validasi info dasar (tidak berubah)
   if (!jenjang || !kelas || !semester || !mapel) {
     showToast('⚠️ Lengkapi informasi dasar (Jenjang, Kelas, Semester, Mapel)!', 'error'); 
     return;
   }
 
-  // ✅ UPDATE: Kumpulkan data dengan logika baru
   const elemenItems = container.querySelectorAll('.elemen-item');
   if (elemenItems.length === 0) { 
     showToast('⚠️ Tambahkan minimal 1 grup elemen/topik!', 'error'); 
@@ -321,7 +299,6 @@ async function handleGenerate(container) {
   let totalTopikValid = 0;
 
   elemenItems.forEach((elemen) => {
-    // ✅ UPDATE: Elemen boleh kosong (tidak pakai trim + validasi)
     const nama = elemen.querySelector('.elemen-nama')?.value.trim();
     const topikItems = elemen.querySelectorAll('.topik-item');
     const topikList = [];
@@ -334,8 +311,6 @@ async function handleGenerate(container) {
       }
     });
 
-    // ✅ UPDATE: Simpan jika ada topik, meskipun elemen kosong
-    // Jika elemen kosong, pakai "Umum" sebagai default
     if (topikList.length > 0) {
       dataElemen.push({ 
         nama: nama || 'Umum', 
@@ -344,7 +319,6 @@ async function handleGenerate(container) {
     }
   });
 
-  // ✅ UPDATE: Validasi baru - minimal 1 topik wajib diisi
   if (totalTopikValid === 0) { 
     showToast('⚠️ Minimal isi 1 Topik/Materi! (Elemen boleh dikosongkan)', 'error'); 
     return; 
@@ -382,17 +356,13 @@ async function handleGenerate(container) {
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Parse JSON dari response AI
     const parsedData = parseAIResponse(aiResponse);
     
     if (!parsedData || !parsedData.cp || !parsedData.tp || !parsedData.atp) {
       throw new Error('Format respons AI tidak valid. Coba lagi.');
     }
 
-    // Render 3 Tabel
     render3TabelHasil(resultContainer, parsedData, { mapel, kelas, semester });
-
-    // Auto save
     await autoSaveToFirestore(container, parsedData, { sekolah, tahun, jenjang, kelas, semester, mapel, guru });
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
@@ -404,7 +374,7 @@ async function handleGenerate(container) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * BUILD PROMPT UNTUK AI
  */
 function buildPrompt(dataElemen, metadata) {
   let prompt = `Buatkan CP, TP, dan ATP untuk:\n`;
@@ -430,15 +400,12 @@ function buildPrompt(dataElemen, metadata) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * PARSE RESPONSE AI (Extract JSON)
  */
 function parseAIResponse(aiResponse) {
   try {
-    // Coba extract JSON dari code block ```json ... ```
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch) return JSON.parse(jsonMatch[1]);
-    
-    // Fallback: coba parse langsung
     return JSON.parse(aiResponse);
   } catch (error) {
     console.warn('Failed to parse JSON:', error);
@@ -447,7 +414,7 @@ function parseAIResponse(aiResponse) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * RENDER 3 TABEL HASIL (CP, TP, ATP)
  */
 function render3TabelHasil(container, data, metadata) {
   const labelSemester = metadata.semester === '1' ? 'Ganjil' : 'Genap';
@@ -507,7 +474,7 @@ function render3TabelHasil(container, data, metadata) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * AUTO SAVE KE FIRESTORE
  */
 async function autoSaveToFirestore(container, result, metadata) {
   try {
@@ -530,52 +497,215 @@ async function autoSaveToFirestore(container, result, metadata) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * ✅ UPDATE: DOWNLOAD HASIL - FORMAT WORD (.doc)
+ * Menggunakan HTML dengan namespace Microsoft Office agar bisa dibuka di Word
  */
 function downloadCTAResult(container) {
   const resultContainer = container.querySelector('#result-table-container');
   if (!resultContainer || resultContainer.innerHTML.trim() === '') {
-    showToast('⚠️ Generate data dulu sebelum download!', 'warning'); return;
+    showToast('⚠️ Generate data dulu sebelum download!', 'warning'); 
+    return;
   }
 
   const mapel = container.querySelector('#cta-mapel')?.value || 'Mapel';
   const kelas = container.querySelector('#cta-kelas')?.value || '';
-  
-  let content = `PERANGKAT PEMBELAJARAN: ${mapel.toUpperCase()}\nKelas ${kelas}\n${'='.repeat(50)}\n\n`;
-  
-  // Extract text dari tabel
+  const semester = container.querySelector('#cta-semester')?.value || '';
+  const sekolah = container.querySelector('#kop-sekolah')?.value || '';
+  const tahun = container.querySelector('#kop-tahun')?.value || '';
+  const guru = container.querySelector('#cta-guru')?.value || '';
+  const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
+
+  // Buat HTML lengkap dengan namespace Microsoft Office
+  let htmlContent = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+          xmlns:w='urn:schemas-microsoft-com:office:word' 
+          xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
+      <style>
+        @page {
+          size: A4;
+          margin: 2cm;
+        }
+        body { 
+          font-family: 'Times New Roman', Times, serif; 
+          font-size: 12pt; 
+          margin: 2cm;
+          line-height: 1.5;
+        }
+        h1 { 
+          text-align: center; 
+          font-size: 16pt; 
+          font-weight: bold; 
+          margin-bottom: 5px; 
+          text-transform: uppercase;
+        }
+        h2 { 
+          text-align: center; 
+          font-size: 14pt; 
+          font-weight: bold; 
+          margin: 5px 0 20px 0; 
+        }
+        h3 { 
+          font-size: 12pt; 
+          font-weight: bold; 
+          margin-top: 25px; 
+          margin-bottom: 10px; 
+          border-bottom: 2px solid #000; 
+          padding-bottom: 5px;
+        }
+        p { margin: 5px 0; }
+        table { 
+          border-collapse: collapse; 
+          width: 100%; 
+          margin-bottom: 20px; 
+        }
+        th { 
+          background-color: #f0f0f0; 
+          border: 1px solid #000; 
+          padding: 8px; 
+          text-align: left; 
+          font-weight: bold;
+          font-size: 11pt;
+        }
+        td { 
+          border: 1px solid #000; 
+          padding: 8px; 
+          vertical-align: top;
+          font-size: 11pt;
+        }
+        .col-elemen { 
+          width: 18%; 
+          font-weight: bold; 
+          background-color: #f9f9f9; 
+        }
+        .col-no { 
+          width: 8%; 
+          text-align: center; 
+          font-weight: bold; 
+          background-color: #f9f9f9;
+        }
+        .col-deskripsi { 
+          width: 74%; 
+        }
+        .header-info { 
+          margin-bottom: 30px; 
+        }
+        .header-info table { 
+          border: none; 
+          width: auto;
+          margin: 0 auto;
+        }
+        .header-info td { 
+          border: none; 
+          padding: 3px 5px; 
+          font-size: 11pt;
+        }
+        .page-break { 
+          page-break-after: always; 
+        }
+        .footer {
+          margin-top: 30px;
+          text-align: right;
+          font-size: 10pt;
+          color: #666;
+        }
+      </style>
+    </head>
+    <body>
+      <!-- Header Informasi Dokumen -->
+      <div class="header-info" style="text-align: center; margin-bottom: 30px;">
+        <h1>PERANGKAT PEMBELAJARAN</h1>
+        <h2>${mapel.toUpperCase()}</h2>
+        <table style="margin: 15px auto; border: none;">
+          <tr><td style="border: none;"><strong>Sekolah</strong></td><td style="border: none;">: ${sekolah}</td></tr>
+          <tr><td style="border: none;"><strong>Tahun Ajaran</strong></td><td style="border: none;">: ${tahun}</td></tr>
+          <tr><td style="border: none;"><strong>Kelas / Semester</strong></td><td style="border: none;">: ${kelas} / ${labelSemester}</td></tr>
+          <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${guru}</td></tr>
+        </table>
+      </div>
+  `;
+
+  // Extract tabel CP, TP, ATP
   const tables = resultContainer.querySelectorAll('.hasil-table');
-  const titles = ['CAPAIAN PEMBELAJARAN (CP)', 'TUJUAN PEMBELAJARAN (TP)', 'ALUR TUJUAN PEMBELAJARAN (ATP)'];
-  
+  const titles = [
+    '🎯 1. CAPAIAN PEMBELAJARAN (CP)',
+    ' 2. TUJUAN PEMBELAJARAN (TP)',
+    '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'
+  ];
+
   tables.forEach((table, idx) => {
-    content += `${titles[idx]}\n${'-'.repeat(50)}\n`;
+    // Page break antar tabel (kecuali yang pertama)
+    if (idx > 0) htmlContent += '<div class="page-break"></div>';
+    
+    htmlContent += `<h3>${titles[idx]}</h3>`;
+    htmlContent += '<table>';
+    
+    // Header tabel
+    const headers = table.querySelectorAll('thead th');
+    if (headers.length > 0) {
+      htmlContent += '<thead><tr>';
+      headers.forEach(th => {
+        htmlContent += `<th>${th.textContent}</th>`;
+      });
+      htmlContent += '</tr></thead>';
+    }
+    
+    // Body tabel - pertahankan rowspan
+    htmlContent += '<tbody>';
     const rows = table.querySelectorAll('tbody tr');
-    let currentElemen = '';
     rows.forEach(row => {
-      const elemenCell = row.querySelector('.col-elemen');
-      const noCell = row.querySelector('.col-no');
-      const deskCell = row.querySelector('.col-deskripsi');
-      
-      if (elemenCell) currentElemen = elemenCell.textContent;
-      const no = noCell ? noCell.textContent + '. ' : '';
-      content += `[${currentElemen}] ${no}${deskCell.textContent}\n`;
+      htmlContent += '<tr>';
+      const cells = row.querySelectorAll('td');
+      cells.forEach(cell => {
+        const rowspan = cell.getAttribute('rowspan');
+        const className = cell.className;
+        const rowspanAttr = rowspan ? ` rowspan="${rowspan}"` : '';
+        htmlContent += `<td class="${className}"${rowspanAttr}>${cell.innerHTML}</td>`;
+      });
+      htmlContent += '</tr>';
     });
-    content += '\n\n';
+    htmlContent += '</tbody></table>';
   });
 
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  // Footer
+  htmlContent += `
+    <div class="footer">
+      <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
+      <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>
+    </body>
+    </html>
+  `;
+
+  // Download sebagai file .doc (HTML dengan ekstensi .doc)
+  const blob = new Blob(['\ufeff', htmlContent], { 
+    type: 'application/msword' 
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `CP_TP_ATP_${mapel}_Kelas${kelas}.txt`;
+  link.download = `CP_TP_ATP_${mapel}_Kelas${kelas}_Sem${semester}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+
+  showToast('✅ File Word berhasil diunduh! Buka dengan Microsoft Word.', 'success');
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * SAVE MANUAL
  */
 async function handleSave(container) {
   const resultContainer = container.querySelector('#result-table-container');
@@ -586,7 +716,7 @@ async function handleSave(container) {
 }
 
 /**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
+ * LOAD DATA TERSIMPAN
  */
 function loadCTAData(container) {
   const list = container.querySelector('#cta-list');
@@ -618,9 +748,6 @@ function loadCTAData(container) {
   });
 }
 
-/**
- * ✅ TIDAK DIUBAH - Dipertahankan 100%
- */
 function showToast(msg, type = 'success') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
