@@ -1,10 +1,11 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (MODULAR)
+// FORMAT: TABEL ELEMEN-NO-TP (SEPERTI CONTOH)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { collection, addDoc, getDocs, query, where, orderBy, onSnapshot, doc, getDoc, serverTimestamp } 
+import { collection, addDoc, query, where, orderBy, onSnapshot, doc, getDoc, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -14,77 +15,48 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
 
-// ✅ KONSTANTA: Path CSS (mudah diubah di satu tempat)
+// Konstanta CSS
 const CSS_PATH = '../../../css/modules/cp-tp-atp.css';
 const CSS_ID = 'cp-tp-atp-css';
+
+// State untuk input dinamis
+let elemenList = [];
 
 /**
  * Fungsi init - Dipanggil oleh main.js
  */
 export async function init(container, db) {
-  // ✅ LOAD CSS TERPISAH (Hanya jika belum ada)
   loadFeatureCSS();
-  
-  // Load API Key dari Firestore
   await loadGroqApiKey();
-  
-  // Render UI
   renderCTAGenerator(container);
-  
-  // Attach event listeners
   attachEventListeners(container);
-  
-  // Load data tersimpan
   loadCTAData(container);
 }
 
-/**
- * ✅ FUNGSI BARU: Load CSS secara dinamis
- * Mencegah duplikasi <link> jika fitur dibuka berulang kali
- */
 function loadFeatureCSS() {
-  // Cek apakah CSS sudah di-load sebelumnya
-  if (document.getElementById(CSS_ID)) {
-    console.log('ℹ️ CSS CP/TP/ATP sudah dimuat');
-    return;
-  }
-  
+  if (document.getElementById(CSS_ID)) return;
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   document.head.appendChild(cssLink);
-  
-  console.log('✅ CSS CP/TP/ATP dimuat dari:', CSS_PATH);
 }
 
-/**
- * ✅ FUNGSI EKSPOR: Cleanup CSS saat kembali ke menu
- * Dipanggil oleh main.js saat user klik tombol "Kembali"
- */
 export function cleanup() {
   const cssLink = document.getElementById(CSS_ID);
-  if (cssLink) {
-    cssLink.remove();
-    console.log('🧹 CSS CP/TP/ATP dihapus dari <head>');
-  }
+  if (cssLink) cssLink.remove();
 }
 
-/**
- * Load Groq API Key dari Firestore
- */
 async function loadGroqApiKey() {
   try {
     const docRef = doc(db, 'settings', 'api_key');
     const docSnap = await getDoc(docRef);
-    
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (data.keys) {
         const activeKeys = Object.values(data.keys).filter(k => k.active === true);
         if (activeKeys.length > 0) {
           groqApiKey = activeKeys[0].value;
-          console.log('✅ Groq API Key loaded');
         }
       }
     }
@@ -94,7 +66,7 @@ async function loadGroqApiKey() {
 }
 
 /**
- * ✅ RENDER UI GENERATOR (VERSI UPDATE: TABEL TERPISAH + LATAR PUTIH)
+ * RENDER UI GENERATOR (FORMAT TABEL ELEMEN-NO-TP)
  */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
@@ -103,31 +75,29 @@ function renderCTAGenerator(container) {
 
   container.innerHTML = `
     <div class="cta-generator-form">
-      <h2>📄 Generator CP/TP/ATP</h2>
-      <p class="subtitle">Buat Perangkat Pembelajaran dengan AI 
-        ${aiReady ? '<span class="status-badge status-ready">✅ AI Siap</span>' : '<span class="status-badge status-warning">⚠️ API Key Belum Aktif</span>'}
+      <h2>📄 Generator TP per Elemen</h2>
+      <p class="subtitle">Buat Tujuan Pembelajaran terstruktur per elemen
+        ${aiReady ? '<span class="status-badge status-ready">✅ AI Siap</span>' : '<span class="status-badge status-warning">️ API Key Belum Aktif</span>'}
       </p>
 
       <form id="cta-form">
-        <div class="section-title">1. Informasi Sekolah</div>
+        <div class="section-title">1. Informasi Dasar</div>
         
         <div class="form-group">
           <label for="kop-sekolah">Nama Sekolah</label>
-          <input type="text" id="kop-sekolah" placeholder="Masukkan nama sekolah" value="${userSekolah}" class="${userSekolah ? 'auto-filled' : ''}" required>
+          <input type="text" id="kop-sekolah" value="${userSekolah}" class="${userSekolah ? 'auto-filled' : ''}" required>
         </div>
 
         <div class="form-row">
           <div class="form-group">
             <label for="kop-tahun">Tahun Ajaran</label>
-            <input type="text" id="kop-tahun" placeholder="2025/2026" value="2025/2026">
+            <input type="text" id="kop-tahun" value="2025/2026">
           </div>
           <div class="form-group">
             <label for="cta-guru">Nama Guru</label>
-            <input type="text" id="cta-guru" placeholder="Opsional" value="${userNama}" class="${userNama ? 'auto-filled' : ''}">
+            <input type="text" id="cta-guru" value="${userNama}" class="${userNama ? 'auto-filled' : ''}">
           </div>
         </div>
-
-        <div class="section-title">2. Informasi Pembelajaran</div>
 
         <div class="form-row-3">
           <div class="form-group">
@@ -161,67 +131,29 @@ function renderCTAGenerator(container) {
           </div>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="cta-mapel">Mata Pelajaran</label>
-            <input type="text" id="cta-mapel" placeholder="Contoh: Matematika" required>
-          </div>
-          <div class="form-group">
-            <label for="cta-topik">Topik/Materi</label>
-            <input type="text" id="cta-topik" placeholder="Contoh: Bilangan 1-20" required>
-          </div>
+        <div class="form-group">
+          <label for="cta-mapel">Mata Pelajaran</label>
+          <input type="text" id="cta-mapel" placeholder="Contoh: PAI dan Budi Pekerti" required>
         </div>
+
+        <div class="section-title">2. Input Elemen & Tujuan Pembelajaran</div>
+        
+        <div id="elemen-container">
+          <!-- Elemen akan ditambahkan di sini secara dinamis -->
+        </div>
+
+        <button type="button" id="btn-tambah-elemen" class="btn-secondary" style="margin-top: 15px;">
+          ➕ Tambah Elemen Baru
+        </button>
 
         <button type="button" id="btn-generate" class="btn-generate">✨ Generate dengan AI</button>
       </form>
 
       <div id="cta-result" class="result-section hidden">
         <h3>📋 Hasil Generate</h3>
-        
-        <!-- ✅ TABEL TERPISAH: CAPAIAN PEMBELAJARAN -->
-        <table class="component-table">
-          <thead>
-            <tr>
-              <th colspan="2">🎯 Capaian Pembelajaran (CP)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="component-label">Deskripsi CP</td>
-              <td class="component-content" id="result-cp">CP akan muncul setelah generate...</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- ✅ TABEL TERPISAH: TUJUAN PEMBELAJARAN -->
-        <table class="component-table">
-          <thead>
-            <tr>
-              <th colspan="2">🏁 Tujuan Pembelajaran (TP)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="component-label">Deskripsi TP</td>
-              <td class="component-content" id="result-tp">TP akan muncul setelah generate...</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <!-- ✅ TABEL TERPISAH: ALUR TUJUAN PEMBELAJARAN -->
-        <table class="component-table">
-          <thead>
-            <tr>
-              <th colspan="2">📊 Alur Tujuan Pembelajaran (ATP)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="component-label">Deskripsi ATP</td>
-              <td class="component-content" id="result-atp">ATP akan muncul setelah generate...</td>
-            </tr>
-          </tbody>
-        </table>
+        <div id="result-table-container">
+          <!-- Tabel hasil akan dirender di sini -->
+        </div>
 
         <div class="action-buttons">
           <button type="button" id="btn-print" class="btn-print">🖨️ Print</button>
@@ -239,19 +171,95 @@ function renderCTAGenerator(container) {
       </div>
     </div>
   `;
+
+  // Inisialisasi dengan 1 elemen kosong
+  tambahElemenBaru();
 }
 
 /**
- * Attach event listeners
+ * TAMBAH ELEMEN BARU (DINAMIS)
  */
+function tambahElemenBaru() {
+  const container = document.getElementById('elemen-container');
+  if (!container) return;
+
+  const elemenId = Date.now();
+  const elemenDiv = document.createElement('div');
+  elemenDiv.className = 'elemen-item';
+  elemenDiv.dataset.id = elemenId;
+  
+  elemenDiv.innerHTML = `
+    <div class="elemen-header">
+      <input type="text" class="elemen-nama" placeholder="Nama Elemen (contoh: Al-Qur'an & Hadis)" required>
+      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">🗑️</button>
+    </div>
+    <div class="tp-list" id="tp-list-${elemenId}">
+      <!-- TP items akan ditambahkan di sini -->
+    </div>
+    <button type="button" class="btn-tambah-tp" onclick="tambahTP(${elemenId})">
+      ➕ Tambah TP
+    </button>
+  `;
+
+  container.appendChild(elemenDiv);
+  
+  // Tambah 1 TP default
+  tambahTP(elemenId);
+}
+
+/**
+ * TAMBAH TP KE ELEMEN
+ */
+window.tambahTP = function(elemenId) {
+  const tpList = document.getElementById(`tp-list-${elemenId}`);
+  if (!tpList) return;
+
+  const tpId = Date.now() + Math.random();
+  const tpDiv = document.createElement('div');
+  tpDiv.className = 'tp-item';
+  tpDiv.dataset.id = tpId;
+  
+  tpDiv.innerHTML = `
+    <textarea class="tp-deskripsi" placeholder="Tujuan Pembelajaran..." rows="2"></textarea>
+    <button type="button" class="btn-hapus-tp" onclick="hapusTP(${tpId})">🗑️</button>
+  `;
+
+  tpList.appendChild(tpDiv);
+};
+
+/**
+ * HAPUS ELEMEN
+ */
+window.hapusElemen = function(elemenId) {
+  const elemen = document.querySelector(`.elemen-item[data-id="${elemenId}"]`);
+  if (elemen) {
+    if (confirm('Hapus elemen ini?')) {
+      elemen.remove();
+    }
+  }
+};
+
+/**
+ * HAPUS TP
+ */
+window.hapusTP = function(tpId) {
+  const tp = document.querySelector(`.tp-item[data-id="${tpId}"]`);
+  if (tp) {
+    tp.remove();
+  }
+};
+
 function attachEventListeners(container) {
+  const btnTambahElemen = container.querySelector('#btn-tambah-elemen');
+  if (btnTambahElemen) btnTambahElemen.addEventListener('click', tambahElemenBaru);
+
   const btnGenerate = container.querySelector('#btn-generate');
   if (btnGenerate) btnGenerate.addEventListener('click', () => handleGenerate(container));
 
   const btnPrint = container.querySelector('#btn-print');
   if (btnPrint) btnPrint.addEventListener('click', () => {
-    const cp = container.querySelector('#result-cp')?.textContent || '';
-    if (!cp || cp.includes('⏳') || cp.includes('Error')) {
+    const resultContainer = container.querySelector('#result-table-container');
+    if (!resultContainer || resultContainer.innerHTML.trim() === '') {
       showToast('⚠️ Generate data dulu sebelum print!', 'warning');
       return;
     }
@@ -269,7 +277,7 @@ function attachEventListeners(container) {
 }
 
 /**
- * Handle Generate dengan Groq AI
+ * HANDLE GENERATE
  */
 async function handleGenerate(container) {
   if (!currentUser.uid) {
@@ -284,16 +292,43 @@ async function handleGenerate(container) {
   const sekolah = container.querySelector('#kop-sekolah')?.value;
   const tahun = container.querySelector('#kop-tahun')?.value;
   const guru = container.querySelector('#cta-guru')?.value;
-  const topik = container.querySelector('#cta-topik')?.value.trim();
 
   // Validasi
-  if (!jenjang || !kelas || !semester || !mapel || !topik) {
-    showToast('⚠️ Lengkapi semua field yang wajib!', 'error');
+  if (!jenjang || !kelas || !semester || !mapel) {
+    showToast('⚠️ Lengkapi informasi dasar!', 'error');
+    return;
+  }
+
+  // Kumpulkan data elemen & TP
+  const elemenItems = container.querySelectorAll('.elemen-item');
+  if (elemenItems.length === 0) {
+    showToast('⚠️ Tambahkan minimal 1 elemen!', 'error');
+    return;
+  }
+
+  const dataElemen = [];
+  elemenItems.forEach((elemen, idx) => {
+    const nama = elemen.querySelector('.elemen-nama')?.value.trim();
+    const tpItems = elemen.querySelectorAll('.tp-item');
+    const tpList = [];
+    
+    tpItems.forEach(tp => {
+      const deskripsi = tp.querySelector('.tp-deskripsi')?.value.trim();
+      if (deskripsi) tpList.push(deskripsi);
+    });
+
+    if (nama && tpList.length > 0) {
+      dataElemen.push({ nama, tp: tpList });
+    }
+  });
+
+  if (dataElemen.length === 0) {
+    showToast('⚠️ Lengkapi nama elemen dan minimal 1 TP!', 'error');
     return;
   }
 
   if (!groqApiKey) {
-    showToast('⚠️ API Key Groq belum aktif. Hubungi admin.', 'error');
+    showToast('️ API Key Groq belum aktif. Hubungi admin.', 'error');
     return;
   }
 
@@ -301,25 +336,13 @@ async function handleGenerate(container) {
   const resultDiv = container.querySelector('#cta-result');
   if (resultDiv) resultDiv.classList.remove('hidden');
 
-  container.querySelector('#result-cp').textContent = '⏳ Generating CP...';
-  container.querySelector('#result-tp').textContent = '⏳ Generating TP...';
-  container.querySelector('#result-atp').textContent = '⏳ Generating ATP...';
+  const resultContainer = container.querySelector('#result-table-container');
+  resultContainer.innerHTML = '<p class="loading"> Generating...</p>';
 
   try {
-    const prompt = `Buatkan Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Alur Tujuan Pembelajaran (ATP) untuk:
-- Sekolah: ${sekolah}
-- Jenjang: ${jenjang.toUpperCase()}
-- Kelas: ${kelas}
-- Semester: ${semester}
-- Mata Pelajaran: ${mapel}
-- Topik: ${topik}
-- Tahun Ajaran: ${tahun}
-
-Format output:
-CP: [Capaian Pembelajaran]
-TP: [Tujuan Pembelajaran]
-ATP: [Alur Tujuan Pembelajaran]`;
-
+    // Build prompt untuk AI
+    const prompt = buildPrompt(dataElemen, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
+    
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -329,7 +352,7 @@ ATP: [Alur Tujuan Pembelajaran]`;
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka. Buat CP, TP, dan ATP yang sesuai dengan kurikulum Indonesia.' },
+          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka. Perbaiki dan lengkapi Tujuan Pembelajaran (TP) yang diberikan user agar sesuai dengan kurikulum Indonesia.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
@@ -344,33 +367,134 @@ ATP: [Alur Tujuan Pembelajaran]`;
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Parse response
-    const cpMatch = aiResponse.match(/CP:\s*([\s\S]*?)(?=TP:|$)/);
-    const tpMatch = aiResponse.match(/TP:\s*([\s\S]*?)(?=ATP:|$)/);
-    const atpMatch = aiResponse.match(/ATP:\s*([\s\S]*?)$/);
-
-    const cp = cpMatch ? cpMatch[1].trim() : 'Tidak dapat parse CP';
-    const tp = tpMatch ? tpMatch[1].trim() : 'Tidak dapat parse TP';
-    const atp = atpMatch ? atpMatch[1].trim() : 'Tidak dapat parse ATP';
-
-    container.querySelector('#result-cp').textContent = cp;
-    container.querySelector('#result-tp').textContent = tp;
-    container.querySelector('#result-atp').textContent = atp;
+    // Parse response AI dan render tabel
+    const parsedData = parseAIResponse(aiResponse, dataElemen);
+    renderTabelHasil(resultContainer, parsedData, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
 
     // Auto save
-    await autoSaveToFirestore(container, { cp, tp, atp }, { sekolah, jenjang, kelas, semester, mapel, guru, topik, tahun });
+    await autoSaveToFirestore(container, parsedData, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
 
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
   } catch (error) {
     console.error('Error generating:', error);
-    container.querySelector('#result-cp').textContent = `❌ Error: ${error.message}`;
+    resultContainer.innerHTML = `<p class="error">❌ Error: ${error.message}</p>`;
     showToast('❌ Gagal generate: ' + error.message, 'error');
   }
 }
 
 /**
- * Auto save ke Firestore
+ * BUILD PROMPT UNTUK AI
+ */
+function buildPrompt(dataElemen, metadata) {
+  let prompt = `Perbaiki dan lengkapi Tujuan Pembelajaran (TP) berikut untuk:\n`;
+  prompt += `- Sekolah: ${metadata.sekolah}\n`;
+  prompt += `- Jenjang: ${metadata.jenjang.toUpperCase()}\n`;
+  prompt += `- Kelas: ${metadata.kelas}\n`;
+  prompt += `- Semester: ${metadata.semester}\n`;
+  prompt += `- Mata Pelajaran: ${metadata.mapel}\n\n`;
+  
+  prompt += `Data yang diberikan:\n`;
+  dataElemen.forEach((elemen, idx) => {
+    prompt += `\n${idx + 1}. ${elemen.nama}\n`;
+    elemen.tp.forEach((tp, tpIdx) => {
+      prompt += `   ${idx + 1}.${tpIdx + 1}. ${tp}\n`;
+    });
+  });
+
+  prompt += `\n\nFormat output yang diinginkan:\n`;
+  prompt += `Pertahankan struktur elemen dan nomor yang sama, tapi perbaiki/redaksi TP agar lebih sesuai kurikulum.\n`;
+  prompt += `Jika ada yang kurang, tambahkan saran TP yang relevan.\n\n`;
+  prompt += `Kembalikan dalam format JSON:\n`;
+  prompt += `\`\`\`json\n`;
+  prompt += `[\n`;
+  prompt += `  {\n`;
+  prompt += `    "elemen": "Nama Elemen",\n`;
+  prompt += `    "tp": ["TP 1", "TP 2", ...]\n`;
+  prompt += `  }\n`;
+  prompt += `]\n`;
+  prompt += `\`\`\``;
+
+  return prompt;
+}
+
+/**
+ * PARSE RESPONSE AI
+ */
+function parseAIResponse(aiResponse, originalData) {
+  try {
+    // Coba extract JSON dari response
+    const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[1]);
+      return parsed;
+    }
+  } catch (error) {
+    console.warn('Failed to parse JSON, using original data');
+  }
+
+  // Fallback: gunakan data original
+  return originalData.map(e => ({ elemen: e.nama, tp: e.tp }));
+}
+
+/**
+ * RENDER TABEL HASIL (FORMAT SEPERTI GAMBAR)
+ */
+function renderTabelHasil(container, data, metadata) {
+  const labelJenjang = {sd:'SD', smp:'SMP', sma:'SMA'}[metadata.jenjang] || metadata.jenjang.toUpperCase();
+  const labelSemester = metadata.semester === '1' ? 'Ganjil' : 'Genap';
+
+  let html = `
+    <div class="hasil-header">
+      <h2>Tujuan Pembelajaran (TP) ${metadata.mapel}</h2>
+      <p>KELAS ${metadata.kelas} SEMESTER ${labelSemester}</p>
+      <p class="hasil-subheader">Kelas ${metadata.kelas} Semester ${metadata.semester}</p>
+    </div>
+
+    <table class="hasil-table">
+      <thead>
+        <tr>
+          <th class="col-elemen">Elemen</th>
+          <th class="col-no">No</th>
+          <th class="col-tp">Tujuan Pembelajaran (TP)</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  let globalNo = 1;
+  data.forEach((item, idx) => {
+    const rowspan = item.tp.length;
+    
+    item.tp.forEach((tp, tpIdx) => {
+      html += `<tr>`;
+      
+      // Kolom Elemen (hanya di baris pertama)
+      if (tpIdx === 0) {
+        html += `<td class="col-elemen" rowspan="${rowspan}">${item.elemen}</td>`;
+      }
+      
+      // Kolom No
+      html += `<td class="col-no">${idx + 1}.${tpIdx + 1}</td>`;
+      
+      // Kolom TP
+      html += `<td class="col-tp">${tp}</td>`;
+      
+      html += `</tr>`;
+      globalNo++;
+    });
+  });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  container.innerHTML = html;
+}
+
+/**
+ * AUTO SAVE KE FIRESTORE
  */
 async function autoSaveToFirestore(container, result, metadata) {
   try {
@@ -385,10 +509,10 @@ async function autoSaveToFirestore(container, result, metadata) {
       semester: metadata.semester,
       mapel: metadata.mapel,
       guru: metadata.guru,
-      topik: metadata.topik,
-      cp: result.cp,
-      tp: result.tp,
-      atp: result.atp,
+      topik: result.map(e => e.elemen).join(', '),
+      cp: '',
+      tp: JSON.stringify(result),
+      atp: '',
       mode: 'AI-Generated',
       createdAt: serverTimestamp()
     });
@@ -403,34 +527,44 @@ async function autoSaveToFirestore(container, result, metadata) {
 }
 
 /**
- * Download hasil sebagai TXT
+ * DOWNLOAD HASIL
  */
 function downloadCTAResult(container) {
-  const cp = container.querySelector('#result-cp')?.textContent || '';
-  if (!cp || cp.includes('⏳') || cp.includes('Error')) {
+  const resultContainer = container.querySelector('#result-table-container');
+  if (!resultContainer || resultContainer.innerHTML.trim() === '') {
     showToast('⚠️ Generate data dulu sebelum download!', 'warning');
     return;
   }
 
-  const jenjang = container.querySelector('#cta-jenjang')?.value || '';
-  const kelas = container.querySelector('#cta-kelas')?.value || '';
   const mapel = container.querySelector('#cta-mapel')?.value || '';
-  const topik = container.querySelector('#cta-topik')?.value || '';
+  const kelas = container.querySelector('#cta-kelas')?.value || '';
+  const semester = container.querySelector('#cta-semester')?.value || '';
 
-  let content = `CAPAIAN PEMBELAJARAN (CP/TP/ATP)\n`;
-  content += `KURIKULUM MERDEKA\n\n`;
-  content += `Mata Pelajaran: ${mapel}\n`;
-  content += `Kelas: ${kelas}\n`;
-  content += `Topik: ${topik}\n\n`;
-  content += `CP:\n${cp}\n\n`;
-  content += `TP:\n${container.querySelector('#result-tp')?.textContent}\n\n`;
-  content += `ATP:\n${container.querySelector('#result-atp')?.textContent}\n`;
+  let content = `TUJUAN PEMBELAJARAN (TP)\n`;
+  content += `${mapel}\n`;
+  content += `KELAS ${kelas} SEMESTER ${semester === '1' ? 'GANJIL' : 'GENAP'}\n\n`;
+  content += `${'='.repeat(80)}\n\n`;
+
+  // Extract data dari tabel yang sudah dirender
+  const rows = resultContainer.querySelectorAll('tbody tr');
+  let currentElemen = '';
+  
+  rows.forEach(row => {
+    const elemenCell = row.querySelector('.col-elemen');
+    const noCell = row.querySelector('.col-no');
+    const tpCell = row.querySelector('.col-tp');
+
+    if (elemenCell) currentElemen = elemenCell.textContent;
+    
+    content += `${currentElemen}\n`;
+    content += `  ${noCell.textContent}. ${tpCell.textContent}\n\n`;
+  });
 
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `CP-TP-ATP_${mapel}_Kelas${kelas}.txt`;
+  link.download = `TP_${mapel}_Kelas${kelas}_Sem${semester}.txt`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -438,16 +572,35 @@ function downloadCTAResult(container) {
 }
 
 /**
- * Save manual ke Firestore
+ * SAVE MANUAL
  */
 async function handleSave(container) {
-  const cp = container.querySelector('#result-cp')?.textContent || '';
-  if (!cp || cp.includes('⏳') || cp.includes('Error')) {
+  const resultContainer = container.querySelector('#result-table-container');
+  if (!resultContainer || resultContainer.innerHTML.trim() === '') {
     showToast('⚠️ Generate data dulu!', 'warning');
     return;
   }
 
   try {
+    // Extract data dari tabel
+    const data = [];
+    const rows = resultContainer.querySelectorAll('tbody tr');
+    let currentElemen = '';
+    
+    rows.forEach(row => {
+      const elemenCell = row.querySelector('.col-elemen');
+      const tpCell = row.querySelector('.col-tp');
+
+      if (elemenCell) currentElemen = elemenCell.textContent;
+      
+      let existing = data.find(e => e.elemen === currentElemen);
+      if (!existing) {
+        existing = { elemen: currentElemen, tp: [] };
+        data.push(existing);
+      }
+      existing.tp.push(tpCell.textContent);
+    });
+
     await addDoc(collection(db, 'cp_tp_atp'), {
       userId: currentUser.uid,
       userEmail: currentUser.email,
@@ -459,10 +612,10 @@ async function handleSave(container) {
       semester: container.querySelector('#cta-semester')?.value,
       mapel: container.querySelector('#cta-mapel')?.value,
       guru: container.querySelector('#cta-guru')?.value,
-      topik: container.querySelector('#cta-topik')?.value,
-      cp: cp,
-      tp: container.querySelector('#result-tp')?.textContent,
-      atp: container.querySelector('#result-atp')?.textContent,
+      topik: data.map(e => e.elemen).join(', '),
+      cp: '',
+      tp: JSON.stringify(data),
+      atp: '',
       mode: 'Manual-Save',
       createdAt: serverTimestamp()
     });
@@ -475,7 +628,7 @@ async function handleSave(container) {
 }
 
 /**
- * Load data tersimpan dengan real-time listener
+ * LOAD DATA TERSIMPAN
  */
 function loadCTAData(container) {
   const list = container.querySelector('#cta-list');
@@ -510,16 +663,13 @@ function loadCTAData(container) {
             </div>
             <small class="date">${date}</small>
           </div>
-          <p><strong>📋 Topik:</strong> ${d.topik || '-'}</p>
+          <p><strong> Elemen:</strong> ${d.topik || '-'}</p>
         </div>
       `;
     }).join('');
   });
 }
 
-/**
- * Show toast notification
- */
 function showToast(msg, type = 'success') {
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
