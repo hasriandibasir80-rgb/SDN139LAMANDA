@@ -1,18 +1,67 @@
 /* =========================================
-   CP/TP/ATP GENERATOR (UNIVERSAL)
-   File: css/modules/cp-tp-atp.css
-   REVISI: Latar putih paksa, Elemen opsional
+   OVERRIDE BACKGROUND BIRU DARI ADMIN PEMBELAJARAN
+   PRIORITAS TERTINGGI - LATAR PUTIH PAKSA
    ========================================= */
 
-/* ✅ PAKSA LATAR PUTIH DI SEMUA LEVEL */
-#dynamicContent,
-#dynamicContent *,
-.cta-generator-form,
-.cta-generator-form *,
-.modul-container,
-body {
+/* Target semua level container yang mungkin berwarna biru */
+body #dynamicContent,
+body .modul-container,
+body .admin-pembelajaran-container,
+#dynamicContent:has(.cta-generator-form),
+.modul-container:has(.cta-generator-form),
+#dynamicContent.cta-active,
+.modul-container.cta-active {
   background: #ffffff !important;
 }
+
+/* Target semua elemen di dalam cta-generator-form */
+.cta-generator-form,
+.cta-generator-form *,
+.cta-generator-form #cta-form,
+.cta-generator-form .section-title,
+.cta-generator-form .form-group,
+.cta-generator-form .form-row,
+.cta-generator-form .form-row-3,
+.cta-generator-form .elemen-item,
+.cta-generator-form .elemen-header,
+.cta-generator-form .topik-list,
+.cta-generator-form .topik-item,
+.cta-generator-form .result-section,
+.cta-generator-form .hasil-header,
+.cta-generator-form .saved-documents,
+.cta-generator-form .cta-item,
+.cta-generator-form .action-buttons,
+.cta-generator-form .tabel-title,
+.cta-generator-form .info-box {
+  background: #ffffff !important;
+}
+
+/* Target input dan select */
+.cta-generator-form input,
+.cta-generator-form select,
+.cta-generator-form textarea,
+.cta-generator-form .elemen-nama,
+.cta-generator-form .topik-nama {
+  background: #ffffff !important;
+}
+
+/* Target tabel dan semua elemennya */
+.cta-generator-form .hasil-table,
+.cta-generator-form .hasil-table thead,
+.cta-generator-form .hasil-table tbody,
+.cta-generator-form .hasil-table tr,
+.cta-generator-form .hasil-table th,
+.cta-generator-form .hasil-table td,
+.cta-generator-form .hasil-table .col-elemen,
+.cta-generator-form .hasil-table .col-no,
+.cta-generator-form .hasil-table .col-deskripsi {
+  background: #ffffff !important;
+}
+
+/* =========================================
+   CP/TP/ATP GENERATOR (UNIVERSAL)
+   File: css/modules/cp-tp-atp.css
+   ========================================= */
 
 /* Container utama */
 .cta-generator-form {
@@ -429,6 +478,17 @@ body {
   margin-top: 16px; 
 }
 .action-buttons button { flex: 1; }
+
+/* Info Box */
+.info-box {
+  background: #f0f9ff !important;
+  border-left: 4px solid #0891b2 !important;
+  padding: 12px !important;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-size: 13px;
+  line-height: 1.6;
+}
 
 /* Responsive */
 @media (max-width: 768px) {
