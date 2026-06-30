@@ -64,11 +64,15 @@ async function loadGroqApiKey() {
 
 /**
  * RENDER UI GENERATOR (UNIVERSAL)
+ * ✅ REVISI: 
+ * - Default nama sekolah: SDN 139 LAMANDA
+ * - Hilangkan info-box panduan
  */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
   const userNama = currentUser.namaLengkap || '';
-  const userSekolah = currentUser.namaSekolah || '';
+  // ✅ REVISI 1: Default SDN 139 LAMANDA jika kosong
+  const userSekolah = currentUser.namaSekolah || 'SDN 139 LAMANDA';
 
   container.innerHTML = `
     <div class="cta-generator-form">
@@ -129,11 +133,7 @@ function renderCTAGenerator(container) {
 
         <div class="section-title">2. Input Elemen & Topik/Materi</div>
         
-        <div class="info-box" style="background: #f0f9ff; border-left: 4px solid #0891b2; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; line-height: 1.6;">
-          <strong>📖 Panduan Pengisian:</strong><br>
-          🟢 <strong style="color: #059669;">Elemen</strong> = Kategori besar mata pelajaran <span style="background: #fef3c7; padding: 2px 6px; border-radius: 3px; font-size: 11px;">OPSIONAL</span> (boleh dikosongkan)<br>
-          🔵 <strong style="color: #2563eb;">Topik/Materi</strong> = Materi spesifik yang diajarkan <span style="background: #fee2e2; padding: 2px 6px; border-radius: 3px; font-size: 11px; color: #991b1b;">WAJIB DIISI</span>
-        </div>
+        <!-- ✅ REVISI 2: Info-box dihapus -->
         
         <div id="elemen-container">
           <!-- Elemen akan ditambahkan di sini secara dinamis -->
@@ -174,6 +174,7 @@ function renderCTAGenerator(container) {
 
 /**
  * TAMBAH ELEMEN BARU (DINAMIS) - ELEMEN OPSIONAL
+ * ✅ REVISI 3: Auto-numbering + Input diperbesar (textarea)
  */
 function tambahElemenBaru() {
   const container = document.getElementById('elemen-container');
@@ -184,10 +185,15 @@ function tambahElemenBaru() {
   elemenDiv.className = 'elemen-item';
   elemenDiv.dataset.id = elemenId;
   
+  // ✅ REVISI: Hitung nomor elemen
+  const elemenNumber = container.querySelectorAll('.elemen-item').length + 1;
+  
+  // ✅ REVISI: Input diperbesar dengan textarea + label nomor
   elemenDiv.innerHTML = `
     <div class="elemen-header">
-      <input type="text" class="elemen-nama" placeholder="Nama Elemen (OPSIONAL - contoh: Bilangan, Gerak Dasar)">
-      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">️ Hapus</button>
+      <label class="elemen-label">Elemen ${elemenNumber}:</label>
+      <textarea class="elemen-nama" placeholder="Nama Elemen (OPSIONAL - contoh: Bilangan, Gerak Dasar)" rows="2"></textarea>
+      <button type="button" class="btn-hapus-elemen" onclick="hapusElemen(${elemenId})">🗑️ Hapus</button>
     </div>
     <div class="topik-list" id="topik-list-${elemenId}">
       <!-- Topik items akan ditambahkan di sini -->
@@ -203,6 +209,7 @@ function tambahElemenBaru() {
 
 /**
  * TAMBAH TOPIK KE ELEMEN - TOPIK WAJIB
+ * ✅ REVISI 4: Auto-numbering + Input diperbesar (textarea)
  */
 window.tambahTopik = function(elemenId) {
   const topikList = document.getElementById(`topik-list-${elemenId}`);
@@ -213,8 +220,13 @@ window.tambahTopik = function(elemenId) {
   topikDiv.className = 'topik-item';
   topikDiv.dataset.id = topikId;
   
+  // ✅ REVISI: Hitung nomor topik
+  const topikNumber = topikList.querySelectorAll('.topik-item').length + 1;
+  
+  // ✅ REVISI: Input diperbesar dengan textarea + label nomor
   topikDiv.innerHTML = `
-    <input type="text" class="topik-nama" placeholder="Topik/Materi (WAJIB - contoh: Penjumlahan, Senam Lantai)" required>
+    <label class="topik-label">Topik ${topikNumber}:</label>
+    <textarea class="topik-nama" placeholder="Topik/Materi (WAJIB - contoh: Penjumlahan, Senam Lantai)" rows="2" required></textarea>
     <button type="button" class="btn-hapus-topik" onclick="hapusTopik(${topikId})">🗑️</button>
   `;
 
@@ -223,21 +235,58 @@ window.tambahTopik = function(elemenId) {
 
 /**
  * HAPUS ELEMEN
+ * ✅ REVISI: Update nomor setelah hapus
  */
 window.hapusElemen = function(elemenId) {
   const elemen = document.querySelector(`.elemen-item[data-id="${elemenId}"]`);
   if (elemen) {
-    if (confirm('Hapus elemen ini beserta semua topiknya?')) elemen.remove();
+    if (confirm('Hapus elemen ini beserta semua topiknya?')) {
+      elemen.remove();
+      updateNomorElemen(); // ✅ Update nomor setelah hapus
+    }
   }
 };
 
 /**
  * HAPUS TOPIK
+ * ✅ REVISI: Update nomor setelah hapus
  */
 window.hapusTopik = function(topikId) {
   const topik = document.querySelector(`.topik-item[data-id="${topikId}"]`);
-  if (topik) topik.remove();
+  if (topik) {
+    topik.remove();
+    updateNomorTopik(); // ✅ Update nomor setelah hapus
+  }
 };
+
+/**
+ * ✅ REVISI BARU: Update nomor elemen secara otomatis
+ */
+function updateNomorElemen() {
+  const elemenItems = document.querySelectorAll('.elemen-item');
+  elemenItems.forEach((elemen, idx) => {
+    const label = elemen.querySelector('.elemen-label');
+    if (label) {
+      label.textContent = `Elemen ${idx + 1}:`;
+    }
+  });
+}
+
+/**
+ * ✅ REVISI BARU: Update nomor topik secara otomatis
+ */
+function updateNomorTopik() {
+  const elemenItems = document.querySelectorAll('.elemen-item');
+  elemenItems.forEach(elemen => {
+    const topikItems = elemen.querySelectorAll('.topik-item');
+    topikItems.forEach((topik, idx) => {
+      const label = topik.querySelector('.topik-label');
+      if (label) {
+        label.textContent = `Topik ${idx + 1}:`;
+      }
+    });
+  });
+}
 
 function attachEventListeners(container) {
   const btnTambahElemen = container.querySelector('#btn-tambah-elemen');
@@ -636,7 +685,7 @@ function downloadCTAResult(container) {
   const tables = resultContainer.querySelectorAll('.hasil-table');
   const titles = [
     '🎯 1. CAPAIAN PEMBELAJARAN (CP)',
-    ' 2. TUJUAN PEMBELAJARAN (TP)',
+    '🏁 2. TUJUAN PEMBELAJARAN (TP)',
     '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'
   ];
 
