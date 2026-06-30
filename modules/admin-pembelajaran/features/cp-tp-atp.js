@@ -14,10 +14,17 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
 
+// ✅ KONSTANTA: Path CSS (mudah diubah di satu tempat)
+const CSS_PATH = '../../../css/modules/cp-tp-atp.css';
+const CSS_ID = 'cp-tp-atp-css';
+
 /**
  * Fungsi init - Dipanggil oleh main.js
  */
 export async function init(container, db) {
+  // ✅ LOAD CSS TERPISAH (Hanya jika belum ada)
+  loadFeatureCSS();
+  
   // Load API Key dari Firestore
   await loadGroqApiKey();
   
@@ -29,6 +36,38 @@ export async function init(container, db) {
   
   // Load data tersimpan
   loadCTAData(container);
+}
+
+/**
+ * ✅ FUNGSI BARU: Load CSS secara dinamis
+ * Mencegah duplikasi <link> jika fitur dibuka berulang kali
+ */
+function loadFeatureCSS() {
+  // Cek apakah CSS sudah di-load sebelumnya
+  if (document.getElementById(CSS_ID)) {
+    console.log('ℹ️ CSS CP/TP/ATP sudah dimuat');
+    return;
+  }
+  
+  const cssLink = document.createElement('link');
+  cssLink.rel = 'stylesheet';
+  cssLink.href = CSS_PATH;
+  cssLink.id = CSS_ID;
+  document.head.appendChild(cssLink);
+  
+  console.log('✅ CSS CP/TP/ATP dimuat dari:', CSS_PATH);
+}
+
+/**
+ * ✅ FUNGSI EKSPOR: Cleanup CSS saat kembali ke menu
+ * Dipanggil oleh main.js saat user klik tombol "Kembali"
+ */
+export function cleanup() {
+  const cssLink = document.getElementById(CSS_ID);
+  if (cssLink) {
+    cssLink.remove();
+    console.log('🧹 CSS CP/TP/ATP dihapus dari <head>');
+  }
 }
 
 /**
