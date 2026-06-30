@@ -1,84 +1,112 @@
 /* =========================================
    CP/TP/ATP GENERATOR (UNIVERSAL)
    File: css/modules/cp-tp-atp.css
+   REVISI: Latar putih paksa, Elemen opsional
    ========================================= */
 
-/* ✅ BACKGROUND PUTIH KONSISTEN */
+/* ✅ PAKSA LATAR PUTIH DI SEMUA LEVEL */
+#dynamicContent,
+#dynamicContent *,
+.cta-generator-form,
+.cta-generator-form *,
+.modul-container,
+body {
+  background: #ffffff !important;
+}
+
+/* Container utama */
 .cta-generator-form {
-  background: #ffffff;
+  background: #ffffff !important;
   padding: 30px;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   max-width: 950px;
-  margin: auto;
+  margin: 20px auto;
 }
 
-#dynamicContent { background: #ffffff !important; }
-
-/* ✅ JUDUL - UBAH DARI BIRU KE HITAM */
+/* Judul */
 .cta-generator-form h2 { 
   text-align: center; 
-  color: #1f2937; 
+  color: #1f2937 !important;
   margin-bottom: 10px; 
   font-size: 28px; 
 }
 
-.subtitle { text-align: center; color: #6b7280; margin-bottom: 30px; }
+.subtitle { 
+  text-align: center; 
+  color: #6b7280 !important;
+  margin-bottom: 30px; 
+}
 
 .section-title {
   font-size: 18px; 
   font-weight: 700; 
-  color: #1f2937;
+  color: #1f2937 !important;
   margin: 25px 0 15px 0; 
   padding-bottom: 8px; 
   border-bottom: 2px solid #e5e7eb;
 }
 
+/* Label & Input */
 .cta-generator-form label { 
   display: block; 
   margin-top: 12px; 
   font-weight: 600; 
-  color: #374151; 
+  color: #374151 !important;
   font-size: 14px; 
 }
 
 .cta-generator-form input, 
-.cta-generator-form select {
-  width: 100%; 
+.cta-generator-form select,
+.cta-generator-form textarea {
+  width: 100% !important;
   margin-top: 8px; 
-  padding: 12px; 
+  padding: 12px !important;
   border-radius: 8px;
-  border: 1px solid #d1d5db; 
-  font-size: 14px; 
+  border: 1px solid #d1d5db !important;
+  font-size: 14px !important;
   font-family: inherit; 
   box-sizing: border-box; 
-  background: #ffffff;
+  background: #ffffff !important;
+  color: #1f2937 !important;
 }
 
-.auto-filled { background: #f0fdf4; border-color: #10b981 !important; }
-.form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.form-row-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.auto-filled { 
+  background: #f0fdf4 !important;
+  border-color: #10b981 !important; 
+}
+
+.form-row { 
+  display: grid; 
+  grid-template-columns: repeat(2, 1fr); 
+  gap: 16px; 
+}
+
+.form-row-3 { 
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  gap: 16px; 
+}
 
 /* Tombol */
 .btn-generate, .btn-save, .btn-secondary, .btn-print, .btn-download {
   margin-top: 20px; 
-  padding: 14px 30px; 
-  border: none; 
+  padding: 14px 30px !important;
+  border: none !important;
   border-radius: 8px;
   cursor: pointer; 
-  font-size: 16px; 
+  font-size: 16px !important;
   font-weight: 600; 
   width: 100%;
   display: flex; 
   align-items: center; 
   justify-content: center; 
   gap: 8px;
+  color: white !important;
 }
 
-/* ✅ TOMBOL GENERATE - UBAH DARI BIRU KE HIJAU (lebih netral) */
 .btn-generate { 
-  background: linear-gradient(135deg, #059669 0%, #047857 100%); 
-  color: white; 
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
 }
 .btn-generate:hover { 
   transform: translateY(-2px); 
@@ -86,96 +114,158 @@
 }
 
 .btn-save { 
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%); 
-  color: white; 
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
 }
 .btn-print { 
-  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); 
-  color: white; 
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%) !important;
 }
 .btn-download { 
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); 
-  color: white; 
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
 }
 .btn-secondary { 
-  background: #6b7280; 
-  color: white; 
+  background: #6b7280 !important;
 }
 
-/* Input Dinamis Elemen & Topik */
+/* =========================================
+   INPUT DINAMIS: ELEMEN & TOPIK
+   ========================================= */
+
+/* ELEMEN - Box dengan border tebal, label jelas */
 .elemen-item {
-  background: #ffffff; 
-  border: 2px solid #e5e7eb; 
-  border-radius: 8px;
-  padding: 15px; 
-  margin-bottom: 15px;
+  background: #ffffff !important;
+  border: 3px solid #059669 !important; /* Hijau untuk Elemen */
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(5,150,105,0.1);
+}
+
+.elemen-item::before {
+  content: "📁 ELEMEN";
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
 }
 
 .elemen-header { 
   display: flex; 
   gap: 10px; 
-  margin-bottom: 10px; 
+  margin-bottom: 15px; 
   align-items: center; 
 }
 
 .elemen-nama { 
   flex: 1; 
-  padding: 10px; 
-  border: 1px solid #d1d5db; 
-  border-radius: 6px; 
-  font-size: 14px; 
-  background: #ffffff; 
+  padding: 12px !important;
+  border: 2px solid #059669 !important;
+  border-radius: 8px; 
+  font-size: 14px !important;
+  background: #f0fdf4 !important; /* Hijau muda untuk Elemen */
+  font-weight: 600;
 }
 
-.btn-hapus-elemen, .btn-hapus-topik {
-  background: #ef4444; 
-  color: white; 
-  border: none; 
-  padding: 8px 12px;
+.elemen-nama::placeholder {
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.btn-hapus-elemen {
+  background: #ef4444 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 15px !important;
   border-radius: 6px; 
   cursor: pointer; 
-  font-size: 12px; 
+  font-size: 13px !important;
   flex-shrink: 0;
 }
-.btn-hapus-elemen:hover, .btn-hapus-topik:hover { background: #dc2626; }
+.btn-hapus-elemen:hover { background: #dc2626 !important; }
 
-.topik-list { margin-bottom: 10px; }
+/* TOPIK - Box dalam dengan border berbeda */
+.topik-list { 
+  margin-bottom: 10px;
+  padding-left: 15px;
+  border-left: 3px solid #3b82f6; /* Biru untuk Topik */
+}
+
 .topik-item { 
   display: flex; 
   gap: 10px; 
-  margin-bottom: 8px; 
+  margin-bottom: 10px; 
   align-items: center; 
+  background: #ffffff !important;
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.topik-item::before {
+  content: "";
+  font-size: 14px;
+  margin-right: 5px;
 }
 
 .topik-nama {
   flex: 1; 
-  padding: 10px; 
-  border: 1px solid #d1d5db; 
+  padding: 10px !important;
+  border: 2px solid #3b82f6 !important; /* Biru untuk Topik */
   border-radius: 6px;
-  font-size: 14px; 
-  background: #ffffff;
+  font-size: 14px !important;
+  background: #eff6ff !important; /* Biru muda untuk Topik */
 }
 
-.btn-tambah-topik {
-  background: #3b82f6; 
-  color: white; 
-  border: none; 
-  padding: 8px 15px;
+.topik-nama::placeholder {
+  color: #6b7280;
+}
+
+.btn-hapus-topik {
+  background: #ef4444 !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 12px !important;
   border-radius: 6px; 
   cursor: pointer; 
-  font-size: 13px; 
-  margin-top: 5px;
+  font-size: 12px !important;
+  flex-shrink: 0;
 }
-.btn-tambah-topik:hover { background: #2563eb; }
+.btn-hapus-topik:hover { background: #dc2626 !important; }
+
+.btn-tambah-topik {
+  background: #3b82f6 !important;
+  color: white !important;
+  border: none !important;
+  padding: 10px 20px !important;
+  border-radius: 6px; 
+  cursor: pointer; 
+  font-size: 13px !important;
+  margin-top: 10px;
+  font-weight: 600;
+}
+.btn-tambah-topik:hover { background: #2563eb !important; }
+
+.btn-tambah-elemen {
+  background: #059669 !important;
+  color: white !important;
+  border: none !important;
+  padding: 12px 25px !important;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px !important;
+  font-weight: 600;
+  margin-top: 15px;
+}
+.btn-tambah-elemen:hover { background: #047857 !important; }
 
 /* HASIL 3 TABEL */
 .result-section { 
   margin-top: 30px; 
-  background: #ffffff; 
+  background: #ffffff !important;
 }
 
 .result-section h3 { 
-  color: #1f2937; 
+  color: #1f2937 !important;
   margin-bottom: 20px; 
   font-size: 20px; 
 }
@@ -188,43 +278,41 @@
 }
 
 .hasil-header h2 { 
-  color: #1f2937; 
+  color: #1f2937 !important;
   margin-bottom: 5px; 
   font-size: 22px; 
 }
 
 .hasil-header p { 
-  color: #6b7280; 
+  color: #6b7280 !important;
   font-size: 14px; 
 }
 
-/* ✅ JUDUL TABEL - UBAH DARI BIRU KE HITAM */
 .tabel-title {
   font-size: 16px; 
   font-weight: 700; 
-  color: #1f2937;
+  color: #1f2937 !important;
   margin: 25px 0 10px 0; 
   padding-bottom: 5px; 
   border-bottom: 2px solid #e5e7eb;
 }
 
-/* ✅ TABEL HASIL - LATAR PUTIH, BORDER HITAM TEGAS */
+/* Tabel Hasil */
 .hasil-table {
   width: 100%; 
   border-collapse: collapse; 
-  background: #ffffff;
-  border: 2px solid #000; 
+  background: #ffffff !important;
+  border: 2px solid #000 !important;
   margin-bottom: 20px;
 }
 
-/* ✅ HEADER TABEL - UBAH DARI BIRU MUDA KE PUTIH */
 .hasil-table th {
-  background: #ffffff; 
-  color: #1f2937; 
+  background: #ffffff !important;
+  color: #1f2937 !important;
   padding: 12px; 
   text-align: left;
   font-weight: 700; 
-  border: 1px solid #000; 
+  border: 1px solid #000 !important;
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -232,30 +320,29 @@
 
 .hasil-table td {
   padding: 10px 12px; 
-  border: 1px solid #000; 
+  border: 1px solid #000 !important;
   vertical-align: top;
   font-size: 13px; 
   line-height: 1.6; 
-  color: #1f2937;
-  background: #ffffff;
+  color: #1f2937 !important;
+  background: #ffffff !important;
 }
 
-/* ✅ KOLOM ELEMEN & NO - UBAH DARI ABU-ABU KE PUTIH */
 .hasil-table .col-elemen { 
   width: 150px; 
-  background: #ffffff; 
+  background: #ffffff !important;
   font-weight: 600; 
 }
 
 .hasil-table .col-no { 
   width: 50px; 
   text-align: center; 
-  background: #ffffff; 
+  background: #ffffff !important;
   font-weight: 600; 
 }
 
 .hasil-table .col-deskripsi { 
-  background: #ffffff; 
+  background: #ffffff !important;
 }
 
 /* Status Badge */
@@ -273,23 +360,23 @@
 /* Saved Documents */
 .saved-documents { 
   margin-top: 30px; 
-  background: #ffffff; 
+  background: #ffffff !important;
 }
 
 .saved-documents h3 { 
-  color: #1f2937; 
+  color: #1f2937 !important;
   margin-bottom: 15px; 
 }
 
 .document-list { margin-top: 15px; }
 
 .cta-item { 
-  background: #ffffff; 
+  background: #ffffff !important;
   padding: 20px; 
   margin-top: 15px; 
   border-radius: 8px; 
   box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
-  border: 1px solid #e5e7eb; 
+  border: 1px solid #e5e7eb !important;
 }
 
 .cta-item-header { 
@@ -300,7 +387,7 @@
 }
 
 .cta-item-header .date { 
-  color: #9ca3af; 
+  color: #9ca3af !important;
   font-size: 12px; 
 }
 
@@ -312,14 +399,14 @@
   padding: 16px 24px; 
   border-radius: 8px; 
   z-index: 9999; 
-  color: white; 
+  color: white !important;
   font-weight: 600; 
   box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
   animation: slideIn 0.3s ease; 
 }
-.toast-success { background: #10b981; } 
-.toast-error { background: #ef4444; } 
-.toast-warning { background: #f59e0b; }
+.toast-success { background: #10b981 !important; } 
+.toast-error { background: #ef4444 !important; } 
+.toast-warning { background: #f59e0b !important; }
 
 @keyframes slideIn { 
   from { transform: translateX(400px); opacity: 0; } 
@@ -330,10 +417,10 @@
 .empty-state, .loading, .error { 
   text-align: center; 
   padding: 30px; 
-  color: #6b7280; 
-  background: #ffffff; 
+  color: #6b7280 !important;
+  background: #ffffff !important;
 }
-.error { color: #ef4444; }
+.error { color: #ef4444 !important; }
 
 /* Action Buttons */
 .action-buttons { 
@@ -359,30 +446,30 @@
   .cta-generator-form h2, .subtitle, .section-title, .cta-generator-form label,
   .btn-generate, .btn-save, .btn-secondary, .btn-print, .btn-download,
   #cta-form, .saved-documents, .action-buttons, 
-  .btn-hapus-elemen, .btn-hapus-topik, .btn-tambah-topik { 
+  .btn-hapus-elemen, .btn-hapus-topik, .btn-tambah-topik, .btn-tambah-elemen { 
     display: none !important; 
   }
   
   #cta-result { display: block !important; }
   
   .hasil-table { 
-    border: 2px solid #000; 
+    border: 2px solid #000 !important;
     page-break-inside: avoid; 
     margin-bottom: 15px; 
   }
   
   .hasil-table th, .hasil-table td { 
-    border: 1px solid #000; 
-    color: #000; 
+    border: 1px solid #000 !important;
+    color: #000 !important;
     background: #ffffff !important;
   }
   
   .tabel-title { 
-    color: #000 !important; 
-    border-bottom: 1px solid #000; 
+    color: #000 !important;
+    border-bottom: 1px solid #000 !important;
   }
   
   .hasil-header h2, .hasil-header p { 
-    color: #000 !important; 
+    color: #000 !important;
   }
 }
