@@ -353,7 +353,7 @@ async function handleGenerate(container) {
 }
 
 /**
- * BUILD PROMPT UNTUK AI
+ * BUILD PROMPT UNTUK AI (UPDATE: PENOMORAN BERDASARKAN TOPIK)
  */
 function buildPrompt(dataTopik, metadata) {
   let prompt = `Buatkan CP, TP, dan ATP untuk:\n`;
@@ -364,16 +364,25 @@ function buildPrompt(dataTopik, metadata) {
   
   prompt += `Data Topik dan Elemen:\n`;
   dataTopik.forEach((item, idx) => {
-    prompt += `${idx + 1}. Topik: ${item.topik}\n`;
-    prompt += `   Elemen: ${item.elemen}\n\n`;
+    const nomorTopik = idx + 1;
+    prompt += `TOPIK ${nomorTopik}: ${item.topik}\n`;
+    prompt += `  Elemen: ${item.elemen}\n`;
+    prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst (nomor depan = ${nomorTopik})\n\n`;
   });
 
+  prompt += `PENTING - ATURAN PENOMORAN:\n`;
+  prompt += `1. CP: Gunakan format "CP-1", "CP-2", dst untuk setiap elemen\n`;
+  prompt += `2. TP: Nomor depan MENGIKUTI NOMOR TOPIK. Contoh:\n`;
+  prompt += `   - Topik 1 (elemen 1.a, 1.b, 1.c) → TP bernomor 1.1, 1.2, 1.3, 1.4, 1.5, 1.6\n`;
+  prompt += `   - Topik 2 (elemen 2.a, 2.b) → TP bernomor 2.1, 2.2, 2.3, 2.4\n`;
+  prompt += `3. ATP: Sama seperti TP, nomor depan MENGIKUTI NOMOR TOPIK\n\n`;
+  
   prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan):\n`;
   prompt += `{\n`;
   prompt += `  "cp": [{"elemen": "Nama Elemen", "deskripsi": "Deskripsi CP..."}],\n`;
-  prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["TP 1...", "TP 2..."]}],\n`;
-  prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["ATP 1...", "ATP 2..."]}]}\n`;
-  prompt += `Kelompokkan TP dan ATP berdasarkan Elemen yang sama.`;
+  prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["1.1 TP pertama...", "1.2 TP kedua...", "1.3 TP ketiga..."]}],\n`;
+  prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["1.1 ATP pertama...", "1.2 ATP kedua...", "1.3 ATP ketiga..."]}]}\n`;
+  prompt += `Kelompokkan TP dan ATP berdasarkan Elemen. Pastikan nomor depan sesuai dengan nomor topik!`;
 
   return prompt;
 }
