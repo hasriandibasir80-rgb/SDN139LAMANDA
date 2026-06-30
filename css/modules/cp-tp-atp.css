@@ -3,13 +3,18 @@
    File: css/modules/cp-tp-atp.css
    ========================================= */
 
+/* ✅ BACKGROUND PUTIH KONSISTEN */
 .cta-generator-form {
-  background: white;
+  background: #ffffff;
   padding: 30px;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   max-width: 950px;
   margin: auto;
+}
+
+#dynamicContent {
+  background: #ffffff !important;
 }
 
 .cta-generator-form h2 {
@@ -52,6 +57,7 @@
   font-size: 14px;
   font-family: inherit;
   box-sizing: border-box;
+  background: #ffffff;
 }
 
 .auto-filled {
@@ -122,40 +128,97 @@
 
 .result-section {
   margin-top: 30px;
+  background: #ffffff;
 }
 
+.result-section h3 {
+  color: #1f2937;
+  margin-bottom: 20px;
+  font-size: 20px;
+}
+
+/* ✅ FORMAT TABEL TERSTRUKTUR */
 .cta-result-table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 16px;
-  background: white;
+  background: #ffffff;
+  border: 2px solid #0891b2;
 }
 
 .cta-result-table th {
   background: #0891b2;
   color: white;
-  padding: 12px 16px;
+  padding: 14px 16px;
   text-align: left;
   font-weight: 600;
+  font-size: 15px;
+  border: 1px solid #0e7490;
 }
 
 .cta-result-table td {
   padding: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border: 1px solid #e5e7eb;
   vertical-align: top;
+  background: #ffffff;
 }
 
 .cta-result-table .label-col {
-  width: 180px;
+  width: 200px;
   background: #f8fafc;
   font-weight: 600;
   color: #374151;
+  font-size: 14px;
 }
 
 .cta-result-table .content-col {
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.8;
   color: #1f2937;
+  font-size: 14px;
+}
+
+/* ✅ TABEL TERPISAH UNTUK SETIAP KOMPONEN */
+.component-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border: 2px solid #0891b2;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.component-table thead th {
+  background: #0891b2;
+  color: white;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 15px;
+  border: 1px solid #0e7490;
+}
+
+.component-table tbody td {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  vertical-align: top;
+  background: #ffffff;
+}
+
+.component-table .component-label {
+  width: 180px;
+  background: #f0f9ff;
+  font-weight: 600;
+  color: #0891b2;
+  font-size: 14px;
+  border-right: 2px solid #0891b2;
+}
+
+.component-table .component-content {
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #1f2937;
+  font-size: 14px;
 }
 
 .action-buttons {
@@ -189,6 +252,12 @@
 
 .saved-documents {
   margin-top: 30px;
+  background: #ffffff;
+}
+
+.saved-documents h3 {
+  color: #1f2937;
+  margin-bottom: 15px;
 }
 
 .document-list {
@@ -196,11 +265,12 @@
 }
 
 .cta-item {
-  background: white;
+  background: #ffffff;
   padding: 20px;
   margin-top: 15px;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  border: 1px solid #e5e7eb;
 }
 
 .cta-item-header {
@@ -239,6 +309,19 @@
 
 .hidden { display: none !important; }
 
+.empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+  background: #ffffff;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #6b7280;
+}
+
 @media (max-width: 768px) {
   .form-row,
   .form-row-3 {
@@ -248,9 +331,20 @@
   .action-buttons {
     flex-direction: column;
   }
+  
+  .component-table .component-label {
+    width: 100%;
+    display: block;
+    border-right: none;
+    border-bottom: 2px solid #0891b2;
+  }
 }
 
 @media print {
+  body {
+    background: white !important;
+  }
+  
   .cta-generator-form h2,
   .subtitle,
   .section-title,
@@ -269,7 +363,8 @@
     display: block !important;
   }
   
-  .cta-result-table {
-    border: 1px solid #000;
+  .component-table {
+    border: 2px solid #000;
+    page-break-inside: avoid;
   }
 }
