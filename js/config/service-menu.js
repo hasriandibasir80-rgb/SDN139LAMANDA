@@ -20,7 +20,9 @@ export const konfigurasiFitur = {
   
   'dokumen-arsip': [
     { nama: 'Upload Dokumen', icon: '📤', link: 'modules/arsip/arsip-upload.html' },
-    { nama: 'Katalog Arsip', icon: '📚', link: 'modules/arsip/arsip-katalog.html' }
+    { nama: 'Katalog Arsip', icon: '📚', link: 'modules/arsip/arsip-katalog.html' },
+    // ✅ FITUR BARU: Simpan File (Card sudah muncul, koneksi Drive nanti)
+    { nama: 'Simpan File', icon: '📂', link: 'modules/arsip/simpan-file.html' }
   ],
   
   'data-statistik': [
