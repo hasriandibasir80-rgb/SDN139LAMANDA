@@ -63,7 +63,7 @@ function tampilkanInfoFile(file) {
   fileInfo.innerHTML = `
     ✅ <strong>${file.name}</strong><br>
     📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}
-  ```;
+  `;
   fileInfo.style.display = 'block';
   
   if (file.size > 10 * 1024 * 1024) {
@@ -75,7 +75,7 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// Helper untuk membaca file ke Base64 menggunakan sistem Promise (Urutan Sinkron)
+// Helper untuk membaca file ke Base64 menggunakan sistem Promise
 function convertFileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -108,7 +108,7 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  // Tampilkan loading & matikan tombol agar tidak di-klik ganda
+  // Tampilkan loading & matikan tombol
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Mengupload...';
   showStatus('loading', '📤 Mengirim file ke Google Drive...');
@@ -140,7 +140,7 @@ form.addEventListener('submit', async (e) => {
     if (result.status === 'success') {
       showStatus('success', '✅ File berhasil diupload! Menyimpan data ke database...');
       
-      // D. Simpan Metadata ke Firestore setelah Drive sukses menerima file
+      // D. Simpan Metadata ke Firestore
       await simpanKeFirestore({
         namaDokumen, kategori, deskripsi, file,
         url: result.url,
@@ -148,15 +148,12 @@ form.addEventListener('submit', async (e) => {
       });
 
     } else {
-      // Menangkap eror terstruktur dari Google Script catch block
       throw new Error(result.message || 'Terjadi gangguan internal pada Apps Script.');
     }
 
   } catch (error) {
     console.error('Detail Terjadinya Eror:', error);
     showStatus('error', '❌ Gagal upload: ' + error.message);
-    
-    // Kembalikan tombol ke keadaan semula agar user bisa mencoba kembali jika gagal
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
@@ -185,7 +182,6 @@ async function simpanKeFirestore(data) {
     showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
     alert('✅ File berhasil disimpan dan masuk ke Katalog Arsip!');
     
-    // Reset Form & Tombol setelah seluruh rangkaian selesai sepenuhnya
     form.reset();
     fileInfo.style.display = 'none';
     btnUpload.disabled = false;
@@ -203,21 +199,3 @@ function showStatus(type, message) {
   statusDiv.className = `upload-status ${type}`;
   statusDiv.innerHTML = message;
 }
-```
-
----
-
-### ⚠️ Prosedur Wajib Saat Deploy Apps Script (Ikuti Langkah Ini):
-
-Agar perubahan kode `Kode.gs` di atas aktif dan tidak terkena cek CORS, lakukan langkah ini di Google Apps Script:
-1. Tempel kode `Kode.gs` baru di atas, lalu **Simpan** (ikon Disket).
-2. Klik tombol **Terapkan (Deploy)** di bagian kanan atas -> pilih **Kelola penerapan (Manage deployments)** atau **Penerapan baru (New deployment)**.
-3. Jika memilih *New deployment*:
-   * Jenis penerapan: **Aplikasi Web (Web App)**.
-   * Jalankan sebagai (Execute as): **Saya (akkoandi@gmail.com)**.
-   * Siapa yang memiliki akses (Who has access): **Siapa saja (Anyone)**.
-4. Klik **Terapkan (Deploy)**.
-5. **Salin URL Aplikasi Web** yang baru dihasilkan, lalu pastikan nilainya sama dengan konstanta `APP_SCRIPT_URL` pada baris ke-9 di berkas `simpan-file.js` Anda.
-6. Lakukan `git commit` dan `git push` berkas `simpan-file.js` terbaru Anda ke GitHub Pages.
-
-Apakah ada bagian dari alur **penerapan ulang (deployment)** Apps Script ini yang ingin Anda konfirmasi kembali?
