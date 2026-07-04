@@ -47,13 +47,13 @@ dropZone.addEventListener('drop', (e) => {
   const files = e.dataTransfer.files;
   if (files.length > 0) {
     fileInput.files = files;
-    tampilkanInfoFile(files[0]);
+    tampilkanInfoFile(files[0]); // Koreksi: ambil indeks ke-0
   }
 });
 
 fileInput.addEventListener('change', (e) => {
   if (e.target.files.length > 0) {
-    tampilkanInfoFile(e.target.files[0]);
+    tampilkanInfoFile(e.target.files[0]); // Koreksi: ambil indeks ke-0
   }
 });
 
@@ -81,7 +81,7 @@ function convertFileToBase64(file) {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => {
-      const base64String = reader.result.split(',')[1];
+      const base64String = reader.result.split(',')[1]; // Koreksi: ambil string datanya saja
       resolve(base64String);
     };
     reader.onerror = (error) => reject(error);
@@ -95,7 +95,7 @@ form.addEventListener('submit', async (e) => {
   const kategori = document.getElementById('kategori').value;
   const namaDokumen = document.getElementById('namaDokumen').value.trim();
   const deskripsi = document.getElementById('deskripsi').value.trim();
-  const file = fileInput.files[0];
+  const file = fileInput.files[0]; // Koreksi wajib: Mengambil objek file ke-0 secara langsung
 
   // Validasi Awal
   if (!kategori || !namaDokumen || !file) {
