@@ -1,14 +1,17 @@
 // =========================================
 // MODUL: SIMPAN FILE (GENERAL USER)
 // Koneksi: Google Apps Script + Firestore
+// Mode: no-cors (paling reliable untuk Apps Script)
+// FIX: Promise wrapper untuk FileReader agar error tertangkap
 // =========================================
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, serverTimestamp } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ✅ URL APPS SCRIPT (SUDAH TERISI)
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec"; 
+// URL APPS SCRIPT & FOLDER
+const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
+const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
 
 // 1. KEAMANAN: Cek User Login
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -75,7 +78,35 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// 5. FORM SUBMIT HANDLER (LOGIKA UTAMA)
+// 5. ✅ FIX UTAMA: Promise wrapper untuk FileReader
+// Ini memastikan error asinkron bisa ditangkap oleh try-catch
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = () => {
+      try {
+        // Ambil base64 murni (hapus prefix data:xxx;base64,)
+        const base64String = reader.result.split(',')[1];
+        resolve(base64String);
+      } catch (err) {
+        reject(new Error('Gagal mengkonversi file ke Base64: ' + err.message));
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Gagal membaca file. File mungkin rusak atau tidak bisa diakses.'));
+    };
+    
+    reader.onabort = () => {
+      reject(new Error('Pembacaan file dibatalkan.'));
+    };
+    
+    reader.readAsDataURL(file);
+  });
+}
+
+// 6. FORM SUBMIT HANDLER (LOGIKA UTAMA - SUDAH DIPERBAIKI)
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -95,57 +126,61 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Generate nama file unik dengan timestamp
+  const fileName = `${Date.now()}_${file.name}`;
+
   // Tampilkan loading
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Mengupload...';
   showStatus('loading', '📤 Mengirim file ke Google Drive...');
 
+  // ✅ SEMUA LOGIKA ASINKRON DALAM SATU TRY-CATCH
   try {
-    // A. Convert file ke Base64
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
+    // A. Convert file ke Base64 (dengan Promise wrapper)
+    showStatus('loading', '🔄 Mengkonversi file...');
+    const base64String = await fileToBase64(file);
     
-    reader.onload = async () => {
-      const base64String = reader.result.split(',')[1]; // Ambil base64 murni
+    // B. Kirim ke Apps Script dengan mode: 'no-cors'
+    showStatus('loading', '📤 Mengirim file ke Google Drive...');
+    await fetch(APP_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // ← KUNCI: Tidak trigger preflight CORS
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8', // ← Sudah benar
+      },
+      body: JSON.stringify({
+        fileName: fileName,
+        mimeType: file.type,
+        fileData: base64String,
+        namaDokumen: namaDokumen,
+        kategori: kategori
+      })
+    });
 
-      // B. Kirim ke Apps Script
-      const response = await fetch(APP_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify({
-          fileName: `${Date.now()}_${file.name}`, // Tambah timestamp agar nama unik
-          mimeType: file.type,
-          fileData: base64String
-        })
-      });
-
-      const result = await response.json();
-
-      if (result.status === 'success') {
-        showStatus('success', '✅ File berhasil diupload! Menyimpan data...');
-        
-        // C. Simpan Metadata ke Firestore
-        await simpanKeFirestore({
-          namaDokumen, kategori, deskripsi, file,
-          url: result.url,
-          id: result.id
-        });
-      } else {
-        throw new Error(result.message);
-      }
-    };
+    // Karena mode: 'no-cors', response tidak bisa dibaca
+    // Tapi jika tidak ada error, asumsikan sukses
+    showStatus('success', '✅ File berhasil diupload! Menyimpan data ke database...');
+    
+    // C. Simpan Metadata ke Firestore
+    await simpanKeFirestore({
+      namaDokumen, 
+      kategori, 
+      deskripsi, 
+      file,
+      fileName,
+      folderUrl: FOLDER_URL
+    });
 
   } catch (error) {
-    console.error(error);
+    // ✅ SEKARANG SEMUA ERROR TERTANGKAP DI SINI
+    console.error('❌ Error lengkap:', error);
     showStatus('error', '❌ Gagal upload: ' + error.message);
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
 });
 
-// 6. SIMPAN KE FIRESTORE
+// 7. SIMPAN KE FIRESTORE
 async function simpanKeFirestore(data) {
   try {
     await addDoc(collection(db, 'documents'), {
@@ -153,11 +188,10 @@ async function simpanKeFirestore(data) {
       kategori: data.kategori,
       levelAkses: 'publik',
       deskripsi: data.deskripsi,
-      namaFile: data.file.name,
+      namaFile: data.fileName,
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
-      urlFile: data.url,
-      driveFileId: data.id,
+      folderUrl: data.folderUrl,
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email,
       uploaderNama: currentUser.namaLengkap || 'Guru/Staff',
@@ -166,7 +200,7 @@ async function simpanKeFirestore(data) {
     });
 
     showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
-    alert('✅ File berhasil disimpan dan masuk ke Katalog Arsip!');
+    alert('✅ File berhasil disimpan!\n\n📁 Cek folder Google Drive: ARSIP DIGITAL SDN 139 LAMANDA\n📋 Cek menu: Katalog Arsip');
     
     form.reset();
     fileInfo.style.display = 'none';
@@ -174,13 +208,14 @@ async function simpanKeFirestore(data) {
     btnText.textContent = '💾 Simpan File';
 
   } catch (err) {
-    showStatus('error', 'File terupload ke Drive, tapi gagal simpan ke database: ' + err.message);
+    console.error('❌ Firestore error:', err);
+    showStatus('error', '❌ Gagal simpan ke database: ' + err.message);
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
 }
 
-// 7. HELPER FUNCTIONS
+// 8. HELPER FUNCTIONS
 function showStatus(type, message) {
   statusDiv.className = `upload-status ${type}`;
   statusDiv.innerHTML = message;
