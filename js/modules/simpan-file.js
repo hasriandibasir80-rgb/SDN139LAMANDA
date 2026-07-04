@@ -1,17 +1,14 @@
 // =========================================
 // MODUL: SIMPAN FILE (GENERAL USER)
 // Koneksi: Google Apps Script + Firestore
-// Mode: no-cors (paling reliable untuk Apps Script)
-// FIX: Promise wrapper untuk FileReader agar error tertangkap
 // =========================================
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, serverTimestamp } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  from "https://gstatic.com";
 
-// URL APPS SCRIPT & FOLDER
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
-const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
+// ✅ URL APPS SCRIPT
+const APP_SCRIPT_URL = "https://google.com"; 
 
 // 1. KEAMANAN: Cek User Login
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -66,7 +63,7 @@ function tampilkanInfoFile(file) {
   fileInfo.innerHTML = `
     ✅ <strong>${file.name}</strong><br>
     📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}
-  `;
+  ```;
   fileInfo.style.display = 'block';
   
   if (file.size > 10 * 1024 * 1024) {
@@ -78,35 +75,20 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// 5. ✅ FIX UTAMA: Promise wrapper untuk FileReader
-// Ini memastikan error asinkron bisa ditangkap oleh try-catch
-function fileToBase64(file) {
+// Helper untuk membaca file ke Base64 menggunakan sistem Promise (Urutan Sinkron)
+function convertFileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    
-    reader.onload = () => {
-      try {
-        // Ambil base64 murni (hapus prefix data:xxx;base64,)
-        const base64String = reader.result.split(',')[1];
-        resolve(base64String);
-      } catch (err) {
-        reject(new Error('Gagal mengkonversi file ke Base64: ' + err.message));
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Gagal membaca file. File mungkin rusak atau tidak bisa diakses.'));
-    };
-    
-    reader.onabort = () => {
-      reject(new Error('Pembacaan file dibatalkan.'));
-    };
-    
     reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = reader.result.split(',')[1];
+      resolve(base64String);
+    };
+    reader.onerror = (error) => reject(error);
   });
 }
 
-// 6. FORM SUBMIT HANDLER (LOGIKA UTAMA - SUDAH DIPERBAIKI)
+// 5. FORM SUBMIT HANDLER (LOGIKA UTAMA SINKRON)
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -115,7 +97,7 @@ form.addEventListener('submit', async (e) => {
   const deskripsi = document.getElementById('deskripsi').value.trim();
   const file = fileInput.files[0];
 
-  // Validasi
+  // Validasi Awal
   if (!kategori || !namaDokumen || !file) {
     showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
     return;
@@ -126,61 +108,61 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  // Generate nama file unik dengan timestamp
-  const fileName = `${Date.now()}_${file.name}`;
-
-  // Tampilkan loading
+  // Tampilkan loading & matikan tombol agar tidak di-klik ganda
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Mengupload...';
   showStatus('loading', '📤 Mengirim file ke Google Drive...');
 
-  // ✅ SEMUA LOGIKA ASINKRON DALAM SATU TRY-CATCH
   try {
-    // A. Convert file ke Base64 (dengan Promise wrapper)
-    showStatus('loading', '🔄 Mengkonversi file...');
-    const base64String = await fileToBase64(file);
-    
-    // B. Kirim ke Apps Script dengan mode: 'no-cors'
-    showStatus('loading', '📤 Mengirim file ke Google Drive...');
-    await fetch(APP_SCRIPT_URL, {
+    // A. Mengonversi berkas secara linier
+    const base64DataMurni = await convertFileToBase64(file);
+
+    // B. Kirim berkas ke Apps Script API
+    const response = await fetch(APP_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // ← KUNCI: Tidak trigger preflight CORS
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8', // ← Sudah benar
+        'Content-Type': 'text/plain;charset=utf-8'
       },
       body: JSON.stringify({
-        fileName: fileName,
+        fileName: `${Date.now()}_${file.name}`,
         mimeType: file.type,
-        fileData: base64String,
-        namaDokumen: namaDokumen,
-        kategori: kategori
+        fileData: base64DataMurni
       })
     });
 
-    // Karena mode: 'no-cors', response tidak bisa dibaca
-    // Tapi jika tidak ada error, asumsikan sukses
-    showStatus('success', '✅ File berhasil diupload! Menyimpan data ke database...');
-    
-    // C. Simpan Metadata ke Firestore
-    await simpanKeFirestore({
-      namaDokumen, 
-      kategori, 
-      deskripsi, 
-      file,
-      fileName,
-      folderUrl: FOLDER_URL
-    });
+    if (!response.ok) {
+      throw new Error(`Server membalas dengan kode status HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    // C. Periksa jawaban dari server Apps Script
+    if (result.status === 'success') {
+      showStatus('success', '✅ File berhasil diupload! Menyimpan data ke database...');
+      
+      // D. Simpan Metadata ke Firestore setelah Drive sukses menerima file
+      await simpanKeFirestore({
+        namaDokumen, kategori, deskripsi, file,
+        url: result.url,
+        id: result.id
+      });
+
+    } else {
+      // Menangkap eror terstruktur dari Google Script catch block
+      throw new Error(result.message || 'Terjadi gangguan internal pada Apps Script.');
+    }
 
   } catch (error) {
-    // ✅ SEKARANG SEMUA ERROR TERTANGKAP DI SINI
-    console.error('❌ Error lengkap:', error);
+    console.error('Detail Terjadinya Eror:', error);
     showStatus('error', '❌ Gagal upload: ' + error.message);
+    
+    // Kembalikan tombol ke keadaan semula agar user bisa mencoba kembali jika gagal
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
 });
 
-// 7. SIMPAN KE FIRESTORE
+// 6. SIMPAN KE FIRESTORE
 async function simpanKeFirestore(data) {
   try {
     await addDoc(collection(db, 'documents'), {
@@ -188,10 +170,11 @@ async function simpanKeFirestore(data) {
       kategori: data.kategori,
       levelAkses: 'publik',
       deskripsi: data.deskripsi,
-      namaFile: data.fileName,
+      namaFile: data.file.name,
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
-      folderUrl: data.folderUrl,
+      urlFile: data.url,
+      driveFileId: data.id,
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email,
       uploaderNama: currentUser.namaLengkap || 'Guru/Staff',
@@ -200,23 +183,41 @@ async function simpanKeFirestore(data) {
     });
 
     showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
-    alert('✅ File berhasil disimpan!\n\n📁 Cek folder Google Drive: ARSIP DIGITAL SDN 139 LAMANDA\n📋 Cek menu: Katalog Arsip');
+    alert('✅ File berhasil disimpan dan masuk ke Katalog Arsip!');
     
+    // Reset Form & Tombol setelah seluruh rangkaian selesai sepenuhnya
     form.reset();
     fileInfo.style.display = 'none';
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
 
   } catch (err) {
-    console.error('❌ Firestore error:', err);
-    showStatus('error', '❌ Gagal simpan ke database: ' + err.message);
+    showStatus('error', 'File terupload ke Drive, tetapi gagal mencatat ke database: ' + err.message);
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
 }
 
-// 8. HELPER FUNCTIONS
+// 7. HELPER FUNCTIONS
 function showStatus(type, message) {
   statusDiv.className = `upload-status ${type}`;
   statusDiv.innerHTML = message;
 }
+```
+
+---
+
+### ⚠️ Prosedur Wajib Saat Deploy Apps Script (Ikuti Langkah Ini):
+
+Agar perubahan kode `Kode.gs` di atas aktif dan tidak terkena cek CORS, lakukan langkah ini di Google Apps Script:
+1. Tempel kode `Kode.gs` baru di atas, lalu **Simpan** (ikon Disket).
+2. Klik tombol **Terapkan (Deploy)** di bagian kanan atas -> pilih **Kelola penerapan (Manage deployments)** atau **Penerapan baru (New deployment)**.
+3. Jika memilih *New deployment*:
+   * Jenis penerapan: **Aplikasi Web (Web App)**.
+   * Jalankan sebagai (Execute as): **Saya (akkoandi@gmail.com)**.
+   * Siapa yang memiliki akses (Who has access): **Siapa saja (Anyone)**.
+4. Klik **Terapkan (Deploy)**.
+5. **Salin URL Aplikasi Web** yang baru dihasilkan, lalu pastikan nilainya sama dengan konstanta `APP_SCRIPT_URL` pada baris ke-9 di berkas `simpan-file.js` Anda.
+6. Lakukan `git commit` dan `git push` berkas `simpan-file.js` terbaru Anda ke GitHub Pages.
+
+Apakah ada bagian dari alur **penerapan ulang (deployment)** Apps Script ini yang ingin Anda konfirmasi kembali?
