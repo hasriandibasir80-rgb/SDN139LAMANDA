@@ -1,6 +1,6 @@
 // =========================================
 // MODUL: SIMPAN FILE - CHUNKED UPLOAD
-// Koneksi: Apps Script + Firestore
+// Tanpa no-cors, bisa baca response!
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -73,7 +73,7 @@ function tampilkanInfoFile(file) {
   `;
   fileInfo.style.display = 'block';
   
-  if (file.size > 50 * 1024 * 1024) { // Max 50MB
+  if (file.size > 50 * 1024 * 1024) {
     showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
@@ -86,20 +86,37 @@ function tampilkanInfoFile(file) {
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onload = () => {
+      try {
+        resolve(reader.result.split(',')[1]);
+      } catch (err) {
+        reject(new Error('Gagal konversi Base64: ' + err.message));
+      }
+    };
     reader.onerror = () => reject(new Error('Gagal membaca file'));
     reader.onabort = () => reject(new Error('Pembacaan dibatalkan'));
     reader.readAsDataURL(file);
   });
 }
 
-// Split Base64 ke chunks
-function splitIntoChunks(base64String, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < base64String.length; i += chunkSize) {
-    chunks.push(base64String.slice(i, i + chunkSize));
+// 🎯 KUNCI: Kirim data sebagai form-urlencoded (tidak trigger preflight!)
+async function sendToAppsScript(data) {
+  const formData = new URLSearchParams();
+  formData.append('data', JSON.stringify(data));
+  
+  const response = await fetch(APP_SCRIPT_URL, {
+    method: 'POST',
+    // TIDAK pakai mode: 'no-cors'
+    // TIDAK pakai Content-Type: application/json
+    // Pakai form-urlencoded (simple, no preflight)
+    body: formData.toString()
+  });
+  
+  if (!response.ok) {
+    throw new Error('HTTP error: ' + response.status);
   }
-  return chunks;
+  
+  return await response.json();
 }
 
 // Form Submit Handler
@@ -121,64 +138,65 @@ form.addEventListener('submit', async (e) => {
 
   const fileName = `${Date.now()}_${file.name}`;
   btnUpload.disabled = true;
-  btnText.textContent = '⏳ Mengupload...';
+  btnText.textContent = '⏳ Memproses...';
 
   try {
     // Step 1: Convert to Base64
-    showStatus('info', '🔄 Mengkonversi file...');
+    showStatus('info', '🔄 Mengkonversi file ke Base64...');
     const base64String = await fileToBase64(file);
     console.log('✅ Base64 length:', base64String.length);
 
     // Step 2: Init Upload
-    showStatus('info', '📤 Memulai upload...');
-    const initResponse = await fetch(`${APP_SCRIPT_URL}?action=initUpload`, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        fileName: fileName,
-        mimeType: file.type,
-        totalSize: file.size
-      })
+    showStatus('info', ' Memulai upload session...');
+    const initResult = await sendToAppsScript({
+      action: 'init',
+      fileName: fileName,
+      mimeType: file.type,
+      totalSize: file.size
     });
 
-    // Karena no-cors, kita tidak bisa baca response
-    // Tapi kita asumsikan sukses jika tidak ada error
-    console.log('✅ Init upload sent');
+    console.log('✅ Init response:', initResult);
 
-    // Step 3: Split into chunks
-    showStatus('info', '📦 Memecah file menjadi chunks...');
-    const chunks = splitIntoChunks(base64String, CHUNK_SIZE);
-    console.log('📦 Total chunks:', chunks.length);
-
-    // Step 4: Upload chunks
-    for (let i = 0; i < chunks.length; i++) {
-      showStatus('info', `📤 Mengupload chunk ${i + 1}/${chunks.length}...`);
-      
-      await fetch(`${APP_SCRIPT_URL}?action=uploadChunk`, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          uploadId: 'upload_' + Date.now(), // Ini harus dari init response, tapi kita pakai timestamp
-          chunkIndex: i,
-          totalChunks: chunks.length,
-          data: chunks[i]
-        })
-      });
-
-      console.log(`✅ Chunk ${i + 1}/${chunks.length} uploaded`);
-      
-      // Delay kecil agar Apps Script tidak overload
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (initResult.status !== 'ready') {
+      throw new Error('Gagal init upload: ' + JSON.stringify(initResult));
     }
 
-    // Step 5: Tunggu proses gabung chunk
-    showStatus('info', '⏳ Menunggu proses penggabungan...');
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    const uploadId = initResult.uploadId;
+    const totalChunks = initResult.totalChunks;
+    console.log(' Upload ID:', uploadId);
+    console.log('📦 Total chunks:', totalChunks);
 
-    // Step 6: Simpan ke Firestore
-    showStatus('info', '💾 Menyimpan ke database...');
+    // Step 3: Upload chunks
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, base64String.length);
+      const chunkData = base64String.slice(start, end);
+
+      showStatus('info', `📤 Mengupload chunk ${i + 1}/${totalChunks}...`);
+      console.log(`📦 Chunk ${i + 1}/${totalChunks}: ${chunkData.length} chars`);
+
+      const chunkResult = await sendToAppsScript({
+        action: 'chunk',
+        uploadId: uploadId,
+        chunkIndex: i,
+        totalChunks: totalChunks,
+        chunkData: chunkData
+      });
+
+      console.log(`✅ Chunk ${i + 1} response:`, chunkResult);
+
+      if (chunkResult.status === 'error') {
+        throw new Error('Chunk error: ' + chunkResult.message);
+      }
+
+      // Delay kecil agar Apps Script tidak overload
+      if (i < totalChunks - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Step 4: Simpan ke Firestore
+    showStatus('info', '💾 Menyimpan metadata ke database...');
     await simpanKeFirestore({
       namaDokumen,
       kategori,
