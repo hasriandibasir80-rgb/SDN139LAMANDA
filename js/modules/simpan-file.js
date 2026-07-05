@@ -1,5 +1,5 @@
 // =========================================
-// MODUL: SIMPAN FILE - VERSI SEDERHANA
+// MODUL: SIMPAN FILE - SEDERHANA
 // Upload ke Drive via Apps Script
 // Simpan ke Firestore dari frontend
 // =========================================
@@ -13,7 +13,7 @@ const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14b
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('️ Anda harus login untuk menggunakan fitur ini.');
+  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
@@ -82,17 +82,11 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// Promise wrapper untuk FileReader
+// Convert file ke Base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        resolve(reader.result.split(',')[1]);
-      } catch (err) {
-        reject(new Error('Gagal konversi Base64: ' + err.message));
-      }
-    };
+    reader.onload = () => resolve(reader.result.split(',')[1]);
     reader.onerror = () => reject(new Error('Gagal membaca file'));
     reader.onabort = () => reject(new Error('Pembacaan dibatalkan'));
     reader.readAsDataURL(file);
@@ -109,7 +103,7 @@ form.addEventListener('submit', async (e) => {
   const file = fileInput.files[0];
 
   if (!kategori || !namaDokumen || !file) {
-    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
+    return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
   }
 
   if (file.size > 10 * 1024 * 1024) {
@@ -118,7 +112,7 @@ form.addEventListener('submit', async (e) => {
 
   const fileName = `${Date.now()}_${file.name}`;
   btnUpload.disabled = true;
-  btnText.textContent = ' Mengupload...';
+  btnText.textContent = '⏳ Mengupload...';
 
   try {
     // Step 1: Convert to Base64
@@ -126,7 +120,7 @@ form.addEventListener('submit', async (e) => {
     const base64String = await fileToBase64(file);
     console.log('✅ Base64 length:', base64String.length);
 
-    // Step 2: Upload ke Apps Script dengan mode: 'no-cors'
+    // Step 2: Upload ke Apps Script
     showStatus('info', '📤 Mengirim ke Google Drive...');
     
     await fetch(APP_SCRIPT_URL, {
@@ -144,11 +138,11 @@ form.addEventListener('submit', async (e) => {
 
     console.log('✅ Fetch completed');
 
-    // Step 3: Tunggu Apps Script proses
+    // Step 3: Tunggu proses
     showStatus('info', '⏳ Menunggu proses upload...');
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Step 4: Simpan ke Firestore (dari frontend)
+    // Step 4: Simpan ke Firestore
     showStatus('info', '💾 Menyimpan ke database...');
     await simpanKeFirestore({
       namaDokumen,
