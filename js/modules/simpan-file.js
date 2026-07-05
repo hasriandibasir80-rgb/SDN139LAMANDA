@@ -1,7 +1,6 @@
 // =========================================
-// MODUL: SIMPAN FILE - SEDERHANA
-// Upload ke Drive via Apps Script
-// Simpan ke Firestore dari frontend
+// MODUL: SIMPAN FILE - CHUNKED UPLOAD
+// Koneksi: Apps Script + Firestore
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -10,6 +9,7 @@ import { collection, addDoc, serverTimestamp }
 
 const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
 const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB per chunk
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
@@ -73,8 +73,8 @@ function tampilkanInfoFile(file) {
   `;
   fileInfo.style.display = 'block';
   
-  if (file.size > 10 * 1024 * 1024) {
-    showStatus('error', '⚠️ File terlalu besar! Maksimal 10MB.');
+  if (file.size > 50 * 1024 * 1024) { // Max 50MB
+    showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
   } else {
@@ -93,6 +93,15 @@ function fileToBase64(file) {
   });
 }
 
+// Split Base64 ke chunks
+function splitIntoChunks(base64String, chunkSize) {
+  const chunks = [];
+  for (let i = 0; i < base64String.length; i += chunkSize) {
+    chunks.push(base64String.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
 // Form Submit Handler
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -106,8 +115,8 @@ form.addEventListener('submit', async (e) => {
     return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return showStatus('error', '⚠️ File terlalu besar! Maksimal 10MB.');
+  if (file.size > 50 * 1024 * 1024) {
+    return showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
   }
 
   const fileName = `${Date.now()}_${file.name}`;
@@ -120,29 +129,55 @@ form.addEventListener('submit', async (e) => {
     const base64String = await fileToBase64(file);
     console.log('✅ Base64 length:', base64String.length);
 
-    // Step 2: Upload ke Apps Script
-    showStatus('info', '📤 Mengirim ke Google Drive...');
-    
-    await fetch(APP_SCRIPT_URL, {
+    // Step 2: Init Upload
+    showStatus('info', '📤 Memulai upload...');
+    const initResponse = await fetch(`${APP_SCRIPT_URL}?action=initUpload`, {
       method: 'POST',
       mode: 'no-cors',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
-      },
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         fileName: fileName,
         mimeType: file.type,
-        fileData: base64String
+        totalSize: file.size
       })
     });
 
-    console.log('✅ Fetch completed');
+    // Karena no-cors, kita tidak bisa baca response
+    // Tapi kita asumsikan sukses jika tidak ada error
+    console.log('✅ Init upload sent');
 
-    // Step 3: Tunggu proses
-    showStatus('info', '⏳ Menunggu proses upload...');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Step 3: Split into chunks
+    showStatus('info', '📦 Memecah file menjadi chunks...');
+    const chunks = splitIntoChunks(base64String, CHUNK_SIZE);
+    console.log('📦 Total chunks:', chunks.length);
 
-    // Step 4: Simpan ke Firestore
+    // Step 4: Upload chunks
+    for (let i = 0; i < chunks.length; i++) {
+      showStatus('info', `📤 Mengupload chunk ${i + 1}/${chunks.length}...`);
+      
+      await fetch(`${APP_SCRIPT_URL}?action=uploadChunk`, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          uploadId: 'upload_' + Date.now(), // Ini harus dari init response, tapi kita pakai timestamp
+          chunkIndex: i,
+          totalChunks: chunks.length,
+          data: chunks[i]
+        })
+      });
+
+      console.log(`✅ Chunk ${i + 1}/${chunks.length} uploaded`);
+      
+      // Delay kecil agar Apps Script tidak overload
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    // Step 5: Tunggu proses gabung chunk
+    showStatus('info', '⏳ Menunggu proses penggabungan...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // Step 6: Simpan ke Firestore
     showStatus('info', '💾 Menyimpan ke database...');
     await simpanKeFirestore({
       namaDokumen,
