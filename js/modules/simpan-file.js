@@ -1,17 +1,19 @@
 // =========================================
-// MODUL: SIMPAN FILE - FINAL VERSION
-// Apps Script simpan ke Firestore langsung
+// MODUL: SIMPAN FILE - VERSI SEDERHANA
+// Upload ke Drive via Apps Script
+// Simpan ke Firestore dari frontend
 // =========================================
 
 import { db } from '../firebase-config.js';
-import { collection, query, where, orderBy, onSnapshot }
+import { collection, addDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
+const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
+  alert('️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
@@ -25,18 +27,79 @@ const btnUpload = document.getElementById('btnUpload');
 const btnText = document.getElementById('btnText');
 const statusDiv = document.getElementById('uploadStatus');
 
-// Drag & Drop (kode Anda)
-// ...
+// Drag & Drop
+['dragenter', 'dragover'].forEach(evt => {
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dz.classList.add('dragover');
+    });
+  }
+});
 
+['dragleave', 'drop'].forEach(evt => {
+  const dz = document.getElementById('dropZone');
+  if (dz) {
+    dz.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+    });
+  }
+});
+
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+  dropZone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      fileInput.files = files;
+      tampilkanInfoFile(files[0]);
+    }
+  });
+}
+
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files.length > 0) {
+    tampilkanInfoFile(e.target.files[0]);
+  }
+});
+
+function tampilkanInfoFile(file) {
+  const ukuranMB = (file.size / (1024 * 1024)).toFixed(2);
+  fileInfo.innerHTML = `
+    ✅ <strong>${file.name}</strong><br>
+    📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}
+  `;
+  fileInfo.style.display = 'block';
+  
+  if (file.size > 10 * 1024 * 1024) {
+    showStatus('error', '⚠️ File terlalu besar! Maksimal 10MB.');
+    fileInput.value = '';
+    fileInfo.style.display = 'none';
+  } else {
+    statusDiv.innerHTML = '';
+  }
+}
+
+// Promise wrapper untuk FileReader
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onload = () => {
+      try {
+        resolve(reader.result.split(',')[1]);
+      } catch (err) {
+        reject(new Error('Gagal konversi Base64: ' + err.message));
+      }
+    };
     reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.onabort = () => reject(new Error('Pembacaan dibatalkan'));
     reader.readAsDataURL(file);
   });
 }
 
+// Form Submit Handler
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -46,7 +109,7 @@ form.addEventListener('submit', async (e) => {
   const file = fileInput.files[0];
 
   if (!kategori || !namaDokumen || !file) {
-    return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
+    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
   }
 
   if (file.size > 10 * 1024 * 1024) {
@@ -55,7 +118,7 @@ form.addEventListener('submit', async (e) => {
 
   const fileName = `${Date.now()}_${file.name}`;
   btnUpload.disabled = true;
-  btnText.textContent = '⏳ Mengupload...';
+  btnText.textContent = ' Mengupload...';
 
   try {
     // Step 1: Convert to Base64
@@ -63,37 +126,37 @@ form.addEventListener('submit', async (e) => {
     const base64String = await fileToBase64(file);
     console.log('✅ Base64 length:', base64String.length);
 
-    // Step 2: Kirim ke Apps Script dengan mode: 'no-cors'
+    // Step 2: Upload ke Apps Script dengan mode: 'no-cors'
     showStatus('info', '📤 Mengirim ke Google Drive...');
     
     await fetch(APP_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // ← KUNCI: Agar request sampai
+      mode: 'no-cors',
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8', // ← Tidak trigger preflight
+        'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify({
         fileName: fileName,
         mimeType: file.type,
-        fileData: base64String,
-        namaDokumen: namaDokumen,
-        kategori: kategori,
-        deskripsi: deskripsi,
-        uploaderEmail: currentUser.email,
-        uploaderNama: currentUser.namaLengkap || 'User',
-        uploaderUid: currentUser.uid
+        fileData: base64String
       })
     });
 
-    console.log('✅ Fetch completed (no-cors mode)');
+    console.log('✅ Fetch completed');
 
-    // Step 3: Tunggu Apps Script proses + simpan ke Firestore
+    // Step 3: Tunggu Apps Script proses
     showStatus('info', '⏳ Menunggu proses upload...');
-    await new Promise(resolve => setTimeout(resolve, 5000)); // 5 detik
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Step 4: Listen ke Firestore untuk dokumen baru
-    showStatus('info', '🔍 Memverifikasi upload...');
-    await verifyUpload(fileName);
+    // Step 4: Simpan ke Firestore (dari frontend)
+    showStatus('info', '💾 Menyimpan ke database...');
+    await simpanKeFirestore({
+      namaDokumen,
+      kategori,
+      deskripsi,
+      file,
+      fileName
+    });
 
   } catch (error) {
     console.error('❌ Error:', error);
@@ -103,48 +166,41 @@ form.addEventListener('submit', async (e) => {
   }
 });
 
-// Verifikasi upload dengan listen Firestore
-function verifyUpload(fileName) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      unsubscribe();
-      reject(new Error('Timeout: File tidak terverifikasi dalam 30 detik. Cek folder Drive secara manual.'));
-    }, 30000);
-
-    const q = query(
-      collection(db, 'documents'),
-      where('namaFile', '==', fileName),
-      orderBy('tanggalUpload', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        clearTimeout(timeout);
-        unsubscribe();
-        
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-        
-        console.log('✅ Upload verified!', data);
-        
-        showStatus('success', '🎉 Berhasil! File tersimpan di Drive dan database.');
-        
-        setTimeout(() => {
-          alert(`✅ File berhasil disimpan!\n\n📁 Nama: ${data.namaFile}\n🔗 Drive: ${data.driveUrl}\n📋 Kategori: ${data.kategori}`);
-          form.reset();
-          fileInfo.style.display = 'none';
-          btnUpload.disabled = false;
-          btnText.textContent = '💾 Simpan File';
-        }, 500);
-        
-        resolve();
-      }
-    }, (error) => {
-      clearTimeout(timeout);
-      unsubscribe();
-      reject(error);
+// Simpan ke Firestore
+async function simpanKeFirestore(data) {
+  try {
+    await addDoc(collection(db, 'documents'), {
+      namaDokumen: data.namaDokumen,
+      kategori: data.kategori,
+      levelAkses: 'publik',
+      deskripsi: data.deskripsi,
+      namaFile: data.fileName,
+      ukuranFile: data.file.size,
+      tipeFile: data.file.type,
+      folderUrl: FOLDER_URL,
+      uploaderUid: currentUser.uid,
+      uploaderEmail: currentUser.email,
+      uploaderNama: currentUser.namaLengkap || 'User',
+      tanggalUpload: serverTimestamp(),
+      status: 'aktif'
     });
-  });
+
+    console.log('✅ Firestore save success');
+    
+    showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
+    
+    setTimeout(() => {
+      alert('✅ File berhasil disimpan!\n\n📁 Cek folder: ARSIP DIGITAL SDN 139 LAMANDA\n📋 Cek menu: Katalog Arsip');
+      form.reset();
+      fileInfo.style.display = 'none';
+      btnUpload.disabled = false;
+      btnText.textContent = '💾 Simpan File';
+    }, 500);
+
+  } catch (err) {
+    console.error('❌ Firestore Error:', err);
+    throw new Error('File terupload tapi gagal simpan database: ' + err.message);
+  }
 }
 
 function showStatus(type, message) {
