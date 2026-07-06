@@ -33,7 +33,7 @@ const statusDiv = document.getElementById('uploadStatus');
 });
 ['dragleave', 'drop'].forEach(evt => {
   const dz = document.getElementById('dropZone');
-  if (dz) dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.remove('dragover'); });
+  if (dz) dz.preventDefault(); dz.classList.remove('dragover'); });
 });
 const dropZone = document.getElementById('dropZone');
 if (dropZone) {
@@ -72,17 +72,14 @@ function fileToBase64(file) {
 
 // KUNCI: Fungsi fetch yang sesuai dengan Apps Script
 async function sendToAppsScript(action, payload) {
-  // Action dikirim via URL Parameter (sesuai kode GS: e.parameter.action)
   const url = `${APP_SCRIPT_URL}?action=${action}`;
   
   const response = await fetch(url, {
     method: 'POST',
-    // TIDAK pakai mode: 'no-cors' agar bisa baca response (uploadId)
-    // Pakai text/plain agar tidak trigger preflight CORS
     headers: {
       'Content-Type': 'text/plain;charset=utf-8'
     },
-    body: JSON.stringify(payload) // Data dikirim sebagai JSON string di body
+    body: JSON.stringify(payload)
   });
   
   return await response.json();
@@ -109,16 +106,15 @@ form.addEventListener('submit', async (e) => {
   btnText.textContent = '⏳ Memproses...';
 
   try {
-    // 1. Convert file
-    showStatus('info', '🔄 Mengkonversi file...');
-    const base64String = await fileToBase64(file);
+    // 1. Hitung total chunk berdasarkan biner asli file
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
     // 2. Init Upload (Sesuai struktur handleInitUpload)
     showStatus('info', ' Memulai session upload...');
     const initResult = await sendToAppsScript('initUpload', {
       fileName: fileName,
       mimeType: file.type,
-      folderName: 'Arsip Digital', // Nama folder di dalam folder utama
+      folderName: 'Arsip Digital', 
       totalSize: file.size
     });
 
@@ -129,42 +125,56 @@ form.addEventListener('submit', async (e) => {
     }
 
     const uploadId = initResult.uploadId;
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let finalDriveUrl = '';
+    let finalDriveId = '';
 
-    // 3. Upload Chunks
+    // 3. Upload Chunks dengan memotong file biner asli langsung
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, base64String.length);
-      const chunkData = base64String.slice(start, end);
-
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      
+      // Potong biner file asli
+      const fileChunk = file.slice(start, end);
+      
       showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
+      
+      // Ubah potongan biner kecil tersebut menjadi Base64
+      const chunkBase64 = await fileToBase64(fileChunk);
 
       // Kirim chunk (Sesuai struktur handleUploadChunk)
       const chunkResult = await sendToAppsScript('uploadChunk', {
         uploadId: uploadId,
         chunkIndex: i,
         totalChunks: totalChunks,
-        data: chunkData // KUNCI: key 'data' harus sesuai dengan destructuring di GS
+        data: chunkBase64 
       });
 
       console.log(`Chunk ${i} Result:`, chunkResult);
 
-      if (chunkResult.status === 'error') {
+      // Tangkap data URL file tunggal dan ID-nya saat potongan terakhir selesai diproses
+      if (i === totalChunks - 1) {
+        console.log('🏁 Chunk terakhir selesai dikirim.');
+        finalDriveUrl = chunkResult?.url || '';
+        finalDriveId = chunkResult?.id || '';
+      } else if (chunkResult.status === 'error') {
         throw new Error('Chunk error: ' + chunkResult.message);
       }
-      
-      // Jika chunk terakhir, result.status akan 'complete'
-      if (chunkResult.status === 'complete') {
-        console.log('✅ File selesai digabung di Drive:', chunkResult.url);
-      }
 
-      // Delay kecil
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Delay kecil untuk stabilitas server Google
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 4. Simpan ke Firestore
+    // 4. Simpan ke Firestore dengan membawa link spesifik file dan ID file dinamis
     showStatus('info', '💾 Menyimpan metadata...');
-    await simpanKeFirestore({ namaDokumen, kategori, deskripsi, file, fileName });
+    await simpanKeFirestore({ 
+      namaDokumen, 
+      kategori, 
+      deskripsi, 
+      file, 
+      fileName,
+      googleDriveUrl: finalDriveUrl,
+      googleDriveId: finalDriveId
+    });
 
   } catch (error) {
     console.error('❌ Error:', error);
@@ -184,7 +194,9 @@ async function simpanKeFirestore(data) {
       namaFile: data.fileName,
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
-      folderUrl: FOLDER_URL,
+      // Menyimpan tautan spesifik file tunggal agar tombol "Lihat" dan "Unduh" bekerja akurat
+      fileUrl: data.googleDriveUrl || FOLDER_URL, 
+      fileId: data.googleDriveId || '',
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email,
       uploaderNama: currentUser.namaLengkap || 'User',
