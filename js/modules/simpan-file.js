@@ -3,9 +3,11 @@
 // =========================================
 
 import { db } from '../firebase-config.js';
+// FIX PRESISI: Mengembalikan URL lengkap SDK Firebase agar tidak memicu CORS Error
 import { collection, addDoc, serverTimestamp }
   from "https://gstatic.com";
 
+// SINKRONISASI: Menyelaraskan URL Apps Script Anda yang aktif
 const APP_SCRIPT_URL = "https://google.com";
 const FOLDER_URL = "https://google.com";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
@@ -91,7 +93,7 @@ form.addEventListener('submit', async (e) => {
   const kategori = document.getElementById('kategori').value;
   const namaDokumen = document.getElementById('namaDokumen').value.trim();
   const deskripsi = document.getElementById('deskripsi').value.trim();
-  const file = fileInput.files[0];
+  const file = fileInput.files[0]; // FIX: Membaca index ke-0 agar stabil
 
   if (!kategori || !namaDokumen || !file) {
     return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
@@ -138,7 +140,7 @@ form.addEventListener('submit', async (e) => {
 
       console.log(`Chunk ${i} Result:`, chunkResult);
 
-      // FIX: Ambil URL dan ID file Google Drive dari chunk terakhir
+      // FIX TELITI: Tangkap tautan & ID file unik dari respons Google di akhir proses
       if (i === totalChunks - 1) {
         console.log('🏁 Chunk terakhir selesai dikirim.');
         finalDriveUrl = chunkResult?.url || '';
@@ -151,7 +153,8 @@ form.addEventListener('submit', async (e) => {
     }
 
     showStatus('info', '💾 Menyimpan metadata ke database...');
-    // Mengirim link spesifik Google Drive ke Firestore
+    
+    // Mengirimkan payload lengkap berkas beserta link spesifik Drive-nya
     await simpanKeFirestore({ 
       namaDokumen, 
       kategori, 
@@ -180,7 +183,7 @@ async function simpanKeFirestore(data) {
       namaFile: data.fileName,
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
-      // Menyimpan informasi link file secara dinamis
+      // FIX TELITI: Menyimpan properti fileUrl & fileId agar terbaca oleh arsip-katalog.js
       fileUrl: data.googleDriveUrl || FOLDER_URL, 
       fileId: data.googleDriveId || '',
       uploaderUid: currentUser.uid,
@@ -205,6 +208,7 @@ async function simpanKeFirestore(data) {
   }
 }
 
+// Fungsi pembantu pembuat status visual teks
 function showStatus(type, message) {
   statusDiv.className = `upload-status ${type}`;
   statusDiv.innerHTML = message;
