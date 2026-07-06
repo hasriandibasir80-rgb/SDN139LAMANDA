@@ -4,15 +4,15 @@
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, serverTimestamp }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  from "https://gstatic.com";
 
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
-const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
+const APP_SCRIPT_URL = "https://google.com";
+const FOLDER_URL = "https://google.com";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('️ Anda harus login untuk menggunakan fitur ini.');
+  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
@@ -26,14 +26,14 @@ const btnUpload = document.getElementById('btnUpload');
 const btnText = document.getElementById('btnText');
 const statusDiv = document.getElementById('uploadStatus');
 
-// Drag & Drop Setup
+// Drag & Drop Setup (KOREKSI SINTAKS PENUTUP)
 ['dragenter', 'dragover'].forEach(evt => {
   const dz = document.getElementById('dropZone');
   if (dz) dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.add('dragover'); });
 });
 ['dragleave', 'drop'].forEach(evt => {
   const dz = document.getElementById('dropZone');
-  if (dz) dz.preventDefault(); dz.classList.remove('dragover'); });
+  if (dz) dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.remove('dragover'); });
 });
 const dropZone = document.getElementById('dropZone');
 if (dropZone) {
@@ -53,7 +53,7 @@ function tampilkanInfoFile(file) {
   fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
   fileInfo.style.display = 'block';
   if (file.size > 50 * 1024 * 1024) {
-    showStatus('error', '️ File terlalu besar! Maksimal 50MB.');
+    showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
   } else {
@@ -94,7 +94,7 @@ form.addEventListener('submit', async (e) => {
   const file = fileInput.files[0];
 
   if (!kategori || !namaDokumen || !file) {
-    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
+    return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
   }
 
   if (file.size > 50 * 1024 * 1024) {
@@ -106,11 +106,11 @@ form.addEventListener('submit', async (e) => {
   btnText.textContent = '⏳ Memproses...';
 
   try {
-    // 1. Hitung total chunk berdasarkan biner asli file
+    // 1. Hitung total bagian berdasarkan kapasitas biner berkas asli
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
     // 2. Init Upload (Sesuai struktur handleInitUpload)
-    showStatus('info', ' Memulai session upload...');
+    showStatus('info', '🔑 Memulai session upload...');
     const initResult = await sendToAppsScript('initUpload', {
       fileName: fileName,
       mimeType: file.type,
@@ -133,7 +133,7 @@ form.addEventListener('submit', async (e) => {
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, file.size);
       
-      // Potong biner file asli
+      // Potong biner file asli langsung
       const fileChunk = file.slice(start, end);
       
       showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
@@ -151,7 +151,7 @@ form.addEventListener('submit', async (e) => {
 
       console.log(`Chunk ${i} Result:`, chunkResult);
 
-      // Tangkap data URL file tunggal dan ID-nya saat potongan terakhir selesai diproses
+      // Ambil tautan berkas individu dan ID uniknya dari Google Drive di potongan akhir
       if (i === totalChunks - 1) {
         console.log('🏁 Chunk terakhir selesai dikirim.');
         finalDriveUrl = chunkResult?.url || '';
@@ -160,7 +160,6 @@ form.addEventListener('submit', async (e) => {
         throw new Error('Chunk error: ' + chunkResult.message);
       }
 
-      // Delay kecil untuk stabilitas server Google
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
