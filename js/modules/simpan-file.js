@@ -1,18 +1,18 @@
 // =========================================
-// MODUL: SIMPAN FILE - MATCHING PERFECT GS
+// MODUL: SIMPAN FILE - MATCHING PERFECT GS (FIXED MULTIPART & FIRESTORE)
 // =========================================
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, serverTimestamp }
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  from "https://gstatic.com";
 
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
-const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
+const APP_SCRIPT_URL = "https://google.com";
+const FOLDER_URL = "https://google.com";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('️ Anda harus login untuk menggunakan fitur ini.');
+  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
@@ -49,11 +49,12 @@ fileInput.addEventListener('change', (e) => {
 });
 
 function tampilkanInfoFile(file) {
+  if (!file) return;
   const ukuranMB = (file.size / (1024 * 1024)).toFixed(2);
   fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
   fileInfo.style.display = 'block';
   if (file.size > 50 * 1024 * 1024) {
-    showStatus('error', '️ File terlalu besar! Maksimal 50MB.');
+    showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
   } else {
@@ -61,7 +62,6 @@ function tampilkanInfoFile(file) {
   }
 }
 
-// Fungsi pembantu untuk mengubah bagian biner kecil menjadi Base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -71,7 +71,6 @@ function fileToBase64(file) {
   });
 }
 
-// KUNCI: Fungsi fetch yang sesuai dengan Apps Script
 async function sendToAppsScript(action, payload) {
   const url = `${APP_SCRIPT_URL}?action=${action}`;
   
@@ -95,11 +94,7 @@ form.addEventListener('submit', async (e) => {
   const file = fileInput.files[0];
 
   if (!kategori || !namaDokumen || !file) {
-    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
-  }
-
-  if (file.size > 50 * 1024 * 1024) {
-    return showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
+    return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
   }
 
   const fileName = `${Date.now()}_${file.name}`;
@@ -107,10 +102,8 @@ form.addEventListener('submit', async (e) => {
   btnText.textContent = '⏳ Memproses...';
 
   try {
-    // 1. Hitung total bagian berdasarkan kapasitas ukuran biner berkas asli
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-    // 2. Akses Init Upload untuk mengaktifkan sesi penyimpanan data
     showStatus('info', '🔑 Memulai session upload...');
     const initResult = await sendToAppsScript('initUpload', {
       fileName: fileName,
@@ -119,28 +112,23 @@ form.addEventListener('submit', async (e) => {
       totalSize: file.size
     });
 
-    console.log('Init Result:', initResult);
-
     if (initResult.status !== 'ready') {
       throw new Error('Gagal init: ' + JSON.stringify(initResult));
     }
 
     const uploadId = initResult.uploadId;
+    let finalDriveUrl = '';
+    let finalDriveId = '';
 
-    // 3. Mengupload potongan berkas satu per satu
     for (let i = 0; i < totalChunks; i++) {
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, file.size);
       
-      // Potong biner berkas aslinya terlebih dahulu
       const fileChunk = file.slice(start, end);
+      showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
       
-      showStatus('info', `📦 Mengonversi & Mengupload bagian ${i + 1} dari ${totalChunks}...`);
-      
-      // Ubah potongan biner kecil tersebut menjadi string Base64
       const chunkBase64 = await fileToBase64(fileChunk);
 
-      // Kirim data potongan biner tersebut menuju Google Apps Script
       const chunkResult = await sendToAppsScript('uploadChunk', {
         uploadId: uploadId,
         chunkIndex: i,
@@ -150,20 +138,29 @@ form.addEventListener('submit', async (e) => {
 
       console.log(`Chunk ${i} Result:`, chunkResult);
 
-      // CEK RESPONS KUNCI: Abaikan pembatasan pembersihan DriveApp khusus di potongan berkas akhir
+      // FIX: Ambil URL dan ID file Google Drive dari chunk terakhir
       if (i === totalChunks - 1) {
-        console.log('🏁 Potongan berkas akhir telah dikirim. Melanjutkan penulisan metadata...');
+        console.log('🏁 Chunk terakhir selesai dikirim.');
+        finalDriveUrl = chunkResult?.url || '';
+        finalDriveId = chunkResult?.id || '';
       } else if (chunkResult.status === 'error') {
         throw new Error('Chunk error: ' + chunkResult.message);
       }
 
-      // Beri sedikit jeda waktu demi menjaga stabilitas performa server API Google
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // 4. Simpan ke Firestore setelah seluruh berkas terproses
-    showStatus('info', '💾 Menyimpan metadata...');
-    await simpanKeFirestore({ namaDokumen, kategori, deskripsi, file, fileName });
+    showStatus('info', '💾 Menyimpan metadata ke database...');
+    // Mengirim link spesifik Google Drive ke Firestore
+    await simpanKeFirestore({ 
+      namaDokumen, 
+      kategori, 
+      deskripsi, 
+      file, 
+      fileName,
+      googleDriveUrl: finalDriveUrl,
+      googleDriveId: finalDriveId
+    });
 
   } catch (error) {
     console.error('❌ Error:', error);
@@ -183,7 +180,9 @@ async function simpanKeFirestore(data) {
       namaFile: data.fileName,
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
-      folderUrl: FOLDER_URL,
+      // Menyimpan informasi link file secara dinamis
+      fileUrl: data.googleDriveUrl || FOLDER_URL, 
+      fileId: data.googleDriveId || '',
       uploaderUid: currentUser.uid,
       uploaderEmail: currentUser.email,
       uploaderNama: currentUser.namaLengkap || 'User',
