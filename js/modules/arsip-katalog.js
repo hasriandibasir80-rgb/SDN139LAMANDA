@@ -1,5 +1,5 @@
 // =========================================
-// MODUL: ARSIP KATALOG
+// MODUL: ARSIP KATALOG (PREVIEW & DOWNLOAD FIXED)
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -23,6 +23,9 @@ const searchInput = document.getElementById('searchInput');
 const filterKategori = document.getElementById('filterKategori');
 const katalogContainer = document.getElementById('katalogContainer');
 const resultCount = document.getElementById('resultCount');
+
+// URL Fallback Folder jika berkas lama tidak memiliki link file spesifik
+const FOLDER_FALLBACK_URL = "https://google.com";
 
 // 4. MUAT SEMUA DOKUMEN
 async function muatSemuaDokumen() {
@@ -95,9 +98,21 @@ function renderKatalog(daftarDokumen) {
     
     const ukuranMB = (doc.ukuranFile / (1024 * 1024)).toFixed(2);
     
+    // ========================================================
+    // FIX LOGIKA SINKRONISASI VARIABEL LINK LIHAT & DOWNLOAD
+    // ========================================================
+    
+    // Menentukan link pratinjau (mendukung properti fileUrl baru maupun urlFile/folderUrl lama)
+    const linkLihat = doc.fileUrl || doc.urlFile || doc.folderUrl || FOLDER_FALLBACK_URL;
+    
+    // Menentukan link download otomatis menggunakan ID Google Drive jika tersedia
+    const linkDownload = doc.fileId 
+      ? `https://google.com{doc.fileId}` 
+      : linkLihat; // Jika data lama tanpa ID file, arahkan langsung ke halaman pratinjau Drive
+
     const actions = akses
-      ? `<a href="${doc.urlFile}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
-         <a href="${doc.urlFile}" download="${doc.namaFile}" class="btn-action btn-download">⬇️ Unduh</a>`
+      ? `<a href="${linkLihat}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
+         <a href="${linkDownload}" target="_blank" class="btn-action btn-download">⬇️ Unduh</a>`
       : `<button class="btn-action btn-locked" disabled>🔒 Akses Terbatas</button>`;
     
     const card = `
