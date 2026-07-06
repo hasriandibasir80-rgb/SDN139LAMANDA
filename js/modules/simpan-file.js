@@ -1,75 +1,93 @@
 // =========================================
-// MODUL: SIMPAN FILE (GENERAL USER)
-// VERSI: UI Only (Koneksi Drive belum aktif)
+// MODUL: SIMPAN FILE - MATCHING PERFECT GS
 // =========================================
 
-import { db } from '../../js/firebase-config.js';
+import { db } from '../firebase-config.js';
+import { collection, addDoc, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// 1. KEAMANAN: Cek User Login
+const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
+const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
+  alert('️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
 console.log('✅ Simpan File dimuat. User:', currentUser.email);
 
-// 2. DOM Elements
+// DOM Elements
 const form = document.getElementById('formSimpanFile');
 const fileInput = document.getElementById('fileInput');
-const dropZone = document.getElementById('dropZone');
 const fileInfo = document.getElementById('fileInfo');
 const btnUpload = document.getElementById('btnUpload');
 const btnText = document.getElementById('btnText');
 const statusDiv = document.getElementById('uploadStatus');
 
-// 3. DRAG & DROP Handler
+// Drag & Drop Setup
 ['dragenter', 'dragover'].forEach(evt => {
-  dropZone.addEventListener(evt, (e) => {
-    e.preventDefault();
-    dropZone.classList.add('dragover');
-  });
+  const dz = document.getElementById('dropZone');
+  if (dz) dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.add('dragover'); });
 });
-
 ['dragleave', 'drop'].forEach(evt => {
-  dropZone.addEventListener(evt, (e) => {
-    e.preventDefault();
-    dropZone.classList.remove('dragover');
+  const dz = document.getElementById('dropZone');
+  if (dz) dz.addEventListener(evt, (e) => { e.preventDefault(); dz.classList.remove('dragover'); });
+});
+const dropZone = document.getElementById('dropZone');
+if (dropZone) {
+  dropZone.addEventListener('drop', (e) => {
+    if (e.dataTransfer.files.length > 0) {
+      fileInput.files = e.dataTransfer.files;
+      tampilkanInfoFile(e.dataTransfer.files[0]);
+    }
   });
-});
-
-dropZone.addEventListener('drop', (e) => {
-  const files = e.dataTransfer.files;
-  if (files.length > 0) {
-    fileInput.files = files;
-    tampilkanInfoFile(files[0]);
-  }
-});
-
+}
 fileInput.addEventListener('change', (e) => {
-  if (e.target.files.length > 0) {
-    tampilkanInfoFile(e.target.files[0]);
-  }
+  if (e.target.files.length > 0) tampilkanInfoFile(e.target.files[0]);
 });
 
-// 4. Tampilkan Info File
 function tampilkanInfoFile(file) {
   const ukuranMB = (file.size / (1024 * 1024)).toFixed(2);
-  fileInfo.innerHTML = `
-    ✅ <strong>${file.name}</strong><br>
-    📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}
-  `;
+  fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
   fileInfo.style.display = 'block';
-  
-  // Validasi ukuran file
-  if (file.size > 10 * 1024 * 1024) {
-    showStatus('error', '⚠️ File terlalu besar! Maksimal 10MB.');
+  if (file.size > 50 * 1024 * 1024) {
+    showStatus('error', '️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
+  } else {
+    statusDiv.innerHTML = '';
   }
 }
 
-// 5. FORM SUBMIT HANDLER
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+// KUNCI: Fungsi fetch yang sesuai dengan Apps Script
+async function sendToAppsScript(action, payload) {
+  // Action dikirim via URL Parameter (sesuai kode GS: e.parameter.action)
+  const url = `${APP_SCRIPT_URL}?action=${action}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    // TIDAK pakai mode: 'no-cors' agar bisa baca response (uploadId)
+    // Pakai text/plain agar tidak trigger preflight CORS
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8'
+    },
+    body: JSON.stringify(payload) // Data dikirim sebagai JSON string di body
+  });
+  
+  return await response.json();
+}
+
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -78,78 +96,118 @@ form.addEventListener('submit', async (e) => {
   const deskripsi = document.getElementById('deskripsi').value.trim();
   const file = fileInput.files[0];
 
-  // Validasi
-  if (!kategori) {
-    showStatus('error', '⚠️ Pilih jenis dokumen terlebih dahulu.');
-    return;
+  if (!kategori || !namaDokumen || !file) {
+    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
   }
 
-  if (!namaDokumen) {
-    showStatus('error', '⚠️ Isi nama/judul dokumen.');
-    return;
+  if (file.size > 50 * 1024 * 1024) {
+    return showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
   }
 
-  if (!file) {
-    showStatus('error', '⚠️ Pilih file yang akan diupload.');
-    return;
-  }
-
-  if (file.size > 10 * 1024 * 1024) {
-    showStatus('error', '⚠️ File terlalu besar! Maksimal 10MB.');
-    return;
-  }
-
-  // Tampilkan loading
+  const fileName = `${Date.now()}_${file.name}`;
   btnUpload.disabled = true;
   btnText.textContent = '⏳ Memproses...';
-  showStatus('loading', '📤 Menyiapkan upload...');
 
   try {
-    // ============================================
-    // TAHAP 2: UI READY, KONEKSI DRIVE BELUM AKTIF
-    // ============================================
-    
-    // Simulasi proses upload (2 detik)
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Tampilkan pesan bahwa fitur akan segera aktif
-    showStatus('success', `
-      ✅ Form berhasil divalidasi!<br><br>
-      <strong>Data yang akan disimpan:</strong><br>
-      📁 Kategori: ${kategori}<br>
-      📝 Nama: ${namaDokumen}<br>
-      📎 File: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)<br>
-      ${deskripsi ? `📄 Keterangan: ${deskripsi}<br>` : ''}
-      <br>
-      <em style="color: #6b7280; font-size: 12px;">
-        💡 Fitur upload ke Google Drive akan segera diaktifkan.
-      </em>
-    `);
+    // 1. Convert file
+    showStatus('info', '🔄 Mengkonversi file...');
+    const base64String = await fileToBase64(file);
 
-    // Reset form setelah 3 detik
-    setTimeout(() => {
-      form.reset();
-      fileInfo.style.display = 'none';
-      btnUpload.disabled = false;
-      btnText.textContent = '💾 Simpan File';
-      statusDiv.innerHTML = '';
-    }, 5000);
+    // 2. Init Upload (Sesuai struktur handleInitUpload)
+    showStatus('info', ' Memulai session upload...');
+    const initResult = await sendToAppsScript('initUpload', {
+      fileName: fileName,
+      mimeType: file.type,
+      folderName: 'Arsip Digital', // Nama folder di dalam folder utama
+      totalSize: file.size
+    });
+
+    console.log('Init Result:', initResult);
+
+    if (initResult.status !== 'ready') {
+      throw new Error('Gagal init: ' + JSON.stringify(initResult));
+    }
+
+    const uploadId = initResult.uploadId;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+    // 3. Upload Chunks
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, base64String.length);
+      const chunkData = base64String.slice(start, end);
+
+      showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
+
+      // Kirim chunk (Sesuai struktur handleUploadChunk)
+      const chunkResult = await sendToAppsScript('uploadChunk', {
+        uploadId: uploadId,
+        chunkIndex: i,
+        totalChunks: totalChunks,
+        data: chunkData // KUNCI: key 'data' harus sesuai dengan destructuring di GS
+      });
+
+      console.log(`Chunk ${i} Result:`, chunkResult);
+
+      if (chunkResult.status === 'error') {
+        throw new Error('Chunk error: ' + chunkResult.message);
+      }
+      
+      // Jika chunk terakhir, result.status akan 'complete'
+      if (chunkResult.status === 'complete') {
+        console.log('✅ File selesai digabung di Drive:', chunkResult.url);
+      }
+
+      // Delay kecil
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    // 4. Simpan ke Firestore
+    showStatus('info', '💾 Menyimpan metadata...');
+    await simpanKeFirestore({ namaDokumen, kategori, deskripsi, file, fileName });
 
   } catch (error) {
-    console.error('Error:', error);
-    showStatus('error', `❌ Terjadi kesalahan: ${error.message}`);
+    console.error('❌ Error:', error);
+    showStatus('error', '❌ Gagal: ' + error.message);
     btnUpload.disabled = false;
     btnText.textContent = '💾 Simpan File';
   }
 });
 
-// 6. HELPER FUNCTIONS
+async function simpanKeFirestore(data) {
+  try {
+    await addDoc(collection(db, 'documents'), {
+      namaDokumen: data.namaDokumen,
+      kategori: data.kategori,
+      levelAkses: 'publik',
+      deskripsi: data.deskripsi,
+      namaFile: data.fileName,
+      ukuranFile: data.file.size,
+      tipeFile: data.file.type,
+      folderUrl: FOLDER_URL,
+      uploaderUid: currentUser.uid,
+      uploaderEmail: currentUser.email,
+      uploaderNama: currentUser.namaLengkap || 'User',
+      tanggalUpload: serverTimestamp(),
+      status: 'aktif'
+    });
+
+    showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
+    setTimeout(() => {
+      alert('✅ File berhasil disimpan!\n\n📁 Cek folder: ARSIP DIGITAL SDN 139 LAMANDA\n📋 Cek menu: Katalog Arsip');
+      form.reset();
+      fileInfo.style.display = 'none';
+      btnUpload.disabled = false;
+      btnText.textContent = '💾 Simpan File';
+    }, 500);
+
+  } catch (err) {
+    console.error('❌ Firestore Error:', err);
+    throw new Error('File terupload tapi gagal simpan database: ' + err.message);
+  }
+}
+
 function showStatus(type, message) {
   statusDiv.className = `upload-status ${type}`;
   statusDiv.innerHTML = message;
 }
-
-// 7. INIT
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('✅ Modul Simpan File (UI Only) dimuat');
-});
