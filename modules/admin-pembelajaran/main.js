@@ -97,7 +97,7 @@ const MENU_ITEMS = [
     icon: '✅', 
     title: 'Presensi Siswa', 
     path: './features/presensi.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'lkpd', 
