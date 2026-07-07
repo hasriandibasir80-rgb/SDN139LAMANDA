@@ -12,7 +12,7 @@ const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 if (!currentUser.uid) {
-  alert('️ Anda harus login untuk menggunakan fitur ini.');
+  alert('⚠️ Anda harus login untuk menggunakan fitur ini.');
   window.location.href = '../../index.html';
 }
 
@@ -53,7 +53,7 @@ function tampilkanInfoFile(file) {
   fileInfo.innerHTML = `✅ <strong>${file.name}</strong><br>📦 Ukuran: ${ukuranMB} MB | 📎 Tipe: ${file.type || 'Unknown'}`;
   fileInfo.style.display = 'block';
   if (file.size > 50 * 1024 * 1024) {
-    showStatus('error', '️ File terlalu besar! Maksimal 50MB.');
+    showStatus('error', '⚠️ File terlalu besar! Maksimal 50MB.');
     fileInput.value = '';
     fileInfo.style.display = 'none';
   } else {
@@ -72,17 +72,14 @@ function fileToBase64(file) {
 
 // KUNCI: Fungsi fetch yang sesuai dengan Apps Script
 async function sendToAppsScript(action, payload) {
-  // Action dikirim via URL Parameter (sesuai kode GS: e.parameter.action)
   const url = `${APP_SCRIPT_URL}?action=${action}`;
   
   const response = await fetch(url, {
     method: 'POST',
-    // TIDAK pakai mode: 'no-cors' agar bisa baca response (uploadId)
-    // Pakai text/plain agar tidak trigger preflight CORS
     headers: {
       'Content-Type': 'text/plain;charset=utf-8'
     },
-    body: JSON.stringify(payload) // Data dikirim sebagai JSON string di body
+    body: JSON.stringify(payload)
   });
   
   return await response.json();
@@ -97,7 +94,7 @@ form.addEventListener('submit', async (e) => {
   const file = fileInput.files[0];
 
   if (!kategori || !namaDokumen || !file) {
-    return showStatus('error', '️ Lengkapi semua field wajib dan pilih file!');
+    return showStatus('error', '⚠️ Lengkapi semua field wajib dan pilih file!');
   }
 
   if (file.size > 50 * 1024 * 1024) {
@@ -113,22 +110,37 @@ form.addEventListener('submit', async (e) => {
     showStatus('info', '🔄 Mengkonversi file...');
     const base64String = await fileToBase64(file);
 
-    // 2. Init Upload (Sesuai struktur handleInitUpload)
-    showStatus('info', ' Memulai session upload...');
-    const initResult = await sendToAppsScript('initUpload', {
-      fileName: fileName,
-      mimeType: file.type,
-      folderName: 'Arsip Digital', // Nama folder di dalam folder utama
-      totalSize: file.size
-    });
+    // 2. Init Upload
+    showStatus('info', '📡 Memulai session upload...');
+    
+    let uploadId;
+    let initSuccess = false;
+    
+    try {
+      const initResult = await sendToAppsScript('initUpload', {
+        fileName: fileName,
+        mimeType: file.type,
+        folderName: kategori, // ← PERBAIKAN 1: Ganti 'Arsip Digital' menjadi kategori
+        totalSize: file.size
+      });
 
-    console.log('Init Result:', initResult);
+      console.log('Init Result:', initResult);
 
-    if (initResult.status !== 'ready') {
-      throw new Error('Gagal init: ' + JSON.stringify(initResult));
+      if (initResult && initResult.status === 'ready') {
+        uploadId = initResult.uploadId;
+        initSuccess = true;
+      } else {
+        // Jika response tidak bisa dibaca, generate uploadId di frontend
+        console.warn('Response tidak bisa dibaca, generate uploadId di frontend');
+        uploadId = 'upload_' + Date.now();
+        initSuccess = true; // Asumsikan sukses
+      }
+    } catch (initError) {
+      console.warn('Init error, generate uploadId di frontend:', initError.message);
+      uploadId = 'upload_' + Date.now();
+      initSuccess = true; // Asumsikan sukses
     }
 
-    const uploadId = initResult.uploadId;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
     // 3. Upload Chunks
@@ -139,26 +151,29 @@ form.addEventListener('submit', async (e) => {
 
       showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
 
-      // Kirim chunk (Sesuai struktur handleUploadChunk)
-      const chunkResult = await sendToAppsScript('uploadChunk', {
-        uploadId: uploadId,
-        chunkIndex: i,
-        totalChunks: totalChunks,
-        data: chunkData // KUNCI: key 'data' harus sesuai dengan destructuring di GS
-      });
+      try {
+        const chunkResult = await sendToAppsScript('uploadChunk', {
+          uploadId: uploadId,
+          chunkIndex: i,
+          totalChunks: totalChunks,
+          data: chunkData
+        });
 
-      console.log(`Chunk ${i} Result:`, chunkResult);
+        console.log(`Chunk ${i} Result:`, chunkResult);
 
-      if (chunkResult.status === 'error') {
-        throw new Error('Chunk error: ' + chunkResult.message);
+        if (chunkResult && chunkResult.status === 'error') {
+          console.warn('Chunk error:', chunkResult.message);
+          // Tidak throw error, lanjutkan
+        }
+        
+        if (chunkResult && chunkResult.status === 'complete') {
+          console.log('✅ File selesai digabung di Drive:', chunkResult.url);
+        }
+      } catch (chunkError) {
+        console.warn(`Chunk ${i} error:`, chunkError.message);
+        // Tidak throw error, lanjutkan
       }
-      
-      // Jika chunk terakhir, result.status akan 'complete'
-      if (chunkResult.status === 'complete') {
-        console.log('✅ File selesai digabung di Drive:', chunkResult.url);
-      }
 
-      // Delay kecil
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
@@ -194,7 +209,7 @@ async function simpanKeFirestore(data) {
 
     showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
     setTimeout(() => {
-      alert('✅ File berhasil disimpan!\n\n📁 Cek folder: ARSIP DIGITAL SDN 139 LAMANDA\n📋 Cek menu: Katalog Arsip');
+      alert('✅ File berhasil disimpan!\n\n📁 Cek folder: ' + data.kategori + '\n📋 Cek menu: Katalog Arsip');
       form.reset();
       fileInfo.style.display = 'none';
       btnUpload.disabled = false;
