@@ -70,7 +70,6 @@ function fileToBase64(file) {
   });
 }
 
-// KUNCI: Fungsi fetch yang sesuai dengan Apps Script
 async function sendToAppsScript(action, payload) {
   const url = `${APP_SCRIPT_URL}?action=${action}`;
   
@@ -120,7 +119,7 @@ form.addEventListener('submit', async (e) => {
       const initResult = await sendToAppsScript('initUpload', {
         fileName: fileName,
         mimeType: file.type,
-        folderName: kategori, // ← PERBAIKAN 1: Ganti 'Arsip Digital' menjadi kategori
+        folderName: kategori,
         totalSize: file.size
       });
 
@@ -130,15 +129,14 @@ form.addEventListener('submit', async (e) => {
         uploadId = initResult.uploadId;
         initSuccess = true;
       } else {
-        // Jika response tidak bisa dibaca, generate uploadId di frontend
         console.warn('Response tidak bisa dibaca, generate uploadId di frontend');
         uploadId = 'upload_' + Date.now();
-        initSuccess = true; // Asumsikan sukses
+        initSuccess = true;
       }
     } catch (initError) {
       console.warn('Init error, generate uploadId di frontend:', initError.message);
       uploadId = 'upload_' + Date.now();
-      initSuccess = true; // Asumsikan sukses
+      initSuccess = true;
     }
 
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -163,23 +161,46 @@ form.addEventListener('submit', async (e) => {
 
         if (chunkResult && chunkResult.status === 'error') {
           console.warn('Chunk error:', chunkResult.message);
-          // Tidak throw error, lanjutkan
         }
         
         if (chunkResult && chunkResult.status === 'complete') {
           console.log('✅ File selesai digabung di Drive:', chunkResult.url);
+          console.log('📎 File ID:', chunkResult.id);
+          
+          // SIMPAN INFORMASI FILE KE LOCALSTORAGE
+          localStorage.setItem('lastUploadedFile', JSON.stringify({
+            url: chunkResult.url,
+            id: chunkResult.id,
+            name: chunkResult.name
+          }));
         }
       } catch (chunkError) {
         console.warn(`Chunk ${i} error:`, chunkError.message);
-        // Tidak throw error, lanjutkan
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
-    // 4. Simpan ke Firestore
+    // Tunggu server selesai
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // 4. Ambil informasi file dari localStorage
+    const lastFile = JSON.parse(localStorage.getItem('lastUploadedFile') || '{}');
+    
+    // 5. Simpan ke Firestore DENGAN driveId dan driveUrl
     showStatus('info', '💾 Menyimpan metadata...');
-    await simpanKeFirestore({ namaDokumen, kategori, deskripsi, file, fileName });
+    await simpanKeFirestore({ 
+      namaDokumen, 
+      kategori, 
+      deskripsi, 
+      file, 
+      fileName,
+      driveId: lastFile.id || null,
+      driveUrl: lastFile.url || null
+    });
+
+    // Bersihkan localStorage
+    localStorage.removeItem('lastUploadedFile');
 
   } catch (error) {
     console.error('❌ Error:', error);
@@ -197,6 +218,8 @@ async function simpanKeFirestore(data) {
       levelAkses: 'publik',
       deskripsi: data.deskripsi,
       namaFile: data.fileName,
+      driveId: data.driveId,  // ← BARU: Simpan Drive ID
+      driveUrl: data.driveUrl, // ← BARU: Simpan URL file langsung
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
       folderUrl: FOLDER_URL,
