@@ -11,7 +11,7 @@ const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
 
 // Konstanta CSS
-const CSS_PATH = '../../../css/modules/admin-pembelajaran/features/absensi-siswa.css';
+const CSS_PATH = '../../../css/modules/absensi-siswa.css';
 const CSS_ID = 'absensi-siswa-css';
 
 // State
