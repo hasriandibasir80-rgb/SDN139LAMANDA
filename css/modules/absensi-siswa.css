@@ -1,0 +1,169 @@
+/* =========================================
+   ABSENSI SISWA - STYLING
+   ========================================= */
+
+.absensi-container {
+  width: 100%;
+}
+
+.absensi-form {
+  background: #f9fafb;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.table-responsive {
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.absensi-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  background: white;
+}
+
+.absensi-table thead {
+  position: sticky;
+  top: 0;
+  background: #e3f2fd;
+  z-index: 10;
+}
+
+.absensi-table th,
+.absensi-table td {
+  border: 1px solid #000;
+  text-align: center;
+  padding: 5px;
+  min-width: 30px;
+}
+
+.absensi-table th {
+  background: #e3f2fd;
+  font-weight: bold;
+}
+
+.sub-header th {
+  background: #bbdefb;
+  font-size: 10px;
+}
+
+/* Input Absensi */
+.input-absensi {
+  width: 25px;
+  height: 25px;
+  text-align: center;
+  border: 1px solid #ccc;
+  font-size: 11px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.input-absensi:read-only {
+  background: #f0f0f0;
+  border: none;
+}
+
+.input-absensi:focus {
+  background: #fff9c4;
+  outline: none;
+  border: 2px solid #1976d2;
+}
+
+/* Status Warna */
+.status-H { background: #c8e6c9 !important; color: #2e7d32; }
+.status-I { background: #fff9c4 !important; color: #f9a825; }
+.status-S { background: #ffccbc !important; color: #d84315; }
+.status-A { background: #ffcdd2 !important; color: #c62828; }
+.status-B { background: #e1bee7 !important; color: #7b1fa2; }
+
+/* Jumlah */
+.jumlah-cell {
+  font-weight: bold;
+  background: #f5f5f5;
+}
+
+/* Footer */
+.absensi-footer {
+  margin-top: 30px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ttd-section {
+  text-align: center;
+  min-width: 250px;
+}
+
+.ttd-section p {
+  margin: 5px 0;
+}
+
+/* Responsive Mobile */
+@media print {
+  .absensi-form,
+  .action-bar,
+  .absensi-footer {
+    display: none;
+  }
+
+  .absensi-table {
+    font-size: 9px;
+  }
+
+  .input-absensi {
+    border: none;
+    background: transparent;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .absensi-table {
+    font-size: 9px;
+  }
+
+  .absensi-table th,
+  .absensi-table td {
+    padding: 3px;
+    min-width: 25px;
+  }
+
+  .input-absensi {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+  }
+
+  .action-bar {
+    flex-direction: column;
+  }
+
+  .action-bar .btn {
+    width: 100%;
+  }
+}
+
+/* Toast Notification */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
