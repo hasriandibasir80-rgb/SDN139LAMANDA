@@ -5,7 +5,7 @@
 
 import { db } from '../../../js/firebase-config.js';
 import { getDatabase, ref, set, get, child, update } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js";
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
