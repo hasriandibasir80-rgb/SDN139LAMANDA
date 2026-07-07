@@ -99,16 +99,23 @@ function renderKatalog(daftarDokumen) {
     const ukuranMB = (doc.ukuranFile / (1024 * 1024)).toFixed(2);
     
     // ========================================================
-    // FIX LOGIKA SINKRONISASI VARIABEL LINK LIHAT & DOWNLOAD
+    // ✅ PERBAIKAN: LOGIKA LINK LIHAT & DOWNLOAD
     // ========================================================
     
-    // Menentukan link pratinjau (mendukung properti fileUrl baru maupun urlFile/folderUrl lama)
-    const linkLihat = doc.fileUrl || doc.urlFile || doc.folderUrl || FOLDER_FALLBACK_URL;
+    // Ambil nama file untuk search di Drive (jika URL spesifik tidak ada)
+    const namaFileSearch = doc.namaFile || doc.namaDokumen || '';
     
-    // Menentukan link download otomatis menggunakan ID Google Drive jika tersedia
-    const linkDownload = doc.fileId 
-      ? `https://google.com{doc.fileId}` 
-      : linkLihat; // Jika data lama tanpa ID file, arahkan langsung ke halaman pratinjau Drive
+    // ✅ PERBAIKAN 1: Gunakan URL spesifik file, JANGAN fallback ke folderUrl
+    // Prioritas: fileUrl > urlFile > fileId > driveId > Drive Search
+    const linkLihat = doc.fileUrl || doc.urlFile || 
+      (doc.fileId ? `https://drive.google.com/file/d/${doc.fileId}/view` : 
+       (doc.driveId ? `https://drive.google.com/file/d/${doc.driveId}/view` :
+        `https://drive.google.com/drive/search?q=${encodeURIComponent(namaFileSearch)}`));
+    
+    // ✅ PERBAIKAN 2: Fix bug template literal + URL download Drive yang benar
+    const linkDownload = doc.fileId || doc.driveId
+      ? `https://drive.google.com/uc?export=download&id=${doc.fileId || doc.driveId}`
+      : linkLihat; // Fallback ke search jika tidak ada fileId
 
     const actions = akses
       ? `<a href="${linkLihat}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
