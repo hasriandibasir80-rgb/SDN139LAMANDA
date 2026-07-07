@@ -24,9 +24,6 @@ const filterKategori = document.getElementById('filterKategori');
 const katalogContainer = document.getElementById('katalogContainer');
 const resultCount = document.getElementById('resultCount');
 
-// URL Fallback Folder jika berkas lama tidak memiliki link file spesifik
-const FOLDER_FALLBACK_URL = "https://google.com";
-
 // 4. MUAT SEMUA DOKUMEN
 async function muatSemuaDokumen() {
   try {
@@ -98,24 +95,22 @@ function renderKatalog(daftarDokumen) {
     
     const ukuranMB = (doc.ukuranFile / (1024 * 1024)).toFixed(2);
     
-    // ========================================================
-    // ✅ PERBAIKAN: LOGIKA LINK LIHAT & DOWNLOAD
-    // ========================================================
+    // =========================================
+    // ✅ PERBAIKAN: GUNAKAN driveId UNTUK LINK LANGSUNG
+    // =========================================
     
-    // Ambil nama file untuk search di Drive (jika URL spesifik tidak ada)
-    const namaFileSearch = doc.namaFile || doc.namaDokumen || '';
+    // Prioritas: driveId > fileId > namaDokumen untuk search
+    const fileId = doc.driveId || doc.fileId || doc.id;
     
-    // ✅ PERBAIKAN 1: Gunakan URL spesifik file, JANGAN fallback ke folderUrl
-    // Prioritas: fileUrl > urlFile > fileId > driveId > Drive Search
-    const linkLihat = doc.fileUrl || doc.urlFile || 
-      (doc.fileId ? `https://drive.google.com/file/d/${doc.fileId}/view` : 
-       (doc.driveId ? `https://drive.google.com/file/d/${doc.driveId}/view` :
-        `https://drive.google.com/drive/search?q=${encodeURIComponent(namaFileSearch)}`));
+    // Link Lihat: Gunakan URL Drive langsung jika ada fileId
+    const linkLihat = fileId 
+      ? `https://drive.google.com/file/d/${fileId}/view`
+      : `https://drive.google.com/drive/search?q=${encodeURIComponent(doc.namaDokumen)}`;
     
-    // ✅ PERBAIKAN 2: Fix bug template literal + URL download Drive yang benar
-    const linkDownload = doc.fileId || doc.driveId
-      ? `https://drive.google.com/uc?export=download&id=${doc.fileId || doc.driveId}`
-      : linkLihat; // Fallback ke search jika tidak ada fileId
+    // Link Download: Gunakan URL download langsung
+    const linkDownload = fileId
+      ? `https://drive.google.com/uc?export=download&id=${fileId}`
+      : linkLihat;
 
     const actions = akses
       ? `<a href="${linkLihat}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
