@@ -254,11 +254,12 @@ function tambahBarisSiswa() {
     <td>${rowCount}</td>
     <td><input type="text" class="input-nama" placeholder="Nama siswa..."></td>
     <td>
-      <select class="input-lp">
-        <option value="L">L</option>
-        <option value="P">P</option>
-      </select>
-    </td>
+   <td>
+  <select class="input-lp" style="min-width: 50px; font-size: 14px; font-weight: 600; color: #831843; text-align: center; padding: 8px 10px;">
+    <option value="L">L</option>
+    <option value="P">P</option>
+  </select>
+</td> 
     ${generateTanggalInputs()}
     <td class="jumlah-H">0</td>
     <td class="jumlah-I">0</td>
