@@ -1,9 +1,18 @@
 /* =========================================
-   ADM PEMBELAJARAN - STYLING (LENGKAP)
+   ADM PEMBELAJARAN - STYLING
+   SCOPE: HANYA GRID MENU FITUR
+   =========================================
+   File ini HANYA mengatur tampilan:
+   - Grid menu sub-fitur
+   - Tombol kembali ke menu
+   - Empty state menu awal
+   
+   Setiap sub-fitur (absensi, jurnal, dll)
+   punya kebebasan styling sendiri.
    ========================================= */
 
 /* =========================================
-   1. SUB-MENU GRID
+   1. SUB-MENU GRID (Menu Utama)
    ========================================= */
 .sub-menu-grid {
   display: grid;
@@ -47,7 +56,7 @@
 }
 
 /* =========================================
-   2. TOMBOL KEMBALI
+   2. TOMBOL KEMBALI KE MENU
    ========================================= */
 .btn-back {
   display: inline-block;
@@ -69,365 +78,57 @@
 }
 
 /* =========================================
-   3. FORM DASAR
+   3. EMPTY STATE (Hanya untuk menu awal)
    ========================================= */
-.form-group { 
-  margin-bottom: 18px; 
+#dynamicContent > .empty-state {
+  text-align: center;
+  padding: 30px;
+  color: #6b7280;
+  font-size: 14px;
 }
 
-.form-group label { 
-  display: block; 
-  margin-bottom: 6px; 
-  font-weight: 600; 
-  font-size: 14px; 
-}
-
-.form-control { 
-  width: 100%; 
-  padding: 12px; 
-  border: 2px solid #e5e7eb; 
-  border-radius: 8px; 
-  font-size: 14px; 
-  box-sizing: border-box; 
-  font-family: inherit; 
-}
-
-.form-control:focus { 
-  outline: none; 
-  border-color: #22c55e; 
-}
-
-textarea.form-control { 
-  min-height: 100px; 
-  resize: vertical; 
-}
-
-/* =========================================
-   4. TOMBOL AKSI
-   ========================================= */
-.action-bar { 
-  display: flex; 
-  gap: 10px; 
-  margin-top: 20px; 
-  flex-wrap: wrap; 
-}
-
-.btn { 
-  padding: 12px 20px; 
-  border: none; 
-  border-radius: 8px; 
-  font-weight: 600; 
-  cursor: pointer; 
-  font-size: 14px; 
-  flex: 1; 
-  transition: all 0.2s; 
-}
-
-.btn-save { 
-  background: #22c55e; 
-  color: white; 
-}
-
-.btn-save:hover { 
-  background: #16a34a; 
-}
-
-.btn-reset { 
-  background: #6b7280; 
-  color: white; 
-}
-
-.btn-reset:hover { 
-  background: #4b5563; 
-}
-
-/* =========================================
-   5. EMPTY STATE
-   ========================================= */
-.empty-state { 
-  text-align: center; 
-  padding: 30px; 
-  color: #6b7280; 
-  font-size: 14px; 
-}
-
-.empty-state h3 {
+#dynamicContent > .empty-state h3 {
   color: #374151;
   margin-bottom: 10px;
 }
 
 /* =========================================
-   6. LIST DATA (KARTU)
+   4. CONTAINER UTAMA (Full Width)
+   =========================================
+   Biarkan sub-fitur punya ruang penuh
    ========================================= */
-.data-card { 
-  background: #f3f4f6; 
-  border-radius: 8px; 
-  padding: 15px; 
-  margin-bottom: 10px; 
-  border-left: 4px solid #22c55e; 
-}
-
-.data-card h4 { 
-  margin: 0 0 8px 0; 
-  font-size: 15px; 
-  color: #1f2937; 
-}
-
-.data-card p { 
-  margin: 0; 
-  font-size: 13px; 
-  color: #4b5563; 
-}
-
-/* =========================================
-   7. FEATURE CONTAINER (Untuk fitur modular)
-   ========================================= */
-.feature-container {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-}
-
-.feature-header {
-  border-bottom: 2px solid #f3f4f6;
-  padding-bottom: 15px;
-  margin-bottom: 20px;
-}
-
-.feature-header h2 {
-  margin: 0;
-  color: #1f2937;
-}
-
-.feature-header p {
-  margin: 5px 0 0;
-  color: #6b7280;
-  font-size: 14px;
-}
-
-/* =========================================
-   8. FORM LAYOUT (Grid & Sections)
-   ========================================= */
-.feature-form .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
-  margin-bottom: 15px;
-}
-
-.feature-form .form-group {
-  margin-bottom: 15px;
-}
-
-.feature-form label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #374151;
-}
-
-.feature-form .required {
-  color: #ef4444;
-}
-
-.feature-form .form-control {
+.container {
   width: 100%;
-  padding: 12px;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
+  max-width: 100%;
+  padding: 20px;
   box-sizing: border-box;
-  font-family: inherit;
 }
 
-.feature-form .form-control:focus {
-  outline: none;
-  border-color: #22c55e;
-}
-
-.feature-form textarea.form-control {
-  min-height: 100px;
-  resize: vertical;
-}
-
-.feature-form .form-section {
-  background: #f9fafb;
-  padding: 15px;
-  border-radius: 8px;
-  margin: 15px 0;
-  border-left: 4px solid #22c55e;
-}
-
-.feature-form .form-section h4 {
-  margin: 0 0 10px 0;
-  color: #374151;
-  font-size: 15px;
-}
-
-.feature-form .form-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.feature-form .btn {
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  font-size: 14px;
-  flex: 1;
-  transition: all 0.2s;
-}
-
-.feature-form .btn-primary {
-  background: #22c55e;
-  color: white;
-}
-
-.feature-form .btn-primary:hover {
-  background: #16a34a;
-}
-
-.feature-form .btn-secondary {
-  background: #6b7280;
-  color: white;
-}
-
-.feature-form .btn-secondary:hover {
-  background: #4b5563;
+#dynamicContent {
+  width: 100%;
+  max-width: 100%;
 }
 
 /* =========================================
-   9. DATA SECTION & CARDS (Untuk jurnal)
-   ========================================= */
-.data-section {
-  margin-top: 30px;
-  border-top: 2px solid #f3f4f6;
-  padding-top: 20px;
-}
-
-.data-section h3 {
-  margin: 0 0 15px 0;
-  color: #1f2937;
-}
-
-.data-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.jurnal-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.jurnal-card {
-  background: #f9fafb;
-  border-radius: 8px;
-  padding: 15px;
-  border-left: 4px solid #22c55e;
-}
-
-.jurnal-card-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.jurnal-date {
-  font-weight: 600;
-  color: #374151;
-}
-
-.jurnal-kelas {
-  background: #dbeafe;
-  color: #1e40af;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.jurnal-card-body h4 {
-  margin: 0 0 10px 0;
-  color: #1f2937;
-  font-size: 15px;
-}
-
-.jurnal-stats {
-  display: flex;
-  gap: 15px;
-  margin: 10px 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.jurnal-kendala,
-.jurnal-tindak-lanjut {
-  margin: 8px 0;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.jurnal-kendala strong,
-.jurnal-tindak-lanjut strong {
-  color: #374151;
-}
-
-/* =========================================
-   10. LOADING & ERROR STATES
-   ========================================= */
-.loading {
-  text-align: center;
-  color: #6b7280;
-  padding: 20px;
-}
-
-.error {
-  text-align: center;
-  color: #ef4444;
-  padding: 20px;
-  background: #fef2f2;
-  border-radius: 8px;
-}
-
-/* =========================================
-   11. RESPONSIVE
+   5. RESPONSIVE (Menu Grid Saja)
    ========================================= */
 @media (max-width: 640px) {
-  .sub-menu-grid { 
-    grid-template-columns: repeat(2, 1fr); 
+  .sub-menu-grid {
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
   }
-  
+
   .sub-menu-btn {
     padding: 12px 8px;
     font-size: 12px;
   }
-  
+
   .sub-menu-icon {
     font-size: 20px;
   }
-  
-  .feature-form .form-row {
-    grid-template-columns: 1fr;
-  }
-  
+
   .btn-back {
     width: 100%;
     margin-bottom: 15px;
-  }
-  
-  .jurnal-stats {
-    flex-direction: column;
-    gap: 5px;
   }
 }
