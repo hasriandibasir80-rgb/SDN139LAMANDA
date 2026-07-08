@@ -21,13 +21,13 @@ export const konfigurasiFitur = {
   'dokumen-arsip': [
     { nama: 'Upload Dokumen', icon: '📤', link: 'modules/arsip/arsip-upload.html' },
     { nama: 'Katalog Arsip', icon: '📚', link: 'modules/arsip/arsip-katalog.html' },
-    { nama: 'Simpan File', icon: '📂', link: 'modules/arsip/simpan-file.html' }
+    { nama: 'Simpan File', icon: '', link: 'modules/arsip/simpan-file.html' }
   ],
   
   'data-statistik': [
     { nama: 'Demografi Sekolah', icon: '👥', link: 'modules/statistik/demografi.html' },
     { nama: 'Kehadiran & Absensi', icon: '📈', link: 'modules/statistik/kehadiran.html' },
-    { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/prestasi.html' }
+    { nama: 'Prestasi & Akademik', icon: '', link: 'modules/statistik/prestasi.html' }
   ],
   
   'admin-pembelajaran': [
@@ -46,38 +46,14 @@ export const konfigurasiFitur = {
   'kolaborasi-global': [
     { nama: 'Sub-Fitur 1 (Placeholder)', icon: '🤝', link: 'kolaborasi/sub-1.html' }
   ],
-  
-  // ✅ MONITORING KONTROL ADMIN (sudah ada, jangan diubah)
-  'monitoring': [
-    { nama: 'Monitoring Kontrol Admin', icon: '👁️', link: 'modules/control-center/monitoring.html' }
-  ],
-  
-  // ✅ GLOBAL MONITORING (BARU - 5 Card Grid)
+
+  // ✅ ENTRI KHUSUS GLOBAL MONITORING (1 Entry saja)
+  // Logic 5 card grid akan dihandle oleh main.js di folder global-monitoring
   'global-monitoring': [
     { 
-      nama: 'Data Peserta Didik', 
-      icon: '👨‍🎓', 
-      link: 'modules/global-monitoring/features/data-peserta-didik.html' 
-    },
-    { 
-      nama: 'Supervisi Akademik', 
-      icon: '🎓', 
-      link: 'modules/global-monitoring/features/supervisi-akademik.html' 
-    },
-    { 
-      nama: 'Aset Sarana', 
-      icon: '🏫', 
-      link: 'modules/global-monitoring/features/aset-sarana.html' 
-    },
-    { 
-      nama: 'Program Rencana', 
-      icon: '📝', 
-      link: 'modules/global-monitoring/features/program-rencana.html' 
-    },
-    { 
-      nama: 'Evaluasi Mandiri', 
-      icon: '📈', 
-      link: 'modules/global-monitoring/features/evaluasi-mandiri.html' 
+      nama: 'Global Monitoring', 
+      icon: '', 
+      link: 'modules/global-monitoring/global-monitoring.html' 
     }
   ]
 };
