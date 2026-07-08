@@ -2,7 +2,6 @@
    ABSENSI SISWA - STYLING (PINK ELEGANT)
    ========================================= */
 
-/* Background Container Utama - PINK */
 .absensi-container {
   width: 100%;
   max-width: 100%;
@@ -15,7 +14,6 @@
   box-sizing: border-box;
 }
 
-/* Header - Pink Gradient */
 .feature-header {
   background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
   color: white;
@@ -39,7 +37,6 @@
   color: white;
 }
 
-/* Form Section */
 .absensi-form {
   background: white;
   padding: 25px 30px;
@@ -89,7 +86,6 @@
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
 }
 
-/* Table Container */
 .table-responsive {
   overflow-x: auto;
   margin: 20px 0;
@@ -154,7 +150,6 @@
   vertical-align: middle;
 }
 
-/* Input Nama */
 .input-nama {
   width: 100%;
   min-width: 150px;
@@ -172,7 +167,6 @@
   box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
 }
 
-/* Input L/P */
 .input-lp {
   width: 100%;
   padding: 8px 10px;
@@ -188,7 +182,6 @@
   border-color: #ec4899;
 }
 
-/* Input Absensi */
 .input-absensi {
   width: 28px;
   height: 28px;
@@ -210,38 +203,12 @@
   transform: scale(1.1);
 }
 
-/* Status Warna (tetap berbeda agar mudah dibaca) */
-.status-H { 
-  background: #d1fae5 !important; 
-  color: #065f46; 
-  border-color: #10b981;
-}
+.status-H { background: #d1fae5 !important; color: #065f46; border-color: #10b981; }
+.status-I { background: #fef3c7 !important; color: #92400e; border-color: #f59e0b; }
+.status-S { background: #fed7aa !important; color: #9a3412; border-color: #f97316; }
+.status-A { background: #fecaca !important; color: #991b1b; border-color: #ef4444; }
+.status-B { background: #e9d5ff !important; color: #6b21a8; border-color: #a855f7; }
 
-.status-I { 
-  background: #fef3c7 !important; 
-  color: #92400e; 
-  border-color: #f59e0b;
-}
-
-.status-S { 
-  background: #fed7aa !important; 
-  color: #9a3412; 
-  border-color: #f97316;
-}
-
-.status-A { 
-  background: #fecaca !important; 
-  color: #991b1b; 
-  border-color: #ef4444;
-}
-
-.status-B { 
-  background: #e9d5ff !important; 
-  color: #6b21a8; 
-  border-color: #a855f7;
-}
-
-/* Jumlah Cell */
 .jumlah-H, .jumlah-I, .jumlah-S, .jumlah-A, .jumlah-B {
   font-weight: bold;
   font-size: 13px;
@@ -254,7 +221,6 @@
 .jumlah-A { background: #fecaca; color: #991b1b; }
 .jumlah-B { background: #e9d5ff; color: #6b21a8; }
 
-/* Tombol Hapus */
 .btn-hapus {
   background: #ef4444;
   color: white;
@@ -271,7 +237,6 @@
   transform: scale(1.05);
 }
 
-/* Action Bar */
 .action-bar {
   display: flex;
   gap: 12px;
@@ -335,7 +300,6 @@
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-/* Footer TTD */
 .absensi-footer {
   padding: 30px;
   display: flex;
@@ -357,7 +321,29 @@
   color: #831843;
 }
 
-/* Loading & Error */
+.input-wali {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #fbcfe8;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: center;
+  transition: all 0.3s;
+  background: white;
+  margin-bottom: 8px;
+}
+
+.input-wali:focus {
+  outline: none;
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15);
+}
+
+.input-wali::placeholder {
+  color: #f472b6;
+  opacity: 0.7;
+}
+
 .loading {
   text-align: center;
   padding: 20px;
@@ -380,7 +366,6 @@
   border-left: 4px solid #ef4444;
 }
 
-/* Toast Notification */
 @keyframes slideIn {
   from { transform: translateX(100%); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
@@ -391,7 +376,6 @@
   to { transform: translateX(100%); opacity: 0; }
 }
 
-/* Print Styles */
 @media print {
   body { background: white; padding: 0; }
   
@@ -430,7 +414,8 @@
 
   .input-nama,
   .input-lp,
-  .input-absensi {
+  .input-absensi,
+  .input-wali {
     border: none;
     background: transparent;
     padding: 0;
@@ -438,14 +423,55 @@
 
   .btn-hapus { display: none; }
   .absensi-footer { display: block; box-shadow: none; }
+  
+  .input-wali::placeholder { color: transparent; }
 }
 
-/* Responsive Mobile */
+@media screen and (max-width: 1024px) {
+  .absensi-container { padding: 15px; }
+  .feature-header { padding: 20px; }
+  .feature-header h2 { font-size: 20px; }
+  .absensi-form { padding: 20px; }
+  .form-row { grid-template-columns: 1fr 1fr; gap: 15px; }
+  .input-nama { min-width: 120px; }
+  .input-absensi { width: 24px; height: 24px; font-size: 10px; }
+}
+
 @media screen and (max-width: 768px) {
-  .absensi-container { padding: 10px; }
-  .form-row { grid-template-columns: 1fr; }
-  .action-bar { flex-direction: column; }
-  .action-bar .btn { width: 100%; justify-content: center; }
-  .absensi-table { font-size: 10px; }
-  .input-absensi { width: 22px; height: 22px; font-size: 9px; }
+  .absensi-container { padding: 10px; border-radius: 12px; }
+  .feature-header { padding: 15px; border-radius: 8px; }
+  .feature-header h2 { font-size: 18px; }
+  .feature-header p { font-size: 12px; }
+  .absensi-form { padding: 15px; }
+  .form-row { grid-template-columns: 1fr; gap: 12px; }
+  .form-group label { font-size: 13px; }
+  .form-control { padding: 10px 12px; font-size: 13px; }
+  .table-responsive { padding: 10px; margin: 15px 0; }
+  .absensi-table { font-size: 11px; min-width: 800px; }
+  .absensi-table th, .absensi-table td { padding: 6px 4px; }
+  .input-nama { min-width: 100px; max-width: 150px; font-size: 12px; padding: 6px 8px; }
+  .input-absensi { width: 26px; height: 26px; font-size: 10px; }
+  .action-bar { flex-direction: column; gap: 10px; }
+  .action-bar .btn { width: 100%; justify-content: center; padding: 14px 20px; }
+  .absensi-footer { justify-content: center; padding: 20px; }
+  .ttd-section { min-width: 200px; }
+  .input-wali { font-size: 13px; padding: 6px 10px; }
+}
+
+@media screen and (max-width: 480px) {
+  .absensi-container { padding: 8px; }
+  .feature-header h2 { font-size: 16px; }
+  .absensi-table { font-size: 10px; min-width: 700px; }
+  .input-nama { min-width: 80px; font-size: 11px; padding: 5px 6px; }
+  .input-absensi { width: 24px; height: 24px; font-size: 9px; }
+  .action-bar .btn { font-size: 13px; padding: 12px 16px; }
+}
+
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .absensi-container { padding: 8px; }
+  .feature-header { padding: 10px 15px; margin-bottom: 10px; }
+  .absensi-form { padding: 10px 15px; }
+  .form-row { grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+  .form-group label { font-size: 11px; margin-bottom: 4px; }
+  .form-control { padding: 6px 8px; font-size: 12px; }
 }
