@@ -1,6 +1,7 @@
 // modules/global-monitoring/features/data-peserta-didik.js
 // =========================================
 // SUB-FITUR 1: DATA PESERTA DIDIK
+// DENGAN PRESTASI CRUD & PAGINATION
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -10,15 +11,22 @@ import { getDatabase, ref, get, push, set, update, remove }
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
 
-// Konstanta CSS - PERBAIKI PATH
+// Konstanta CSS
 const CSS_PATH = '../../css/modules/data-peserta-didik.css';
 const CSS_ID = 'data-peserta-didik-css';
 
 // State
 let allSiswaData = [];
 let filteredData = [];
+let allPrestasiData = [];
 let editMode = false;
 let editRowIndex = -1;
+let currentPage = 1;
+const itemsPerPage = 20;
+
+// Prestasi State
+let prestasiEditMode = false;
+let prestasiEditId = null;
 
 /**
  * Fungsi init - Dipanggil oleh main.js
@@ -27,7 +35,7 @@ export async function init(container, db) {
   loadFeatureCSS();
   renderUI(container);
   attachEventListeners(container);
-  await loadDataSiswa();
+  await Promise.all([loadDataSiswa(), loadPrestasi()]);
 }
 
 export function cleanup() {
@@ -46,7 +54,6 @@ function loadFeatureCSS() {
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   
-  // Fallback: jika file eksternal gagal, inject inline CSS
   cssLink.onerror = () => {
     console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
     const inlineCSS = document.createElement('style');
@@ -59,7 +66,7 @@ function loadFeatureCSS() {
 }
 
 /**
- * Fallback CSS inline (PINK BACKGROUND)
+ * Fallback CSS inline
  */
 function getInlineCSS() {
   return `
@@ -157,6 +164,9 @@ function getInlineCSS() {
       text-align: left;
       font-weight: 700;
       border-bottom: 2px solid #bae6fd;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     .data-table td { padding: 12px 10px; border-bottom: 1px solid #f1f5f9; color: #334155; }
     .data-table tbody tr:hover { background: #f8fafc; }
@@ -177,31 +187,85 @@ function getInlineCSS() {
       padding: 20px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    .sidebar-card h3 { margin: 0 0 15px 0; color: #1e3a8a; font-size: 16px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
-    .chart-wrapper { position: relative; width: 150px; height: 150px; margin: 0 auto 15px; }
-    .pie-chart { width: 100%; height: 100%; border-radius: 50%; }
-    .chart-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
+    .sidebar-card h3 { 
+      margin: 0 0 15px 0; 
+      color: #1e3a8a; 
+      font-size: 16px; 
+      border-bottom: 2px solid #f1f5f9; 
+      padding-bottom: 10px;
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: 800;
-      color: #1e3a8a;
     }
-    .chart-legend { display: flex; flex-direction: column; gap: 8px; }
-    .legend-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #475569; }
-    .legend-color { width: 12px; height: 12px; border-radius: 3px; }
-    .prestasi-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-    .prestasi-item { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #334155; padding: 8px; background: #f8fafc; border-radius: 6px; }
-    .prestasi-dot { width: 8px; height: 8px; background: #3b82f6; border-radius: 50%; }
+    .btn-add-prestasi {
+      background: #10b981;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-add-prestasi:hover { background: #059669; }
+    .prestasi-list { 
+      list-style: none; 
+      padding: 0; 
+      margin: 0; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px; 
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .prestasi-item { 
+      display: flex; 
+      flex-direction: column;
+      gap: 8px;
+      padding: 12px; 
+      background: #f8fafc; 
+      border-radius: 6px; 
+      border-left: 4px solid #fbbf24;
+      position: relative;
+    }
+    .prestasi-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+    }
+    .prestasi-item-title {
+      font-weight: 700;
+      color: #1e3a8a;
+      font-size: 14px;
+      margin: 0;
+    }
+    .prestasi-item-actions {
+      display: flex;
+      gap: 5px;
+    }
+    .prestasi-item-actions button {
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .btn-prestasi-edit { background: #fbbf24; }
+    .btn-prestasi-delete { background: #ef4444; color: white; }
+    .prestasi-item-details {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .prestasi-item-details span {
+      display: block;
+      margin-bottom: 3px;
+    }
+    .prestasi-empty {
+      text-align: center;
+      color: #94a3b8;
+      padding: 20px;
+      font-size: 13px;
+    }
     .footer-actions {
       background: white;
       padding: 20px 30px;
@@ -276,8 +340,85 @@ function getInlineCSS() {
     .form-input-full:focus { outline: none; border-color: #3b82f6; }
     .form-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
     .modal-footer { padding: 15px 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; gap: 10px; }
-    @media (max-width: 1024px) { .main-grid { grid-template-columns: 1fr; } .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 768px) { .stats-grid { grid-template-columns: 1fr; } .footer-actions { flex-direction: column; align-items: stretch; } .footer-left, .footer-right { justify-content: center; } }
+    
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
+      border-radius: 8px;
+    }
+    .pagination button {
+      padding: 8px 16px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .pagination button:hover:not(:disabled) {
+      background: #1e3a8a;
+      color: white;
+      border-color: #1e3a8a;
+    }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pagination-info { font-size: 13px; color: #64748b; }
+    
+    /* Mobile Card View */
+    .mobile-cards { display: none; }
+    .student-card {
+      background: white;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border-left: 4px solid #3b82f6;
+    }
+    .student-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 10px;
+    }
+    .student-card-name { font-size: 16px; font-weight: 700; color: #1e3a8a; margin: 0; }
+    .student-card-nisn { font-size: 12px; color: #64748b; }
+    .student-card-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .student-card-info { font-size: 13px; }
+    .student-card-info strong { color: #64748b; font-weight: 600; }
+    .student-card-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .student-card-actions button {
+      flex: 1;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .btn-card-edit { background: #fbbf24; color: white; }
+    .btn-card-delete { background: #ef4444; color: white; }
+    
+    @media (max-width: 1024px) { 
+      .main-grid { grid-template-columns: 1fr; } 
+      .stats-grid { grid-template-columns: repeat(2, 1fr); } 
+    }
+    @media (max-width: 768px) { 
+      .stats-grid { grid-template-columns: 1fr; } 
+      .footer-actions { flex-direction: column; align-items: stretch; } 
+      .footer-left, .footer-right { justify-content: center; }
+      .table-responsive { display: none; }
+      .mobile-cards { display: block; }
+    }
   `;
 }
 
@@ -343,6 +484,7 @@ function renderUI(container) {
             <button class="btn-filter" id="btnFilter">Filter</button>
           </div>
 
+          <!-- Desktop Table View -->
           <div class="table-responsive">
             <table class="data-table" id="tabelSiswa">
               <thead>
@@ -363,28 +505,24 @@ function renderUI(container) {
               </tbody>
             </table>
           </div>
+
+          <!-- Mobile Card View -->
+          <div class="mobile-cards" id="mobileCards"></div>
+
+          <!-- Pagination -->
+          <div class="pagination" id="pagination"></div>
         </div>
 
         <!-- Right: Sidebar -->
         <div class="sidebar-section">
-          <!-- Chart Kehadiran -->
-          <div class="sidebar-card chart-card">
-            <h3>Grafik Kehadiran</h3>
-            <div class="chart-wrapper">
-              <div class="pie-chart" id="pieChart"></div>
-              <div class="chart-center" id="chartCenterText">0%</div>
-            </div>
-            <div class="chart-legend" id="chartLegend"></div>
-          </div>
-
-          <!-- Riwayat Prestasi -->
+          <!-- Riwayat Prestasi (CRUD) -->
           <div class="sidebar-card prestasi-card">
-            <h3>Riwayat Prestasi</h3>
+            <h3>
+              🏆 Riwayat Prestasi
+              <button class="btn-add-prestasi" id="btnTambahPrestasi">➕ Tambah</button>
+            </h3>
             <ul class="prestasi-list" id="prestasiList">
-              <li class="prestasi-item">
-                <span class="prestasi-dot"></span>
-                <span>Memuat data prestasi...</span>
-              </li>
+              <li class="prestasi-empty">Memuat data prestasi...</li>
             </ul>
           </div>
         </div>
@@ -394,7 +532,7 @@ function renderUI(container) {
       <div class="footer-actions">
         <div class="footer-left">
           <button class="btn-action btn-add" id="btnTambah">➕ Tambah Siswa</button>
-          <button class="btn-action btn-save" id="btnSimpan">💾 Simpan</button>
+          <button class="btn-action btn-save" id="btnSimpan"> Simpan</button>
         </div>
         <div class="footer-right">
           <button class="btn-action btn-export" id="btnExport">📊 Export Excel</button>
@@ -455,7 +593,58 @@ function renderUI(container) {
         </div>
         <div class="modal-footer">
           <button class="btn-action btn-cancel" id="btnBatal">Batal</button>
-          <button class="btn-action btn-save" id="btnSimpanModal"> Simpan</button>
+          <button class="btn-action btn-save" id="btnSimpanModal">💾 Simpan</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Tambah/Edit Prestasi -->
+    <div id="modalPrestasi" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalPrestasiTitle">Tambah Prestasi</h3>
+          <button class="modal-close" id="modalPrestasiClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Judul Prestasi</label>
+            <input type="text" id="inputPrestasiJudul" class="form-input-full" placeholder="Contoh: Juara 1 Lomba Matematika">
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Nama Siswa</label>
+              <input type="text" id="inputPrestasiSiswa" class="form-input-full" placeholder="Nama siswa">
+            </div>
+            <div class="form-group">
+              <label>Kelas</label>
+              <input type="text" id="inputPrestasiKelas" class="form-input-full" placeholder="Contoh: 5A">
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label>Tanggal</label>
+              <input type="date" id="inputPrestasiTanggal" class="form-input-full">
+            </div>
+            <div class="form-group">
+              <label>Tingkat</label>
+              <select id="inputPrestasiTingkat" class="form-input-full">
+                <option value="Sekolah">Sekolah</option>
+                <option value="Kecamatan">Kecamatan</option>
+                <option value="Kabupaten">Kabupaten</option>
+                <option value="Provinsi">Provinsi</option>
+                <option value="Nasional">Nasional</option>
+                <option value="Internasional">Internasional</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Keterangan (Opsional)</label>
+            <textarea id="inputPrestasiKeterangan" class="form-input-full" rows="2" placeholder="Keterangan tambahan"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-action btn-cancel" id="btnPrestasiBatal">Batal</button>
+          <button class="btn-action btn-save" id="btnSimpanPrestasi">💾 Simpan</button>
         </div>
       </div>
     </div>
@@ -463,7 +652,7 @@ function renderUI(container) {
 }
 
 /**
- * Load Data dari Firebase
+ * Load Data Siswa dari Firebase
  */
 async function loadDataSiswa() {
   try {
@@ -498,16 +687,44 @@ async function loadDataSiswa() {
 
     allSiswaData.sort((a, b) => a.nama.localeCompare(b.nama));
     filteredData = [...allSiswaData];
+    currentPage = 1;
 
     updateStats(allSiswaData.length, kelasSet.size, totalL, totalP);
     renderTable();
-    renderChart();
-    loadPrestasiDummy();
+    renderMobileCards();
+    renderPagination();
 
   } catch (error) {
-    console.error('Error loading data:', error);
-    document.getElementById('tabelBody').innerHTML = 
-      `<tr><td colspan="9" style="text-align:center; color:red;">Gagal memuat data: ${error.message}</td></tr>`;
+    console.error('Error loading siswa:', error);
+  }
+}
+
+/**
+ * Load Prestasi dari Firebase
+ */
+async function loadPrestasi() {
+  try {
+    const snapshot = await get(ref(database, 'prestasi'));
+    allPrestasiData = [];
+
+    if (snapshot.exists()) {
+      snapshot.forEach(prestasiSnap => {
+        allPrestasiData.push({
+          id: prestasiSnap.key,
+          ...prestasiSnap.val()
+        });
+      });
+    }
+
+    // Sort by tanggal (terbaru dulu)
+    allPrestasiData.sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal));
+    
+    renderPrestasi();
+
+  } catch (error) {
+    console.error('Error loading prestasi:', error);
+    document.getElementById('prestasiList').innerHTML = 
+      '<li class="prestasi-empty">Gagal memuat data prestasi</li>';
   }
 }
 
@@ -522,21 +739,33 @@ function updateStats(total, kelas, l, p) {
 }
 
 /**
- * Render Tabel dengan Tombol Edit/Hapus
+ * Get Current Page Data
+ */
+function getCurrentPageData() {
+  const start = (currentPage - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  return filteredData.slice(start, end);
+}
+
+/**
+ * Render Tabel (Desktop)
  */
 function renderTable() {
   const tbody = document.getElementById('tabelBody');
   tbody.innerHTML = '';
 
-  if (filteredData.length === 0) {
+  const pageData = getCurrentPageData();
+
+  if (pageData.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px;">Tidak ada data ditemukan</td></tr>';
     return;
   }
 
-  filteredData.forEach((siswa, index) => {
+  pageData.forEach((siswa, index) => {
+    const globalIndex = (currentPage - 1) * itemsPerPage + index;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${index + 1}</td>
+      <td>${globalIndex + 1}</td>
       <td>${siswa.nisn}</td>
       <td><strong>${siswa.nama}</strong></td>
       <td>${siswa.kelas}</td>
@@ -545,15 +774,140 @@ function renderTable() {
       <td>${siswa.alamat}</td>
       <td>${siswa.ortu}</td>
       <td>
-        <button class="btn-small btn-edit" data-id="${siswa.id}" data-index="${index}">✏️</button>
-        <button class="btn-small btn-delete" data-id="${siswa.id}">🗑️</button>
+        <button class="btn-small btn-edit" data-id="${siswa.id}" data-index="${globalIndex}">✏️</button>
+        <button class="btn-small btn-delete" data-id="${siswa.id}">️</button>
       </td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Attach event untuk tombol edit/hapus
   attachTableButtonEvents();
+}
+
+/**
+ * Render Mobile Cards
+ */
+function renderMobileCards() {
+  const container = document.getElementById('mobileCards');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const pageData = getCurrentPageData();
+
+  if (pageData.length === 0) {
+    container.innerHTML = '<p style="text-align:center; padding: 20px; color: #64748b;">Tidak ada data ditemukan</p>';
+    return;
+  }
+
+  pageData.forEach((siswa, index) => {
+    const globalIndex = (currentPage - 1) * itemsPerPage + index;
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.innerHTML = `
+      <div class="student-card-header">
+        <div>
+          <h4 class="student-card-name">${siswa.nama}</h4>
+          <span class="student-card-nisn">NISN: ${siswa.nisn}</span>
+        </div>
+      </div>
+      <div class="student-card-body">
+        <div class="student-card-info"><strong>Kelas:</strong> ${siswa.kelas}</div>
+        <div class="student-card-info"><strong>JK:</strong> ${siswa.jk === 'L' ? 'Laki-laki' : 'Perempuan'}</div>
+        <div class="student-card-info"><strong>Tgl Lahir:</strong> ${siswa.tglLahir}</div>
+        <div class="student-card-info"><strong>Ortu:</strong> ${siswa.ortu}</div>
+      </div>
+      <div class="student-card-actions">
+        <button class="btn-card-edit" data-id="${siswa.id}" data-index="${globalIndex}">✏️ Edit</button>
+        <button class="btn-card-delete" data-id="${siswa.id}">️ Hapus</button>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  attachMobileCardEvents();
+}
+
+/**
+ * Render Pagination
+ */
+function renderPagination() {
+  const container = document.getElementById('pagination');
+  if (!container) return;
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  
+  if (totalPages <= 1) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'flex';
+  container.innerHTML = `
+    <button id="btnPrev" ${currentPage === 1 ? 'disabled' : ''}>← Prev</button>
+    <span class="pagination-info">Halaman ${currentPage} dari ${totalPages}</span>
+    <button id="btnNext" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>
+  `;
+
+  document.getElementById('btnPrev')?.addEventListener('click', () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderTable();
+      renderMobileCards();
+      renderPagination();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  document.getElementById('btnNext')?.addEventListener('click', () => {
+    if (currentPage < totalPages) {
+      currentPage++;
+      renderTable();
+      renderMobileCards();
+      renderPagination();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+}
+
+/**
+ * Render Prestasi List
+ */
+function renderPrestasi() {
+  const list = document.getElementById('prestasiList');
+  if (!list) return;
+
+  if (allPrestasiData.length === 0) {
+    list.innerHTML = '<li class="prestasi-empty">Belum ada data prestasi. Klik "Tambah" untuk menambah.</li>';
+    return;
+  }
+
+  list.innerHTML = allPrestasiData.map(p => `
+    <li class="prestasi-item">
+      <div class="prestasi-item-header">
+        <h4 class="prestasi-item-title">${p.judul}</h4>
+        <div class="prestasi-item-actions">
+          <button class="btn-prestasi-edit" data-id="${p.id}">✏️</button>
+          <button class="btn-prestasi-delete" data-id="${p.id}">🗑️</button>
+        </div>
+      </div>
+      <div class="prestasi-item-details">
+        <span>👤 ${p.siswa} - Kelas ${p.kelas}</span>
+        <span>📅 ${formatTanggal(p.tanggal)} | 🏆 Tingkat: ${p.tingkat}</span>
+        ${p.keterangan ? `<span> ${p.keterangan}</span>` : ''}
+      </div>
+    </li>
+  `).join('');
+
+  attachPrestasiButtonEvents();
+}
+
+/**
+ * Format Tanggal
+ */
+function formatTanggal(tanggal) {
+  if (!tanggal) return '-';
+  const date = new Date(tanggal);
+  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 /**
@@ -577,55 +931,46 @@ function attachTableButtonEvents() {
 }
 
 /**
- * Render Chart Kehadiran
+ * Attach Event untuk Mobile Cards
  */
-function renderChart() {
-  const hadir = 85, izin = 8, sakit = 5, alfa = 2;
-  const total = hadir + izin + sakit + alfa;
+function attachMobileCardEvents() {
+  document.querySelectorAll('.btn-card-edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      const index = parseInt(e.currentTarget.dataset.index);
+      openEditModal(id, index);
+    });
+  });
 
-  const hDeg = (hadir / total) * 360;
-  const iDeg = hDeg + (izin / total) * 360;
-  const sDeg = iDeg + (sakit / total) * 360;
-
-  const chart = document.getElementById('pieChart');
-  if (chart) {
-    chart.style.background = `conic-gradient(
-      #3b82f6 0deg ${hDeg}deg, 
-      #fbbf24 ${hDeg}deg ${iDeg}deg, 
-      #f97316 ${iDeg}deg ${sDeg}deg, 
-      #ef4444 ${sDeg}deg 360deg
-    )`;
-  }
-
-  const centerText = document.getElementById('chartCenterText');
-  if (centerText) centerText.textContent = `${hadir}%`;
-
-  const legend = document.getElementById('chartLegend');
-  if (legend) {
-    legend.innerHTML = `
-      <div class="legend-item"><span class="legend-color" style="background:#3b82f6"></span> Hadir (${hadir}%)</div>
-      <div class="legend-item"><span class="legend-color" style="background:#fbbf24"></span> Izin (${izin}%)</div>
-      <div class="legend-item"><span class="legend-color" style="background:#f97316"></span> Sakit (${sakit}%)</div>
-      <div class="legend-item"><span class="legend-color" style="background:#ef4444"></span> Alfa (${alfa}%)</div>
-    `;
-  }
+  document.querySelectorAll('.btn-card-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      deleteSiswa(id);
+    });
+  });
 }
 
 /**
- * Load Prestasi Dummy
+ * Attach Event untuk Tombol Prestasi
  */
-function loadPrestasiDummy() {
-  const list = document.getElementById('prestasiList');
-  if (!list) return;
-  list.innerHTML = `
-    <li class="prestasi-item"><span class="prestasi-dot"></span> Juara 1 Lomba Matematika</li>
-    <li class="prestasi-item"><span class="prestasi-dot"></span> Juara 2 Cerdas Cermat</li>
-    <li class="prestasi-item"><span class="prestasi-dot"></span> Juara 3 Lomba Pidato</li>
-  `;
+function attachPrestasiButtonEvents() {
+  document.querySelectorAll('.btn-prestasi-edit').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      openEditPrestasiModal(id);
+    });
+  });
+
+  document.querySelectorAll('.btn-prestasi-delete').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = e.currentTarget.dataset.id;
+      deletePrestasi(id);
+    });
+  });
 }
 
 /**
- * Modal Functions
+ * Modal Siswa Functions
  */
 function openAddModal() {
   editMode = false;
@@ -668,7 +1013,50 @@ function clearModalForm() {
 }
 
 /**
- * Simpan Siswa (Tambah atau Edit)
+ * Modal Prestasi Functions
+ */
+function openAddPrestasiModal() {
+  prestasiEditMode = false;
+  prestasiEditId = null;
+  document.getElementById('modalPrestasiTitle').textContent = 'Tambah Prestasi';
+  clearPrestasiForm();
+  document.getElementById('modalPrestasi').style.display = 'flex';
+}
+
+function openEditPrestasiModal(id) {
+  const prestasi = allPrestasiData.find(p => p.id === id);
+  if (!prestasi) return;
+
+  prestasiEditMode = true;
+  prestasiEditId = id;
+  
+  document.getElementById('modalPrestasiTitle').textContent = 'Edit Prestasi';
+  document.getElementById('inputPrestasiJudul').value = prestasi.judul || '';
+  document.getElementById('inputPrestasiSiswa').value = prestasi.siswa || '';
+  document.getElementById('inputPrestasiKelas').value = prestasi.kelas || '';
+  document.getElementById('inputPrestasiTanggal').value = prestasi.tanggal || '';
+  document.getElementById('inputPrestasiTingkat').value = prestasi.tingkat || 'Sekolah';
+  document.getElementById('inputPrestasiKeterangan').value = prestasi.keterangan || '';
+  
+  document.getElementById('modalPrestasi').style.display = 'flex';
+}
+
+function closePrestasiModal() {
+  document.getElementById('modalPrestasi').style.display = 'none';
+  clearPrestasiForm();
+}
+
+function clearPrestasiForm() {
+  document.getElementById('inputPrestasiJudul').value = '';
+  document.getElementById('inputPrestasiSiswa').value = '';
+  document.getElementById('inputPrestasiKelas').value = '';
+  document.getElementById('inputPrestasiTanggal').value = '';
+  document.getElementById('inputPrestasiTingkat').value = 'Sekolah';
+  document.getElementById('inputPrestasiKeterangan').value = '';
+}
+
+/**
+ * Simpan Siswa
  */
 async function simpanSiswa() {
   const nisn = document.getElementById('inputNisn').value.trim();
@@ -696,12 +1084,10 @@ async function simpanSiswa() {
     };
 
     if (editMode && editRowIndex >= 0) {
-      // UPDATE existing
       const siswa = filteredData[editRowIndex];
       await update(ref(database, `siswa/${siswa.kelas}/${siswa.id}`), dataSiswa);
       showToast('✅ Data siswa berhasil diupdate!');
     } else {
-      // CREATE new
       const newRef = push(ref(database, `siswa/${kelas}`));
       dataSiswa.createdAt = Date.now();
       await set(newRef, dataSiswa);
@@ -709,11 +1095,57 @@ async function simpanSiswa() {
     }
 
     closeEditModal();
-    await loadDataSiswa(); // Reload data
+    await loadDataSiswa();
 
   } catch (error) {
     console.error('Error saving:', error);
     alert('Gagal menyimpan data: ' + error.message);
+  }
+}
+
+/**
+ * Simpan Prestasi
+ */
+async function simpanPrestasi() {
+  const judul = document.getElementById('inputPrestasiJudul').value.trim();
+  const siswa = document.getElementById('inputPrestasiSiswa').value.trim();
+  const kelas = document.getElementById('inputPrestasiKelas').value.trim();
+  const tanggal = document.getElementById('inputPrestasiTanggal').value;
+  const tingkat = document.getElementById('inputPrestasiTingkat').value;
+  const keterangan = document.getElementById('inputPrestasiKeterangan').value.trim();
+
+  if (!judul || !siswa || !kelas) {
+    alert('Judul, Nama Siswa, dan Kelas wajib diisi!');
+    return;
+  }
+
+  try {
+    const dataPrestasi = {
+      judul,
+      siswa,
+      kelas,
+      tanggal: tanggal || new Date().toISOString().split('T')[0],
+      tingkat,
+      keterangan: keterangan || '',
+      updatedAt: Date.now()
+    };
+
+    if (prestasiEditMode && prestasiEditId) {
+      await update(ref(database, `prestasi/${prestasiEditId}`), dataPrestasi);
+      showToast('✅ Prestasi berhasil diupdate!');
+    } else {
+      dataPrestasi.createdAt = Date.now();
+      const newRef = push(ref(database, 'prestasi'));
+      await set(newRef, dataPrestasi);
+      showToast('✅ Prestasi baru berhasil ditambahkan!');
+    }
+
+    closePrestasiModal();
+    await loadPrestasi();
+
+  } catch (error) {
+    console.error('Error saving prestasi:', error);
+    alert('Gagal menyimpan prestasi: ' + error.message);
   }
 }
 
@@ -737,6 +1169,22 @@ async function deleteSiswa(id) {
 }
 
 /**
+ * Hapus Prestasi
+ */
+async function deletePrestasi(id) {
+  if (!confirm('Yakin ingin menghapus prestasi ini?')) return;
+
+  try {
+    await remove(ref(database, `prestasi/${id}`));
+    showToast('️ Prestasi berhasil dihapus!');
+    await loadPrestasi();
+  } catch (error) {
+    console.error('Error deleting prestasi:', error);
+    alert('Gagal menghapus prestasi: ' + error.message);
+  }
+}
+
+/**
  * Search & Filter
  */
 function doSearch() {
@@ -746,7 +1194,10 @@ function doSearch() {
     s.nisn.toLowerCase().includes(query) ||
     s.kelas.toLowerCase().includes(query)
   );
+  currentPage = 1;
   renderTable();
+  renderMobileCards();
+  renderPagination();
 }
 
 /**
@@ -828,7 +1279,6 @@ function attachEventListeners(container) {
     searchInput?.focus();
   });
 
-  // Settings button
   const btnSettings = container.querySelector('#btnSettings');
   if (btnSettings) btnSettings.addEventListener('click', () => {
     alert('Pengaturan akan segera hadir!');
@@ -843,14 +1293,14 @@ function attachEventListeners(container) {
   if (btnTambah) btnTambah.addEventListener('click', openAddModal);
   if (btnSimpan) btnSimpan.addEventListener('click', () => {
     if (confirm('Simpan semua perubahan ke database?')) {
-      loadDataSiswa(); // Reload dari database
+      loadDataSiswa();
       showToast('✅ Data tersinkronisasi dengan database!');
     }
   });
   if (btnExport) btnExport.addEventListener('click', exportToExcel);
   if (btnDownload) btnDownload.addEventListener('click', downloadData);
 
-  // Modal buttons
+  // Modal Siswa buttons
   const modalClose = container.querySelector('#modalClose');
   const btnBatal = container.querySelector('#btnBatal');
   const btnSimpanModal = container.querySelector('#btnSimpanModal');
@@ -859,11 +1309,28 @@ function attachEventListeners(container) {
   if (btnBatal) btnBatal.addEventListener('click', closeEditModal);
   if (btnSimpanModal) btnSimpanModal.addEventListener('click', simpanSiswa);
 
-  // Close modal saat klik di luar
-  const modal = container.querySelector('#modalSiswa');
-  if (modal) {
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeEditModal();
+  const modalSiswa = container.querySelector('#modalSiswa');
+  if (modalSiswa) {
+    modalSiswa.addEventListener('click', (e) => {
+      if (e.target === modalSiswa) closeEditModal();
+    });
+  }
+
+  // Modal Prestasi buttons
+  const btnTambahPrestasi = container.querySelector('#btnTambahPrestasi');
+  const modalPrestasiClose = container.querySelector('#modalPrestasiClose');
+  const btnPrestasiBatal = container.querySelector('#btnPrestasiBatal');
+  const btnSimpanPrestasi = container.querySelector('#btnSimpanPrestasi');
+
+  if (btnTambahPrestasi) btnTambahPrestasi.addEventListener('click', openAddPrestasiModal);
+  if (modalPrestasiClose) modalPrestasiClose.addEventListener('click', closePrestasiModal);
+  if (btnPrestasiBatal) btnPrestasiBatal.addEventListener('click', closePrestasiModal);
+  if (btnSimpanPrestasi) btnSimpanPrestasi.addEventListener('click', simpanPrestasi);
+
+  const modalPrestasi = container.querySelector('#modalPrestasi');
+  if (modalPrestasi) {
+    modalPrestasi.addEventListener('click', (e) => {
+      if (e.target === modalPrestasi) closePrestasiModal();
     });
   }
 }
