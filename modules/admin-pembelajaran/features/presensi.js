@@ -64,11 +64,11 @@ function renderAbsensiUI(container) {
       <div class="absensi-form">
         <div class="form-row">
           <div class="form-group">
-            <label>Tahun Pelajaran</label>
+            <label>📅 Tahun Pelajaran</label>
             <input type="text" id="tahunPelajaran" class="form-control" placeholder="2026/2027">
           </div>
           <div class="form-group">
-            <label>Kelas</label>
+            <label>🏫 Kelas</label>
             <select id="pilihKelas" class="form-control">
               <option value="">-- Pilih Kelas --</option>
               <option value="1">Kelas 1</option>
@@ -83,7 +83,7 @@ function renderAbsensiUI(container) {
 
         <div class="form-row">
           <div class="form-group">
-            <label>Bulan</label>
+            <label>📆 Bulan</label>
             <select id="pilihBulan" class="form-control">
               <option value="">-- Pilih Bulan --</option>
               <option value="Januari">Januari</option>
@@ -101,7 +101,7 @@ function renderAbsensiUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label>Tahun</label>
+            <label>📅 Tahun</label>
             <input type="text" id="pilihTahun" class="form-control" placeholder="2026">
           </div>
         </div>
@@ -118,12 +118,12 @@ function renderAbsensiUI(container) {
           <table class="absensi-table" id="tabelAbsensi">
             <thead>
               <tr>
-                <th>No</th>
-                <th>Nama Siswa</th>
-                <th>L/P</th>
+                <th style="width: 50px;">No</th>
+                <th style="width: 200px;">Nama Siswa</th>
+                <th style="width: 60px;">L/P</th>
                 <th colspan="31">Tanggal</th>
                 <th colspan="5">Jumlah</th>
-                <th>Aksi</th>
+                <th style="width: 60px;">Aksi</th>
               </tr>
               <tr class="sub-header">
                 <td></td><td></td><td></td>
@@ -184,9 +184,9 @@ function tambahBarisSiswa() {
 
   row.innerHTML = `
     <td>${rowCount}</td>
-    <td><input type="text" class="input-nama" placeholder="Nama siswa..." style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px;"></td>
+    <td><input type="text" class="input-nama" placeholder="Nama siswa..." style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;"></td>
     <td>
-      <select class="input-lp" style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px;">
+      <select class="input-lp" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px;">
         <option value="L">L</option>
         <option value="P">P</option>
       </select>
@@ -197,7 +197,7 @@ function tambahBarisSiswa() {
     <td class="jumlah-S">0</td>
     <td class="jumlah-A">0</td>
     <td class="jumlah-B">0</td>
-    <td><button type="button" class="btn-hapus" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">🗑️</button></td>
+    <td><button type="button" class="btn-hapus">🗑️</button></td>
   `;
 
   tabelBody.appendChild(row);
@@ -214,7 +214,7 @@ function generateTanggalInputs() {
                class="input-absensi" 
                maxlength="1" 
                data-tanggal="${i}"
-               style="width: 25px; height: 25px; text-align: center; border: 1px solid #ddd; border-radius: 4px; font-size: 11px;">
+               style="width: 28px; height: 28px; text-align: center; border: 1px solid #d1d5db; border-radius: 4px; font-size: 11px; font-weight: bold;">
       </td>
     `;
   }
@@ -390,7 +390,7 @@ function resetAbsensi() {
     tambahBarisSiswa();
   }
 
-  showToast('️ Form telah direset.');
+  showToast('🔄 Form telah direset.');
 }
 
 /**
