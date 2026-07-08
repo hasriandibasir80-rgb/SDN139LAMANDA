@@ -1,13 +1,13 @@
 /* =========================================
    DATA PESERTA DIDIK - STYLING
-   Tema: Biru Profesional
+   Tema: pink Profesional
    ========================================= */
 
 .dps-container {
-  background: #f0f4f8;
+  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); /* Latar Pink Elegan */
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
