@@ -1,0 +1,82 @@
+/* =========================================
+   GLOBAL MONITORING - STYLING
+   SCOPE: HANYA GRID MENU FITUR
+   ========================================= */
+
+/* 1. SUB-MENU GRID */
+.sub-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.sub-menu-btn {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px 15px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  font-size: 14px;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.sub-menu-btn:hover {
+  border-color: #3b82f6;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.15);
+}
+
+.sub-menu-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* 2. TOMBOL KEMBALI */
+.btn-back {
+  display: inline-block;
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: all 0.2s;
+}
+
+.btn-back:hover { background: #4b5563; transform: translateX(-3px); }
+
+/* 3. EMPTY STATE */
+#dynamicContent > .empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 14px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* 4. CONTAINER UTAMA */
+.container { width: 100%; max-width: 100%; padding: 20px; box-sizing: border-box; }
+#dynamicContent { width: 100%; max-width: 100%; }
+
+/* 5. RESPONSIVE */
+@media (max-width: 768px) {
+  .sub-menu-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .sub-menu-btn { padding: 15px 10px; font-size: 13px; }
+  .sub-menu-icon { font-size: 28px; }
+  .btn-back { width: 100%; margin-bottom: 15px; }
+}
+@media (max-width: 480px) { .sub-menu-grid { grid-template-columns: 1fr; } }
