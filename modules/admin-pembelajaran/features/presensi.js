@@ -1,10 +1,10 @@
 // modules/admin-pembelajaran/features/presensi.js
 // =========================================
-// FITUR: ABSENSI SISWA (SIMPEL - DIRECT INPUT)
+// FITUR: ABSENSI SISWA (PROFESSIONAL RTDB)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { getDatabase, ref, set, get, child, update } 
+import { getDatabase, ref, get, update } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -14,13 +14,6 @@ const database = getDatabase();
 const CSS_PATH = '../../../css/modules/absensi-siswa.css';
 const CSS_ID = 'absensi-siswa-css';
 
-// State
-let dataAbsensi = {};
-let tahunAjaranAktif = '';
-let kelasAktif = '';
-let bulanAktif = '';
-let tahunAktif = '';
-
 /**
  * Fungsi init - Dipanggil oleh main.js
  */
@@ -28,29 +21,20 @@ export async function init(container, db) {
   loadFeatureCSS();
   renderAbsensiUI(container);
   attachEventListeners(container);
-  loadWaliKelas();
 }
 
-/**
- * Cleanup
- */
 export function cleanup() {
   const cssLink = document.getElementById(CSS_ID);
   if (cssLink) cssLink.remove();
 }
 
-/**
- * Load CSS dengan fallback inline
- */
 function loadFeatureCSS() {
   if (document.getElementById(CSS_ID)) return;
-  
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   
-  // Fallback: jika file eksternal gagal, inject inline CSS
   cssLink.onerror = () => {
     console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
     const inlineCSS = document.createElement('style');
@@ -58,13 +42,9 @@ function loadFeatureCSS() {
     inlineCSS.textContent = getInlineCSS();
     document.head.appendChild(inlineCSS);
   };
-  
   document.head.appendChild(cssLink);
 }
 
-/**
- * Fallback CSS inline
- */
 function getInlineCSS() {
   return `
     .absensi-container { width: 100%; max-width: 100%; margin: 0 auto; background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 16px; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); overflow: hidden; padding: 20px; box-sizing: border-box; }
@@ -86,7 +66,8 @@ function getInlineCSS() {
     .absensi-table td { border: 1px solid #fbcfe8; padding: 8px 5px; text-align: center; vertical-align: middle; }
     .input-nama { width: 100%; min-width: 150px; padding: 8px 10px; border: 1px solid #fbcfe8; border-radius: 6px; font-size: 13px; background: white; }
     .input-nama:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
-    .input-lp { width: 100%; padding: 8px 10px; border: 1px solid #fbcfe8; border-radius: 6px; font-size: 13px; background: white; }
+    .input-lp { width: 100%; min-width: 50px; padding: 8px 10px; border: 1px solid #fbcfe8; border-radius: 6px; font-size: 14px; font-weight: 600; color: #831843; text-align: center; background: white; cursor: pointer; }
+    .input-lp:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     .input-absensi { width: 28px; height: 28px; text-align: center; border: 1px solid #fbcfe8; border-radius: 4px; font-size: 11px; font-weight: bold; background: white; }
     .input-absensi:focus { outline: none; border-color: #ec4899; background: #fff1f2; transform: scale(1.1); }
     .status-H { background: #d1fae5 !important; color: #065f46; border-color: #10b981; }
@@ -107,6 +88,7 @@ function getInlineCSS() {
     .btn-save { background: linear-gradient(135deg, #10b981 0%, #34d399 100%); color: white; }
     .btn-reset { background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%); color: white; }
     .btn-secondary { background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); color: white; }
+    .btn-load { background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); color: white; }
     .absensi-footer { padding: 30px; display: flex; justify-content: flex-end; background: white; border-radius: 12px; margin-top: 20px; }
     .ttd-section { text-align: center; min-width: 250px; }
     .ttd-section p { margin: 5px 0; font-size: 14px; color: #831843; }
@@ -114,25 +96,23 @@ function getInlineCSS() {
     .input-wali:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     .loading { text-align: center; padding: 20px; background: #fff1f2; color: #be185d; margin: 20px 0; border-radius: 8px; border-left: 4px solid #ec4899; }
     .error { text-align: center; padding: 20px; background: #fff1f2; color: #991b1b; margin: 20px 0; border-radius: 8px; border-left: 4px solid #ef4444; }
+    .info-box { text-align: center; padding: 15px; background: #dbeafe; color: #1e40af; margin: 20px 0; border-radius: 8px; border-left: 4px solid #3b82f6; font-weight: 600; }
     @media screen and (max-width: 768px) { .absensi-container { padding: 10px; } .form-row { grid-template-columns: 1fr; } .action-bar { flex-direction: column; } .action-bar .btn { width: 100%; justify-content: center; } .absensi-table { font-size: 10px; } .input-absensi { width: 22px; height: 22px; font-size: 9px; } .input-nama { min-width: 100px; font-size: 11px; } }
   `;
 }
 
-/**
- * Render UI - SIMPEL DIRECT INPUT
- */
 function renderAbsensiUI(container) {
   container.innerHTML = `
     <div class="feature-container absensi-container">
       <div class="feature-header">
-        <h2> Absensi Siswa</h2>
+        <h2>📋 Absensi Siswa</h2>
         <p>SDN 139 LAMANDA - Rekap Absensi Bulanan</p>
       </div>
 
       <div class="absensi-form">
         <div class="form-row">
           <div class="form-group">
-            <label> Tahun Pelajaran</label>
+            <label>📅 Tahun Pelajaran</label>
             <input type="text" id="tahunPelajaran" class="form-control" placeholder="2026/2027">
           </div>
           <div class="form-group">
@@ -169,17 +149,15 @@ function renderAbsensiUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label>📅 Tahun</label>
+            <label> Tahun</label>
             <input type="text" id="pilihTahun" class="form-control" placeholder="2026">
           </div>
         </div>
       </div>
 
-      <div id="loading" class="loading" style="display: none;">
-         Memuat data...
-      </div>
-
+      <div id="loading" class="loading" style="display: none;">⏳ Memuat data dari database...</div>
       <div id="error" class="error" style="display: none;"></div>
+      <div id="infoBox" class="info-box" style="display: none;"></div>
 
       <div id="kontenAbsensi">
         <div class="table-responsive">
@@ -207,6 +185,7 @@ function renderAbsensiUI(container) {
         </div>
 
         <div class="action-bar">
+          <button id="loadBtn" class="btn btn-load">📥 Load Data</button>
           <button id="addRowBtn" class="btn btn-primary">➕ Tambah Siswa</button>
           <button id="saveBtn" class="btn btn-save">💾 Simpan</button>
           <button id="resetBtn" class="btn btn-reset">🔄 Reset</button>
@@ -234,33 +213,38 @@ function renderAbsensiUI(container) {
 
 function generateTanggalHeaders() {
   let headers = '';
-  for (let i = 1; i <= 31; i++) {
-    headers += `<th>${i}</th>`;
-  }
+  for (let i = 1; i <= 31; i++) { headers += `<th>${i}</th>`; }
   return headers;
 }
 
-/**
- * Tambah Baris Siswa Baru
- */
-function tambahBarisSiswa() {
+function tambahBarisSiswa(nama = '', lp = 'L', absensiData = {}) {
   const tabelBody = document.getElementById('tabelBody');
   if (!tabelBody) return;
 
   const row = document.createElement('tr');
   const rowCount = tabelBody.querySelectorAll('tr').length + 1;
 
+  let tanggalInputs = '';
+  for (let i = 1; i <= 31; i++) {
+    const status = absensiData[i] || '';
+    const statusClass = status ? `status-${status}` : '';
+    tanggalInputs += `
+      <td>
+        <input type="text" class="input-absensi ${statusClass}" maxlength="1" data-tanggal="${i}" value="${status}">
+      </td>
+    `;
+  }
+
   row.innerHTML = `
     <td>${rowCount}</td>
-    <td><input type="text" class="input-nama" placeholder="Nama siswa..."></td>
+    <td><input type="text" class="input-nama" placeholder="Nama siswa..." value="${nama}"></td>
     <td>
-   <td>
-  <select class="input-lp" style="min-width: 50px; font-size: 14px; font-weight: 600; color: #831843; text-align: center; padding: 8px 10px;">
-    <option value="L">L</option>
-    <option value="P">P</option>
-  </select>
-</td> 
-    ${generateTanggalInputs()}
+      <select class="input-lp">
+        <option value="L" ${lp === 'L' ? 'selected' : ''}>L</option>
+        <option value="P" ${lp === 'P' ? 'selected' : ''}>P</option>
+      </select>
+    </td>
+    ${tanggalInputs}
     <td class="jumlah-H">0</td>
     <td class="jumlah-I">0</td>
     <td class="jumlah-S">0</td>
@@ -272,21 +256,8 @@ function tambahBarisSiswa() {
   tabelBody.appendChild(row);
   updateNomorUrut();
   attachRowEvents(row);
-}
-
-function generateTanggalInputs() {
-  let inputs = '';
-  for (let i = 1; i <= 31; i++) {
-    inputs += `
-      <td>
-        <input type="text" 
-               class="input-absensi" 
-               maxlength="1" 
-               data-tanggal="${i}">
-      </td>
-    `;
-  }
-  return inputs;
+  
+  if (Object.keys(absensiData).length > 0) updateJumlah(row);
 }
 
 function attachRowEvents(row) {
@@ -349,70 +320,116 @@ function updateNomorUrut() {
   });
 }
 
-/**
- * Attach Event Listeners
- */
 function attachEventListeners(container) {
+  const loadBtn = container.querySelector('#loadBtn');
   const addRowBtn = container.querySelector('#addRowBtn');
   const saveBtn = container.querySelector('#saveBtn');
   const resetBtn = container.querySelector('#resetBtn');
   const printBtn = container.querySelector('#printBtn');
-  const namaWaliInput = container.querySelector('#namaWali');
-  const nipWaliInput = container.querySelector('#nipWali');
 
-  if (addRowBtn) addRowBtn.addEventListener('click', tambahBarisSiswa);
+  if (loadBtn) loadBtn.addEventListener('click', loadDataAbsensi);
+  if (addRowBtn) addRowBtn.addEventListener('click', () => tambahBarisSiswa());
   if (saveBtn) saveBtn.addEventListener('click', simpanAbsensi);
   if (resetBtn) resetBtn.addEventListener('click', resetAbsensi);
-  if (printBtn) printBtn.addEventListener('click', cetakAbsensi);
-  
-  if (namaWaliInput) {
-    namaWaliInput.addEventListener('change', saveWaliKelas);
-    namaWaliInput.addEventListener('blur', saveWaliKelas);
-  }
-  
-  if (nipWaliInput) {
-    nipWaliInput.addEventListener('change', saveWaliKelas);
-    nipWaliInput.addEventListener('blur', saveWaliKelas);
-  }
+  if (printBtn) printBtn.addEventListener('click', () => window.print());
 }
 
 /**
- * Load Data Wali Kelas dari LocalStorage
+ * LOAD DATA DARI RTDB (PROFESSIONAL)
  */
-function loadWaliKelas() {
-  const savedNama = localStorage.getItem('waliKelas_nama');
-  const savedNIP = localStorage.getItem('waliKelas_nip');
-  
-  const namaInput = document.getElementById('namaWali');
-  const nipInput = document.getElementById('nipWali');
-  
-  if (namaInput && savedNama) {
-    namaInput.value = savedNama;
+async function loadDataAbsensi() {
+  const tahunPelajaran = document.getElementById('tahunPelajaran').value;
+  const kelas = document.getElementById('pilihKelas').value;
+  const bulan = document.getElementById('pilihBulan').value;
+  const tahun = document.getElementById('pilihTahun').value;
+
+  if (!tahunPelajaran || !kelas || !bulan || !tahun) {
+    showInfo('⚠️ Mohon lengkapi Tahun Pelajaran, Kelas, Bulan, dan Tahun terlebih dahulu!');
+    return;
   }
-  
-  if (nipInput && savedNIP) {
-    nipInput.value = savedNIP;
+
+  showLoading(true);
+  hideError();
+  hideInfo();
+
+  try {
+    const bulanTahun = `${bulan}-${tahun}`;
+    
+    // 1. Load Data Siswa dari RTDB
+    const siswaSnapshot = await get(ref(database, `siswa/${kelas}`));
+    
+    // 2. Load Data Absensi dari RTDB
+    const absensiSnapshot = await get(ref(database, `absensi/${tahunPelajaran}/${kelas}/${bulanTahun}`));
+    
+    // 3. Load Data Wali Kelas dari RTDB
+    const waliSnapshot = await get(ref(database, `waliKelas/${kelas}`));
+    
+    const tabelBody = document.getElementById('tabelBody');
+    tabelBody.innerHTML = '';
+    
+    let jumlahSiswa = 0;
+    const dataAbsensiTemp = {};
+    
+    // Parse data absensi
+    if (absensiSnapshot.exists()) {
+      const absensiData = absensiSnapshot.val();
+      Object.keys(absensiData).forEach(tanggal => {
+        dataAbsensiTemp[tanggal] = {};
+        Object.keys(absensiData[tanggal]).forEach(siswaId => {
+          dataAbsensiTemp[tanggal][siswaId] = absensiData[tanggal][siswaId].status;
+        });
+      });
+    }
+    
+    // Render baris berdasarkan data siswa dari RTDB
+    if (siswaSnapshot.exists()) {
+      const siswaData = siswaSnapshot.val();
+      const siswaList = Object.keys(siswaData).map(id => ({ id, ...siswaData[id] }));
+      siswaList.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+      
+      siswaList.forEach(siswa => {
+        const absensiSiswa = {};
+        Object.keys(dataAbsensiTemp).forEach(tanggal => {
+          if (dataAbsensiTemp[tanggal][siswa.id]) {
+            absensiSiswa[tanggal] = dataAbsensiTemp[tanggal][siswa.id];
+          }
+        });
+        
+        tambahBarisSiswa(siswa.nama, siswa.jenisKelamin || 'L', absensiSiswa);
+        jumlahSiswa++;
+      });
+    } else {
+      // Jika belum ada data siswa di RTDB, sediakan 5 baris kosong untuk input manual
+      for (let i = 0; i < 5; i++) tambahBarisSiswa();
+      showInfo('ℹ️ Belum ada data siswa di database untuk kelas ini. Silakan input manual lalu Simpan.');
+    }
+    
+    // Load Wali Kelas dari RTDB
+    if (waliSnapshot.exists()) {
+      const waliData = waliSnapshot.val();
+      const namaWaliInput = document.getElementById('namaWali');
+      const nipWaliInput = document.getElementById('nipWali');
+      
+      if (namaWaliInput && waliData.nama) namaWaliInput.value = waliData.nama;
+      if (nipWaliInput && waliData.nip) nipWaliInput.value = waliData.nip;
+    }
+    
+    if (jumlahSiswa > 0) {
+      showInfo(`✅ Berhasil memuat ${jumlahSiswa} data siswa dari database untuk ${bulan} ${tahun}`);
+    }
+    
+    showToast(`✅ Data berhasil dimuat dari RTDB! (${jumlahSiswa} siswa)`);
+    
+  } catch (error) {
+    showError('Gagal memuat data dari database: ' + error.message);
+    console.error('Error:', error);
+  } finally {
+    showLoading(false);
   }
 }
 
 /**
- * Save Data Wali Kelas ke LocalStorage
- */
-function saveWaliKelas() {
-  const namaInput = document.getElementById('namaWali');
-  const nipInput = document.getElementById('nipWali');
-  
-  if (namaInput) {
-    localStorage.setItem('waliKelas_nama', namaInput.value);
-  }
-  
-  if (nipInput) {
-    localStorage.setItem('waliKelas_nip', nipInput.value);
-  }
-}
-
-/**
- * Simpan Absensi ke Realtime Database
+ * SIMPAN DATA KE RTDB (PROFESSIONAL)
  */
 async function simpanAbsensi() {
   const tahunPelajaran = document.getElementById('tahunPelajaran').value;
@@ -427,9 +444,7 @@ async function simpanAbsensi() {
     return;
   }
 
-  if (!confirm('Yakin ingin menyimpan data absensi ini?')) {
-    return;
-  }
+  if (!confirm('Yakin ingin menyimpan data absensi ini ke database?')) return;
 
   showLoading(true);
 
@@ -438,11 +453,14 @@ async function simpanAbsensi() {
     const bulanTahun = `${bulan}-${tahun}`;
     const updates = {};
 
+    // Simpan Wali Kelas ke RTDB
     updates[`waliKelas/${kelas}`] = {
       nama: namaWali,
       nip: nipWali,
       updatedAt: Date.now()
     };
+
+    let jumlahSiswaTersimpan = 0;
 
     rows.forEach((row, index) => {
       const namaInput = row.querySelector('.input-nama');
@@ -453,7 +471,9 @@ async function simpanAbsensi() {
       const lp = lpSelect.value;
 
       if (nama) {
-        const siswaId = `siswa_${index}_${Date.now()}`;
+        // Gunakan ID yang konsisten jika memungkinkan, atau generate baru
+        // Untuk simplicity, kita generate ID baru setiap save (bisa diimprove nanti dengan ID tetap)
+        const siswaId = `siswa_${kelas}_${Date.now()}_${index}`;
 
         updates[`siswa/${kelas}/${siswaId}`] = {
           nama: nama,
@@ -472,91 +492,61 @@ async function simpanAbsensi() {
             };
           }
         });
+        jumlahSiswaTersimpan++;
       }
     });
 
     await update(ref(database), updates);
-    saveWaliKelas();
-
-    showToast('✅ Data absensi berhasil disimpan!');
+    showToast(`✅ Data berhasil disimpan ke RTDB! (${jumlahSiswaTersimpan} siswa)`);
 
   } catch (error) {
-    showError('Gagal menyimpan data: ' + error.message);
+    showError('Gagal menyimpan data ke database: ' + error.message);
     console.error('Error:', error);
   } finally {
     showLoading(false);
   }
 }
 
-/**
- * Reset Form
- */
 function resetAbsensi() {
-  if (!confirm('Yakin ingin mereset semua data? Semua input akan dihapus.')) {
-    return;
-  }
-
+  if (!confirm('Yakin ingin mereset form? Data yang belum disimpan akan hilang.')) return;
   const tabelBody = document.getElementById('tabelBody');
   tabelBody.innerHTML = '';
-
-  for (let i = 0; i < 5; i++) {
-    tambahBarisSiswa();
-  }
-
-  showToast(' Form telah direset.');
+  for (let i = 0; i < 5; i++) tambahBarisSiswa();
+  showToast('🔄 Form telah direset.');
 }
 
-/**
- * Cetak / Print
- */
-function cetakAbsensi() {
-  saveWaliKelas();
-  setTimeout(() => {
-    window.print();
-  }, 300);
-}
-
-/**
- * Utility Functions
- */
 function showLoading(show) {
-  const loadingDiv = document.getElementById('loading');
-  if (loadingDiv) {
-    loadingDiv.style.display = show ? 'block' : 'none';
-  }
+  const el = document.getElementById('loading');
+  if (el) el.style.display = show ? 'block' : 'none';
 }
 
 function showError(message) {
-  const errorDiv = document.getElementById('error');
-  if (errorDiv) {
-    errorDiv.textContent = message;
-    errorDiv.style.display = 'block';
-  }
+  const el = document.getElementById('error');
+  if (el) { el.textContent = message; el.style.display = 'block'; }
 }
 
 function hideError() {
-  const errorDiv = document.getElementById('error');
-  if (errorDiv) {
-    errorDiv.style.display = 'none';
-    errorDiv.textContent = '';
-  }
+  const el = document.getElementById('error');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
+}
+
+function showInfo(message) {
+  const el = document.getElementById('infoBox');
+  if (el) { el.textContent = message; el.style.display = 'block'; }
+}
+
+function hideInfo() {
+  const el = document.getElementById('infoBox');
+  if (el) { el.style.display = 'none'; el.textContent = ''; }
 }
 
 function showToast(msg) {
   const toast = document.createElement('div');
-  toast.className = 'toast toast-success';
   toast.textContent = msg;
   toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #22c55e;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    z-index: 10000;
-    animation: slideIn 0.3s ease;
+    position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
+    padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 10000; animation: slideIn 0.3s ease;
   `;
   document.body.appendChild(toast);
   setTimeout(() => {
