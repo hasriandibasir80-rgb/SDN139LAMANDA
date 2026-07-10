@@ -555,7 +555,7 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ Anda berhak merevis penuh.');
+    alert('⚠️ Anda berhak merevisi sesuai keinginan .');
     return;
   }
 
