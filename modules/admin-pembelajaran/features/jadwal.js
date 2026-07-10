@@ -1,8 +1,9 @@
 // modules/admin-pembelajaran/features/jadwal.js
 // =========================================
-// FITUR: JADWAL PEMBELAJARAN (MANUAL INPUT)
-// DENGAN VOICE NOTIFICATION (TTS) + AUDIO BEEP
-// FIX: Chrome speechSynthesis bug
+// FIX: Bel Otomatis dengan 3 Layer Backup
+// 1. speechSynthesis (TTS)
+// 2. Audio Beep (Web Audio API)
+// 3. Browser Notification API
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -32,11 +33,12 @@ const DEFAULT_JADWAL = {
   }
 };
 
-// Audio
+// State
 let audioContext = null;
 let belInterval = null;
 let lastBelMinute = '';
 let speechSynth = window.speechSynthesis;
+let notificationPermission = 'default';
 
 /**
  * Init
@@ -46,9 +48,11 @@ export async function init(container, db) {
   renderUI(container);
   attachEvents();
   loadTTDDefaults();
+  requestNotificationPermission();
   
-  // Unlock audio context on first user interaction
+  // Unlock audio on first interaction
   document.addEventListener('click', unlockAudio, { once: true });
+  document.addEventListener('keydown', unlockAudio, { once: true });
 }
 
 export function cleanup() {
@@ -58,7 +62,19 @@ export function cleanup() {
 }
 
 /**
- * Unlock Audio Context (wajib untuk Chrome)
+ * Request Notification Permission
+ */
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().then(permission => {
+      notificationPermission = permission;
+      console.log('🔔 Notification permission:', permission);
+    });
+  }
+}
+
+/**
+ * Unlock Audio Context
  */
 function unlockAudio() {
   try {
@@ -68,7 +84,7 @@ function unlockAudio() {
     if (audioContext.state === 'suspended') {
       audioContext.resume();
     }
-    console.log('🔓 Audio context unlocked');
+    console.log('🔓 Audio unlocked');
   } catch (e) {
     console.error('Gagal unlock audio:', e);
   }
@@ -132,6 +148,7 @@ function getInlineCSS() {
     .btn-print { background: #8b5cf6; color: white; }
     .btn-download { background: #3b82f6; color: white; }
     .btn-reset { background: #6b7280; color: white; }
+    .countdown-display { font-size: 32px; font-weight: 700; color: #ec4899; margin: 10px 0; font-family: 'Courier New', monospace; }
     @keyframes bellPulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.1); } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
     .bell-notif-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; }
     .bell-notif-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 40px 60px; border-radius: 20px; box-shadow: 0 20px 60px rgba(236, 72, 153, 0.4); z-index: 10000; text-align: center; animation: bellPulse 1s ease; }
@@ -218,7 +235,7 @@ function renderUI(container) {
       </div>
 
       <div class="jadwal-form">
-        <div class="form-section-title">📋 1. Pilih Kelas</div>
+        <div class="form-section-title"> 1. Pilih Kelas</div>
         <div class="form-grid">
           <div class="form-group">
             <label>🎓 Kelas / Fase</label>
@@ -238,7 +255,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title">🎨 2. Warna Per Mapel</div>
+        <div class="form-section-title"> 2. Warna Per Mapel</div>
         <div class="form-group">
           <label>Pilih warna untuk setiap mata pelajaran:</label>
           <div class="color-picker-wrapper" id="colorPicker">
@@ -255,7 +272,7 @@ function renderUI(container) {
             <label>🔔 Aktifkan Bel Suara</label>
             <select id="optBelOtomatis" class="form-control">
               <option value="yes">✅ Ya, aktifkan</option>
-              <option value="no">❌ Tidak</option>
+              <option value="no"> Tidak</option>
             </select>
           </div>
           <div class="form-group">
@@ -267,7 +284,7 @@ function renderUI(container) {
           </div>
         </div>
         
-        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;"> Waktu Bel & Pesan Suara</div>
+        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;">⏰ Waktu Bel & Pesan Suara</div>
         <div class="form-grid">
           <div class="form-group">
             <label>🔔 Bel Mulai Belajar</label>
@@ -275,7 +292,7 @@ function renderUI(container) {
             <input type="text" id="txtBelMulai" class="form-control" style="margin-top: 5px;" placeholder="Pesan suara bel masuk" value="Selamat pagi, ayo masuk kelas dan belajar yang rajin ya!">
           </div>
           <div class="form-group">
-            <label> Bel Istirahat 1</label>
+            <label>☕ Bel Istirahat 1</label>
             <input type="time" id="inpBelIstirahat1" class="form-control" value="09:00">
             <input type="text" id="txtBelIstirahat1" class="form-control" style="margin-top: 5px;" placeholder="Pesan suara bel istirahat" value="Waktunya istirahat, silakan pergi ke kantin dan jangan lupa kembali tepat waktu.">
           </div>
@@ -335,10 +352,11 @@ function renderUI(container) {
         </table>
       </div>
 
-      <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 8px; text-align: center;" id="belIndicator">
+      <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 8px; text-align: center;" id="belIndicator">
         <div style="font-size: 14px; color: #831843; margin-bottom: 5px;">🔔 Status Bel Otomatis</div>
         <div style="font-size: 18px; font-weight: 700; color: #be185d;" id="belStatus">️ Non-aktif</div>
         <div style="font-size: 12px; color: #64748b; margin-top: 5px;" id="belNextTime">Bel berikutnya: -</div>
+        <div class="countdown-display" id="countdownDisplay">--:--:--</div>
         <div style="font-size: 11px; color: #64748b; margin-top: 5px;" id="belCurrentTime">Waktu sekarang: -</div>
       </div>
     </div>
@@ -377,7 +395,7 @@ window.selectColor = function(mapel, warna) {
   if (selected) selected.classList.add('selected');
   
   DEFAULT_JADWAL.warnaMapel[mapel] = warna;
-  showToast(` Warna ${mapel} diubah`);
+  showToast(`🎨 Warna ${mapel} diubah`);
 };
 
 window.editJadwal = function(hari, jp) {
@@ -506,7 +524,7 @@ window.saveJadwal = async function() {
 };
 
 window.resetJadwal = function() {
-  if (confirm(' Reset semua jadwal?')) {
+  if (confirm('🔄 Reset semua jadwal?')) {
     resetJadwalTable();
   }
 };
@@ -521,13 +539,13 @@ function resetJadwalTable() {
 
 window.printJadwal = function() {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) { alert('️ Pilih kelas!'); return; }
+  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   window.print();
 };
 
 window.downloadWord = function() {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) { alert('️ Pilih kelas!'); return; }
+  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   
   const waliKelas = document.getElementById('inpWaliKelas').value || '_______________________';
   const namaKepsek = document.getElementById('inpKepsek').value || '_______________________';
@@ -607,9 +625,6 @@ window.downloadWord = function() {
   showToast('📥 File Word berhasil diunduh!');
 };
 
-/**
- * Test Bel Manual
- */
 window.testBelManual = function(belType) {
   unlockAudio();
   
@@ -641,9 +656,6 @@ window.testBelManual = function(belType) {
   showToast(`🧪 Test ${title}`);
 };
 
-/**
- * Play Beep Sound (AudioContext)
- */
 function playBeep() {
   try {
     if (!audioContext) {
@@ -672,20 +684,15 @@ function playBeep() {
   }
 }
 
-/**
- * Speak Text dengan reset speechSynthesis
- */
 function speakText(text) {
   if (!speechSynth) {
     console.error('❌ speechSynthesis tidak tersedia');
     return;
   }
   
-  // FIX Chrome bug: cancel dan reset
   try {
     speechSynth.cancel();
     
-    // Workaround Chrome bug: pause/resume
     setTimeout(() => {
       speechSynth.pause();
       speechSynth.resume();
@@ -700,7 +707,6 @@ function speakText(text) {
     const gender = document.getElementById('optVoiceGender')?.value || 'female';
     const voices = speechSynth.getVoices();
     
-    // Cari suara Indonesia
     let selectedVoice = voices.find(v => v.lang.includes('id'));
     
     if (gender === 'male' && selectedVoice) {
@@ -709,7 +715,7 @@ function speakText(text) {
       utterance.pitch = 1.15;
     }
     
-    utterance.onstart = () => console.log('🗣️ Mulai bicara:', text);
+    utterance.onstart = () => console.log('️ Mulai bicara:', text);
     utterance.onend = () => console.log('✅ Selesai bicara');
     utterance.onerror = (e) => console.error('❌ Error TTS:', e);
     
@@ -720,17 +726,16 @@ function speakText(text) {
 }
 
 function startBelOtomatis() {
-  // Unlock audio dulu
   unlockAudio();
   
   if (belInterval) clearInterval(belInterval);
   
   lastBelMinute = '';
   
-  // Check setiap 500ms untuk akurasi lebih baik
+  // Check setiap 200ms untuk akurasi maksimal
   belInterval = setInterval(() => {
     checkBelTime();
-  }, 500);
+  }, 200);
   
   const statusEl = document.getElementById('belStatus');
   if (statusEl) {
@@ -755,9 +760,6 @@ function stopBelOtomatis() {
   }
 }
 
-/**
- * Check waktu bel - FIX untuk Chrome
- */
 function checkBelTime() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
@@ -765,19 +767,21 @@ function checkBelTime() {
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const currentTime = `${hours}:${minutes}`;
   
-  // Update waktu sekarang di UI
+  // Update UI
   const timeEl = document.getElementById('belCurrentTime');
   if (timeEl) {
     timeEl.textContent = `Waktu sekarang: ${currentTime}:${seconds}`;
   }
   
-  // Hanya check di detik 00-01 (window 2 detik)
-  if (seconds !== '00' && seconds !== '01') return;
+  // Update countdown
+  updateCountdown();
   
-  // Cegah bel berbunyi 2x di menit yang sama
+  // Hanya check di detik 00-02 (window 3 detik)
+  if (seconds !== '00' && seconds !== '01' && seconds !== '02') return;
+  
+  // Cegah bel berbunyi 2x
   if (lastBelMinute === currentTime) return;
   
-  // Baca waktu dan teks BEL SAAT INI JUGA (real-time)
   const belConfigs = [
     { 
       id: 'mulai',
@@ -807,7 +811,6 @@ function checkBelTime() {
   
   console.log(`⏰ Check: ${currentTime}:${seconds} | Configs:`, belConfigs.map(b => `${b.id}=${b.time}`));
   
-  // Cari bel yang harus berbunyi
   const activeBel = belConfigs.find(bel => bel.time === currentTime);
   
   if (activeBel) {
@@ -822,18 +825,70 @@ function checkBelTime() {
     console.log(`🔔 BEL AKTIF: ${activeBel.title}`);
     console.log(`📝 Teks: "${activeBel.text}"`);
     
-    // Mainkan beep dulu (untuk unlock audio)
+    // 1. Play beep
     playBeep();
     
-    // Tampilkan notifikasi
+    // 2. Show notification
     showBelNotification(activeBel.title, activeBel.text);
     
-    // TTS setelah beep (delay 1 detik)
+    // 3. Browser notification (backup)
+    sendBrowserNotification(activeBel.title, activeBel.text);
+    
+    // 4. TTS setelah 1 detik
     setTimeout(() => {
       speakText(activeBel.text);
     }, 1000);
     
     updateNextBelTime();
+  }
+}
+
+function updateCountdown() {
+  const belMulai = document.getElementById('inpBelMulai')?.value || '07:00';
+  const belIstirahat1 = document.getElementById('inpBelIstirahat1')?.value || '09:00';
+  const belLanjut = document.getElementById('inpBelLanjut')?.value || '09:30';
+  const belPulang = document.getElementById('inpBelPulang')?.value || '13:00';
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  
+  const belTimes = [
+    { time: belMulai, name: 'Mulai Belajar' },
+    { time: belIstirahat1, name: 'Istirahat' },
+    { time: belLanjut, name: 'Lanjut Belajar' },
+    { time: belPulang, name: 'Pulang' }
+  ];
+  
+  let nextBel = null;
+  for (const bel of belTimes) {
+    const [h, m] = bel.time.split(':').map(Number);
+    const belMinutes = h * 60 + m;
+    if (belMinutes > currentMinutes) {
+      nextBel = { ...bel, minutes: belMinutes };
+      break;
+    }
+  }
+  
+  const countdownEl = document.getElementById('countdownDisplay');
+  if (countdownEl) {
+    if (nextBel) {
+      const diff = nextBel.minutes - currentMinutes;
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+    } else {
+      countdownEl.textContent = '00:00:00';
+    }
+  }
+}
+
+function sendBrowserNotification(title, message) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, {
+      body: message,
+      icon: '',
+      requireInteraction: true
+    });
   }
 }
 
