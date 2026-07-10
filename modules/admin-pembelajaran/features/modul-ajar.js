@@ -1,13 +1,22 @@
 // modules/admin-pembelajaran/features/modul-ajar.js
 // =========================================
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
+// API Key otomatis dari Firestore
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
+import { getDatabase, ref, get } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, doc, getDoc } 
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+const database = getDatabase();
+const firestore = getFirestore();
 
 // State
 const CSS_ID = 'modul-ajar-gen-css';
-let isGenerating = false;
+let storedApiKey = '';
 
 /**
  * Init
@@ -16,12 +25,63 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  loadSavedApiKey();
+  await loadApiKeyFromFirestore();
 }
 
 export function cleanup() {
   const css = document.getElementById(CSS_ID);
   if (css) css.remove();
+}
+
+/**
+ * Load API Key dari Firestore
+ * Path: config/apiKeys -> sama seperti alur ct-tp-atp
+ */
+async function loadApiKeyFromFirestore() {
+  const statusEl = document.getElementById('apiStatus');
+  const btnGenerate = document.getElementById('btnGenerate');
+  
+  if (!statusEl) return;
+  
+  try {
+    // Coba path 1: config/apiKeys (global)
+    const configRef = doc(firestore, 'config', 'apiKeys');
+    const configSnap = await getDoc(configRef);
+    
+    if (configSnap.exists()) {
+      const data = configSnap.data();
+      storedApiKey = data.openai || data.gemini || data.ai || '';
+    }
+    
+    // Jika kosong, coba path 2: users/{uid}/settings
+    if (!storedApiKey && currentUser.uid) {
+      const userRef = doc(firestore, 'users', currentUser.uid, 'settings', 'apiKeys');
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        storedApiKey = userSnap.data().key || '';
+      }
+    }
+    
+    // Jika masih kosong, coba RTDB sebagai fallback
+    if (!storedApiKey) {
+      const rtdbSnap = await get(ref(database, 'config/apiKey'));
+      if (rtdbSnap.exists()) {
+        storedApiKey = rtdbSnap.val();
+      }
+    }
+    
+    if (storedApiKey) {
+      statusEl.innerHTML = '✅ <span style="color:#10b981; font-weight:600;">API Key terhubung otomatis dari sistem</span>';
+      if (btnGenerate) btnGenerate.disabled = false;
+    } else {
+      statusEl.innerHTML = '⚠️ <span style="color:#f59e0b; font-weight:600;">API Key belum dikonfigurasi. Hubungi Admin untuk setup di Control Center.</span>';
+      if (btnGenerate) btnGenerate.disabled = true;
+    }
+  } catch (error) {
+    console.error('Error load API Key:', error);
+    statusEl.innerHTML = '❌ <span style="color:#ef4444;">Gagal memuat API Key: ' + error.message + '</span>';
+    if (btnGenerate) btnGenerate.disabled = true;
+  }
 }
 
 function loadCSS() {
@@ -34,10 +94,8 @@ function loadCSS() {
     .gen-header h2 { margin: 0 0 5px 0; font-size: 24px; }
     .gen-header p { margin: 0; opacity: 0.9; font-size: 14px; }
     
-    /* API Key Section */
-    .api-section { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .api-input { flex: 1; min-width: 200px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
-    .api-save-btn { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    /* API Status Bar */
+    .api-status-bar { background: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #10b981; font-size: 13px; display: flex; align-items: center; gap: 10px; }
     
     /* Form Layout */
     .gen-form { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -51,16 +109,11 @@ function loadCSS() {
     .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
     textarea.form-control { resize: vertical; min-height: 80px; }
     
-    /* Checkbox Group */
-    .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
-    .checkbox-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-    .checkbox-item input { cursor: pointer; }
-    
     /* Action Button */
     .gen-action { margin-top: 25px; text-align: center; }
     .btn-generate { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); transition: transform 0.2s; display: inline-flex; align-items: center; gap: 10px; }
     .btn-generate:hover:not(:disabled) { transform: translateY(-2px); }
-    .btn-generate:disabled { opacity: 0.7; cursor: not-allowed; }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; background: #9ca3af; box-shadow: none; }
     
     /* Loading */
     .loading-overlay { display: none; text-align: center; padding: 40px; background: white; border-radius: 12px; margin-top: 20px; }
@@ -69,12 +122,23 @@ function loadCSS() {
     
     /* Output Area */
     .output-area { display: none; margin-top: 20px; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-    .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; }
-    .output-content { line-height: 1.6; color: #334155; font-size: 14px; white-space: pre-wrap; }
-    .output-content h1, .output-content h2, .output-content h3 { color: #1e293b; margin-top: 20px; }
-    .btn-copy { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+    .output-actions { display: flex; gap: 10px; }
+    .output-content { line-height: 1.7; color: #334155; font-size: 14px; white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; }
+    .output-content h1 { font-size: 20px; color: #1e293b; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
+    .output-content h2 { font-size: 17px; color: #4f46e5; margin-top: 20px; }
+    .output-content h3 { font-size: 15px; color: #6366f1; margin-top: 15px; }
+    .output-content ul, .output-content ol { padding-left: 25px; }
+    .output-content li { margin-bottom: 5px; }
+    .btn-copy { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .btn-copy:hover { background: #0284c7; }
+    .btn-save-db { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .btn-save-db:hover { background: #059669; }
     
-    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { 
+      .form-grid { grid-template-columns: 1fr; } 
+      .output-header { flex-direction: column; align-items: flex-start; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -87,16 +151,14 @@ function renderUI(container) {
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.</p>
       </div>
 
-      <!-- API Key Config -->
-      <div class="api-section">
-        <label style="font-weight:600; font-size:13px;"> API Key (OpenAI/Gemini):</label>
-        <input type="password" id="apiKeyInput" class="api-input" placeholder="sk-... atau AIza...">
-        <button class="api-save-btn" id="btnSaveKey">Simpan Key</button>
+      <!-- API Status (Auto-load dari Firestore) -->
+      <div class="api-status-bar" id="apiStatus">
+        ⏳ Memeriksa koneksi API Key...
       </div>
 
       <!-- Form Input (Format Baku) -->
       <div class="gen-form">
-        <div class="form-section-title">1. Informasi Umum</div>
+        <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label>Nama Guru / Penyusun</label>
@@ -135,24 +197,12 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title">2. Komponen Inti & Profil Pelajar Pancasila</div>
+        <div class="form-section-title"> 2. Komponen Inti</div>
         <div class="form-group">
           <label>Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
           <textarea id="inpCP" class="form-control" rows="3" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
-        <div class="form-group">
-          <label>Dimensi Profil Pelajar Pancasila (Pilih yang relevan)</label>
-          <div class="checkbox-group">
-            <label class="checkbox-item"><input type="checkbox" value="Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia"> Beriman & Bertakwa</label>
-            <label class="checkbox-item"><input type="checkbox" value="Berkebinekaan Global"> Berkebinekaan Global</label>
-            <label class="checkbox-item"><input type="checkbox" value="Bergotong Royong"> Bergotong Royong</label>
-            <label class="checkbox-item"><input type="checkbox" value="Mandiri"> Mandiri</label>
-            <label class="checkbox-item"><input type="checkbox" value="Bernalar Kritis"> Bernalar Kritis</label>
-            <label class="checkbox-item"><input type="checkbox" value="Kreatif"> Kreatif</label>
-          </div>
-        </div>
-
         <div class="form-group">
           <label>Model Pembelajaran</label>
           <select id="inpModel" class="form-control">
@@ -161,11 +211,17 @@ function renderUI(container) {
             <option value="Discovery Learning">Discovery Learning</option>
             <option value="Inquiry Learning">Inquiry Learning</option>
             <option value="Tatap Muka Klasikal">Tatap Muka Klasikal</option>
+            <option value="Cooperative Learning">Cooperative Learning</option>
           </select>
         </div>
 
+        <div class="form-group">
+          <label>Karakteristik Siswa (Opsional)</label>
+          <textarea id="inpKarakteristik" class="form-control" rows="2" placeholder="Contoh: Siswa aktif, suka bermain, kemampuan beragam..."></textarea>
+        </div>
+
         <div class="gen-action">
-          <button class="btn-generate" id="btnGenerate">
+          <button class="btn-generate" id="btnGenerate" disabled>
             <span>✨</span> Generate Modul Ajar
           </button>
         </div>
@@ -175,14 +231,17 @@ function renderUI(container) {
       <div class="loading-overlay" id="loadingState">
         <div class="spinner"></div>
         <h3 style="color:#4f46e5; margin-bottom:10px;">Sedang Menyusun Modul Ajar...</h3>
-        <p style="color:#64748b; font-size:13px;">AI sedang menganalisis parameter dan menulis draf lengkap.<br>Mohon tunggu 10-30 detik.</p>
+        <p style="color:#64748b; font-size:13px;">AI sedang menganalisis parameter dan menulis draf lengkap.<br>Mohon tunggu 15-45 detik.</p>
       </div>
 
       <!-- Output Result -->
       <div class="output-area" id="outputArea">
         <div class="output-header">
           <h3 style="margin:0; color:#1e293b;">📄 Hasil Generate</h3>
-          <button class="btn-copy" id="btnCopy">📋 Salin Teks</button>
+          <div class="output-actions">
+            <button class="btn-save-db" id="btnSaveDb">💾 Simpan ke DB</button>
+            <button class="btn-copy" id="btnCopy">📋 Salin Teks</button>
+          </div>
         </div>
         <div class="output-content" id="outputContent"></div>
       </div>
@@ -191,15 +250,6 @@ function renderUI(container) {
 }
 
 function attachEvents() {
-  // Save API Key
-  document.getElementById('btnSaveKey').addEventListener('click', () => {
-    const key = document.getElementById('apiKeyInput').value.trim();
-    if (key) {
-      localStorage.setItem('ai_api_key', key);
-      alert('✅ API Key disimpan di browser Anda.');
-    }
-  });
-
   // Generate Action
   document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
 
@@ -207,22 +257,17 @@ function attachEvents() {
   document.getElementById('btnCopy').addEventListener('click', () => {
     const text = document.getElementById('outputContent').innerText;
     navigator.clipboard.writeText(text).then(() => {
-      alert('✅ Teks berhasil disalin!');
+      showToast('✅ Teks berhasil disalin ke clipboard!');
     });
   });
-}
 
-function loadSavedApiKey() {
-  const savedKey = localStorage.getItem('ai_api_key');
-  if (savedKey) {
-    document.getElementById('apiKeyInput').value = savedKey;
-  }
+  // Save to DB Action
+  document.getElementById('btnSaveDb').addEventListener('click', saveToDatabase);
 }
 
 async function handleGenerate() {
-  const apiKey = document.getElementById('apiKeyInput').value.trim();
-  if (!apiKey) {
-    alert('️ Masukkan API Key terlebih dahulu!');
+  if (!storedApiKey) {
+    alert('⚠️ API Key belum tersedia. Hubungi Admin untuk konfigurasi.');
     return;
   }
 
@@ -234,9 +279,9 @@ async function handleGenerate() {
     kelas: document.getElementById('inpKelas').value,
     topik: document.getElementById('inpTopik').value,
     waktu: document.getElementById('inpWaktu').value,
-    cp: document.getElementById('inpCP').value || 'Biarkan AI yang menyesuaikan dengan fase.',
+    cp: document.getElementById('inpCP').value || 'Sesuaikan dengan fase dan kelas yang dipilih.',
     model: document.getElementById('inpModel').value,
-    profil: Array.from(document.querySelectorAll('.checkbox-group input:checked')).map(cb => cb.value).join(', ')
+    karakteristik: document.getElementById('inpKarakteristik').value || 'Siswa reguler dengan kemampuan beragam.'
   };
 
   if (!data.mapel || !data.topik) {
@@ -249,11 +294,12 @@ async function handleGenerate() {
   document.getElementById('outputArea').style.display = 'none';
   document.getElementById('btnGenerate').disabled = true;
 
-  // Construct Prompt
+  // Construct Prompt (Profil Pancasila dihapus dari input, AI auto-select)
   const prompt = `
     Bertindaklah sebagai Guru Ahli Kurikulum Merdeka di Indonesia. 
-    Buatkan draf MODUL AJAR lengkap berdasarkan data berikut:
+    Buatkan draf MODUL AJAR lengkap dan profesional berdasarkan data berikut:
     
+    DATA INPUT:
     - Penyusun: ${data.guru}
     - Sekolah: ${data.sekolah}
     - Mata Pelajaran: ${data.mapel}
@@ -261,33 +307,62 @@ async function handleGenerate() {
     - Topik: ${data.topik}
     - Alokasi Waktu: ${data.waktu}
     - Model Pembelajaran: ${data.model}
-    - Profil Pelajar Pancasila: ${data.profil || 'Pilih yang paling relevan'}
     - Capaian Pembelajaran (CP): ${data.cp}
+    - Karakteristik Siswa: ${data.karakteristik}
 
-    Format output harus terstruktur dengan jelas (gunakan Markdown/Heading) mencakup:
-    1. INFORMASI UMUM (Identitas, Kompetensi Awal, Profil Pelajar Pancasila, Sarana Prasarana, Target Peserta Didik).
-    2. KOMPONEN INTI (Tujuan Pembelajaran, Pemahaman Bermakna, Pertanyaan Pemantik, Kegiatan Pembelajaran [Pendahuluan, Inti, Penutup], Asesmen, Pengayaan & Remedial).
-    3. LAMPIRAN (LKPD sederhana, Bahan Bacaan, Glosarium, Daftar Pustaka).
-    
-    Pastikan bahasa Indonesia yang digunakan formal, edukatif, dan sesuai kaidah kurikulum.
+    INSTRUKSI OUTPUT:
+    Buatkan modul ajar dengan struktur berikut (gunakan format Markdown dengan heading yang jelas):
+
+    # MODUL AJAR: ${data.topik.toUpperCase()}
+
+    ## A. INFORMASI UMUM
+    1. Identitas Modul (Nama penyusun, institusi, tahun, mata pelajaran, kelas/fase, alokasi waktu)
+    2. Kompetensi Awal
+    3. Profil Pelajar Pancasila (PILIH 2-3 dimensi yang PALING RELEVAN dengan topik ini, jelaskan alasannya)
+    4. Sarana dan Prasarana
+    5. Target Peserta Didik
+    6. Model Pembelajaran: ${data.model}
+
+    ## B. KOMPONEN INTI
+    1. Tujuan Pembelajaran (3-5 tujuan spesifik, terukur)
+    2. Pemahaman Bermakna
+    3. Pertanyaan Pemantik (3-5 pertanyaan esensial)
+    4. Kegiatan Pembelajaran:
+       - Pertemuan 1: (Pendahuluan 10 menit, Inti 50 menit, Penutup 10 menit) - JELaskan detail aktivitas guru dan siswa
+       - Pertemuan 2: (jika alokasi waktu > 1x pertemuan)
+    5. Asesmen (Diagnostik, Formatif, Sumatif)
+    6. Pengayaan dan Remedial
+
+    ## C. LAMPIRAN
+    1. Lembar Kerja Peserta Didik (LKPD) - Buatkan 1 contoh LKPD sederhana
+    2. Bahan Bacaan Guru dan Peserta Didik
+    3. Glosarium (5-10 istilah penting)
+    4. Daftar Pustaka
+
+    CATATAN PENTING:
+    - Gunakan bahasa Indonesia formal dan edukatif
+    - Sesuaikan dengan fase perkembangan siswa (${data.kelas})
+    - Kegiatan pembelajaran harus AKTIF, kreatif, dan berpusat pada siswa
+    - Asesmen harus autentik dan beragam
+    - Pastikan alur kegiatan logis dan terukur waktunya
   `;
 
   try {
-    // Call AI (Using OpenAI Compatible Format - Works for OpenAI, Groq, etc.)
-    // Note: If using Gemini, the endpoint and payload structure differs slightly.
+    // Call AI (OpenAI Compatible Format)
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${storedApiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo", // Or gpt-4o-mini
+        model: "gpt-3.5-turbo",
         messages: [
-          { role: "system", content: "Anda adalah ahli pendidikan dan pengembang kurikulum." },
+          { role: "system", content: "Anda adalah ahli pendidikan dan pengembang kurikulum Kurikulum Merdeka di Indonesia." },
           { role: "user", content: prompt }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 4000
       })
     });
 
@@ -300,8 +375,11 @@ async function handleGenerate() {
     const aiText = result.choices[0].message.content;
 
     // Render Output
-    document.getElementById('outputContent').innerText = aiText; // Using innerText to preserve formatting safely
+    document.getElementById('outputContent').innerText = aiText;
     document.getElementById('outputArea').style.display = 'block';
+    
+    // Scroll ke output
+    document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (error) {
     alert('❌ Error: ' + error.message);
@@ -310,4 +388,55 @@ async function handleGenerate() {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('btnGenerate').disabled = false;
   }
+}
+
+/**
+ * Simpan hasil generate ke Firebase RTDB
+ */
+async function saveToDatabase() {
+  const content = document.getElementById('outputContent').innerText;
+  if (!content) {
+    alert('Tidak ada konten untuk disimpan!');
+    return;
+  }
+
+  const mapel = document.getElementById('inpMapel').value || 'Umum';
+  const topik = document.getElementById('inpTopik').value || 'Tanpa Judul';
+  const kelas = document.getElementById('inpKelas').value;
+  const guru = document.getElementById('inpGuru').value || currentUser.nama || 'Anonim';
+
+  if (!confirm(`Simpan modul ajar ini ke database?\n\nMapel: ${mapel}\nTopik: ${topik}\nKelas: ${kelas}`)) {
+    return;
+  }
+
+  try {
+    const newRef = push(ref(database, 'modulAjar'));
+    await set(newRef, {
+      judul: topik,
+      mapel: mapel,
+      kelas: kelas.split(' ')[0], // Ambil angka kelas saja
+      fase: kelas.includes('A') ? 'A' : kelas.includes('B') ? 'B' : 'C',
+      guru: guru,
+      sekolah: document.getElementById('inpSekolah').value,
+      model: document.getElementById('inpModel').value,
+      konten: content,
+      createdAt: Date.now(),
+      createdBy: currentUser.uid || 'unknown'
+    });
+
+    showToast('💾 Modul ajar berhasil disimpan ke database!');
+  } catch (error) {
+    alert('Gagal menyimpan: ' + error.message);
+  }
+}
+
+function showToast(msg) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  toast.style.cssText = `position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10001; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.3s ease;`;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
