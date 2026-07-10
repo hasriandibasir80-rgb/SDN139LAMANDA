@@ -90,7 +90,7 @@ const MENU_ITEMS = [
     icon: '🕐', 
     title: 'Jadwal Pembelajaran', 
     path: './features/jadwal.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'presensi', 
