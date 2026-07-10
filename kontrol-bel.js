@@ -2,16 +2,12 @@
 // =========================================
 // FITUR: PANEL KONTROL BEL MANUAL (MP3)
 // BERDIRI SENDIRI (STANDALONE)
-// TANPA TIMER, FULL USER GESTURE
 // =========================================
 
-// ⭐ URL Audio - Bisa pakai file lokal ATAU URL online
-// Opsi 1: File lokal di repo (upload MP3 ke assets/audio/)
+// ⭐ VARIABEL URL AUDIO - JANGAN DIHAPUS!
 const BASE_AUDIO_URL = 'https://hasriandibasir80-rgb.github.io/SDN139LAMANDA/assets/audio/';
 
-// Opsi 2: URL online (uncomment baris di bawah jika belum upload MP3)
-// const BASE_AUDIO_URL = '';
-
+// Daftar Bel Sekolah
 const DAFTAR_BEL = [
   { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'bel-masuk.mp3', warna: '#3b82f6' },
   { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'bel-istirahat.mp3', warna: '#f59e0b' },
@@ -36,7 +32,7 @@ export function cleanup() {
 }
 
 /**
- * Render UI - Tombol Besar untuk Mobile
+ * Render UI
  */
 function renderUI(container) {
   container.innerHTML = `
@@ -57,7 +53,7 @@ function renderUI(container) {
       </div>
 
       <div class="kontrol-bel-footer">
-        <button class="btn-stop" id="btnStop">⏹️ Stop / Matikan Suara</button>
+        <button class="btn-stop" id="btnStop">️ Stop / Matikan Suara</button>
         <div class="volume-control">
           <label> Volume:</label>
           <input type="range" id="inpVolume" min="0" max="100" value="100">
@@ -106,7 +102,7 @@ function mainkanBel(belId) {
 
   stopAudio();
 
-  // ⭐ Gabungkan BASE_AUDIO_URL + nama file
+  // Gabungkan BASE_AUDIO_URL + nama file
   audioPlayer.src = BASE_AUDIO_URL + belData.file;
   
   updateUIStatus(belId, 'Memutar...');
@@ -118,14 +114,13 @@ function mainkanBel(belId) {
   if (playPromise !== undefined) {
     playPromise.then(() => {
       sedangBerputar = belId;
-      console.log(`✅ Bel ${belData.nama} sedang diputar dari: ${audioPlayer.src}`);
+      console.log(`✅ Bel ${belData.nama} sedang diputar`);
+      console.log(`URL: ${audioPlayer.src}`);
     }).catch(error => {
       console.error('❌ Gagal memutar audio:', error);
       updateUIStatus(belId, 'Gagal!');
       
-      // Tampilkan pesan error yang lebih jelas
-      const errorMsg = `⚠️ Gagal memutar suara!\n\nFile: ${belData.file}\nURL: ${audioPlayer.src}\n\nPastikan:\n1. File MP3 sudah diupload ke folder assets/audio/\n2. Nama file sesuai\n3. Volume HP tidak mute`;
-      alert(errorMsg);
+      alert(`⚠️ Gagal memutar suara!\n\nFile: ${belData.file}\nURL: ${audioPlayer.src}\n\nPastikan file MP3 sudah diupload ke folder assets/audio/`);
       
       document.getElementById('player-indicator').style.display = 'none';
     });
@@ -138,12 +133,15 @@ function mainkanBel(belId) {
   };
   
   audioPlayer.onerror = (e) => {
-    console.error('❌ Audio error:', e);
+    console.error(' Audio error:', e);
     updateUIStatus(belId, 'File tidak ditemukan!');
     document.getElementById('player-indicator').style.display = 'none';
   };
 }
 
+/**
+ * Fungsi Stop Audio
+ */
 function stopAudio() {
   if (audioPlayer) {
     audioPlayer.pause();
@@ -159,6 +157,9 @@ function stopAudio() {
   document.getElementById('player-indicator').style.display = 'none';
 }
 
+/**
+ * Update UI Status Tombol
+ */
 function updateUIStatus(belId, status) {
   document.querySelectorAll('.btn-bel-status').forEach(el => {
     el.textContent = 'Siap';
@@ -174,6 +175,9 @@ function updateUIStatus(belId, status) {
   }
 }
 
+/**
+ * CSS Inline
+ */
 const style = document.createElement('style');
 style.textContent = `
   .kontrol-bel-container {
