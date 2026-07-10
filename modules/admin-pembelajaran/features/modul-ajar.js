@@ -448,7 +448,7 @@ function renderUI(container) {
 
         <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
-          <label>📖 Capaian Pembelajaran (CP) - <i>Opsional</i></label>
+          <label>📖 Tujuan Pembelajaran (TP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
