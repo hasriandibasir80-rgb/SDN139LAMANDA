@@ -26,10 +26,10 @@ let storedApiKey = null;
 
 // Default data tanda tangan (akan di-override oleh localStorage jika ada)
 const DEFAULT_TTD = {
-  namaKepsek: 'Imam munandar SP.d',
-  nipKepsek: '-',
-  namaGuru: 'Hasriandi basir SP.d',
-  nipGuru: '-'
+  namaKepsek: 'Imam Munandar SP.d',
+  nipKepsek: '198512192011011007',
+  namaGuru: 'Hasriandi Basir SP.d',
+  nipGuru: '198110182025211059'
 };
 
 /**
