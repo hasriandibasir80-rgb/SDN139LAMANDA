@@ -382,7 +382,7 @@ function renderUI(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>👤 Nama Guru / Penyusun</label>
-            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || 'Hasriandi basir SP.d'}">
+            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || 'Hasriandi Basir SP.d'}">
           </div>
           <div class="form-group">
             <label>🏫 Satuan Pendidikan</label>
