@@ -2,6 +2,7 @@
 // =========================================
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // TEMA: PINK ELEGANT
+// API KEY: Menggunakan struktur yang sama dengan cp-tp-atp.js
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -16,7 +17,7 @@ const firestore = getFirestore();
 
 // State
 const CSS_ID = 'modul-ajar-css';
-let storedApiKey = '';
+let storedApiKey = null; // Sama seperti groqApiKey di cp-tp-atp.js
 
 /**
  * Init
@@ -25,7 +26,7 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  await loadApiKeyFromFirestore();
+  await loadApiKeyFromFirestore(); // Sama seperti loadGroqApiKey
 }
 
 export function cleanup() {
@@ -34,7 +35,7 @@ export function cleanup() {
 }
 
 /**
- * Load CSS - INLINE (agar pasti ter-load)
+ * Load CSS - INLINE
  */
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
@@ -363,44 +364,23 @@ function loadCSS() {
 }
 
 /**
- * Load API Key dari Firestore (Multiple Path Fallback)
+ * Load API Key dari Firestore
+ * STRUKTUR SAMA PERSIS DENGAN cp-tp-atp.js
  */
 async function loadApiKeyFromFirestore() {
   try {
-    storedApiKey = '';
+    // Path yang sama: settings/api_key
+    const docRef = doc(firestore, 'settings', 'api_key');
+    const docSnap = await getDoc(docRef);
     
-    // Path 1: config/apiKeys (global)
-    const configRef = doc(firestore, 'config', 'apiKeys');
-    const configSnap = await getDoc(configRef);
-    if (configSnap.exists()) {
-      const data = configSnap.data();
-      storedApiKey = data.openai || data.gemini || data.ai || data.key || '';
-    }
-    
-    // Path 2: settings/apiKeys
-    if (!storedApiKey) {
-      const settingsRef = doc(firestore, 'settings', 'apiKeys');
-      const settingsSnap = await getDoc(settingsRef);
-      if (settingsSnap.exists()) {
-        const data = settingsSnap.data();
-        storedApiKey = data.openai || data.gemini || data.ai || data.key || '';
-      }
-    }
-    
-    // Path 3: users/{uid}/settings
-    if (!storedApiKey && currentUser.uid) {
-      const userRef = doc(firestore, 'users', currentUser.uid, 'settings', 'apiKeys');
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        storedApiKey = userSnap.data().key || userSnap.data().openai || '';
-      }
-    }
-    
-    // Path 4: RTDB fallback
-    if (!storedApiKey) {
-      const rtdbSnap = await get(ref(database, 'config/apiKey'));
-      if (rtdbSnap.exists()) {
-        storedApiKey = rtdbSnap.val();
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.keys) {
+        // Ambil semua keys yang active === true
+        const activeKeys = Object.values(data.keys).filter(k => k.active === true);
+        if (activeKeys.length > 0) {
+          storedApiKey = activeKeys[0].value;
+        }
       }
     }
     
@@ -411,19 +391,23 @@ async function loadApiKeyFromFirestore() {
     
     console.log('✅ API Key loaded:', storedApiKey ? 'Available' : 'Not found');
     if (storedApiKey) {
-      console.log(' API Key prefix:', storedApiKey.substring(0, 10) + '...');
+      console.log('🔑 API Key prefix:', storedApiKey.substring(0, 10) + '...');
     }
   } catch (error) {
-    console.error('❌ Error load API Key:', error);
+    console.error('❌ Error load API key:', error);
   }
 }
 
 function renderUI(container) {
+  const aiReady = storedApiKey ? true : false;
+  
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
         <h2>🤖 Generator Modul Ajar AI</h2>
-        <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.</p>
+        <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
+          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
+        </p>
       </div>
 
       <!-- Form Input -->
@@ -432,11 +416,11 @@ function renderUI(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>👤 Nama Guru / Penyusun</label>
-            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.nama || ''}">
+            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
             <label>🏫 Satuan Pendidikan</label>
-            <input type="text" id="inpSekolah" class="form-control" value="SDN 139 LAMANDA">
+            <input type="text" id="inpSekolah" class="form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
           </div>
         </div>
         <div class="form-grid">
@@ -445,7 +429,7 @@ function renderUI(container) {
             <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
           </div>
           <div class="form-group">
-            <label>🎓 Kelas / Fase</label>
+            <label> Kelas / Fase</label>
             <select id="inpKelas" class="form-control">
               <option value="1 (Fase A)">Kelas 1 (Fase A)</option>
               <option value="2 (Fase A)">Kelas 2 (Fase A)</option>
@@ -474,7 +458,7 @@ function renderUI(container) {
         </div>
         
         <div class="form-group">
-          <label>🎨 Model Pembelajaran</label>
+          <label> Model Pembelajaran</label>
           <select id="inpModel" class="form-control">
             <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
             <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
@@ -491,7 +475,7 @@ function renderUI(container) {
         </div>
 
         <div class="gen-action">
-          <button class="btn-generate" id="btnGenerate" disabled>
+          <button class="btn-generate" id="btnGenerate" ${!storedApiKey ? 'disabled' : ''}>
             <span>✨</span> Generate Modul Ajar
           </button>
         </div>
@@ -507,14 +491,14 @@ function renderUI(container) {
       <!-- Output Result -->
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3>📄 Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
+          <h3> Hasil Generate</h3>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
         <!-- Action Buttons di Bawah Output -->
         <div class="output-actions-bar">
-          <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
+          <button class="btn-action btn-print" id="btnPrint">️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
           <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
           <button class="btn-action btn-download" id="btnDownload">⬇️ Unduh</button>
@@ -534,7 +518,7 @@ function attachEvents() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ API Key tidak tersedia. Periksa konfigurasi di Firestore.');
+    alert('️ API Key tidak tersedia. Periksa konfigurasi di Firestore.');
     return;
   }
 
@@ -686,7 +670,7 @@ function exitEditMode() {
   
   contentEl.contentEditable = false;
   contentEl.classList.remove('editing');
-  editBtn.innerHTML = '✏️ Edit';
+  editBtn.innerHTML = '️ Edit';
   editBtn.classList.remove('active');
   indicator.style.display = 'none';
 }
