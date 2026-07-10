@@ -3,6 +3,7 @@
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // TEMA: PINK ELEGANT
 // API: Groq (LLaMA 3.3)
+// DENGAN TANDA TANGAN KEPALA SEKOLAH & GURU
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -155,7 +156,6 @@ function loadCSS() {
       gap: 10px; 
     }
     .output-header h3 { margin: 0; color: #831843; font-size: 20px; }
-    .output-actions { display: flex; gap: 10px; }
     .output-content { 
       line-height: 1.8; 
       color: #334155; 
@@ -172,6 +172,48 @@ function loadCSS() {
     .output-content h3 { font-size: 16px; color: #db2777; margin-top: 18px; }
     .output-content ul, .output-content ol { padding-left: 30px; }
     .output-content li { margin-bottom: 8px; }
+    
+    /* Tanda Tangan Section */
+    .ttd-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #fce7f3;
+    }
+    .ttd-box {
+      text-align: center;
+      padding: 15px;
+      background: #fff1f2;
+      border-radius: 8px;
+    }
+    .ttd-label {
+      font-size: 13px;
+      color: #831843;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .ttd-role {
+      font-size: 16px;
+      font-weight: 700;
+      color: #be185d;
+      margin-bottom: 60px;
+      min-height: 80px;
+    }
+    .ttd-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 4px;
+      border-bottom: 1px solid #831843;
+      padding-bottom: 4px;
+    }
+    .ttd-nip {
+      font-size: 13px;
+      color: #64748b;
+    }
+    
     .output-actions-bar { 
       display: flex; 
       gap: 12px; 
@@ -218,6 +260,7 @@ function loadCSS() {
       .output-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; }
       .output-actions-bar, .output-header { display: none !important; }
       .output-content { border: none; background: white; }
+      .ttd-section { page-break-inside: avoid; }
     }
     @media (max-width: 768px) { 
       .gen-container { padding: 15px; }
@@ -229,6 +272,7 @@ function loadCSS() {
       .output-actions-bar { flex-direction: column; }
       .btn-action { width: 100%; justify-content: center; }
       .form-control { font-size: 14px; padding: 12px 14px; }
+      .ttd-section { grid-template-columns: 1fr; gap: 20px; }
     }
   `;
   document.head.appendChild(style);
@@ -258,11 +302,8 @@ async function loadApiKeyFromFirestore() {
     }
     
     console.log('✅ API Key loaded:', storedApiKey ? 'Available' : 'Not found');
-    if (storedApiKey) {
-      console.log('🔑 API Key prefix:', storedApiKey.substring(0, 10) + '...');
-    }
   } catch (error) {
-    console.error('❌ Error load API key:', error);
+    console.error(' Error load API key:', error);
   }
 }
 
@@ -279,10 +320,10 @@ function renderUI(container) {
       </div>
 
       <div class="gen-form">
-        <div class="form-section-title"> 1. Informasi Umum</div>
+        <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👤 Nama Guru / Penyusun</label>
+            <label> Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
@@ -313,14 +354,36 @@ function renderUI(container) {
             <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
           </div>
           <div class="form-group">
-            <label> Alokasi Waktu</label>
+            <label>⏰ Alokasi Waktu</label>
             <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
           </div>
         </div>
 
-        <div class="form-section-title">📚 2. Komponen Inti</div>
+        <div class="form-section-title">️ 2. Tanda Tangan (Otomatis terisi di output)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>👨‍💼 Nama Kepala Sekolah</label>
+            <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
+          </div>
+          <div class="form-group">
+            <label>🔢 NIP Kepala Sekolah</label>
+            <input type="text" id="inpNipKepsek" class="form-control" placeholder="NIP Kepala Sekolah">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>👩‍🏫 Nama Guru Pengampu</label>
+            <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu" value="${currentUser.namaLengkap || currentUser.nama || ''}">
+          </div>
+          <div class="form-group">
+            <label>🔢 NIP Guru Pengampu</label>
+            <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
+          </div>
+        </div>
+
+        <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
-          <label>📖 Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
+          <label> Capaian Pembelajaran (CP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
@@ -361,6 +424,22 @@ function renderUI(container) {
         </div>
         <div class="output-content" id="outputContent"></div>
         
+        <!-- Tanda Tangan Section -->
+        <div class="ttd-section" id="ttdSection">
+          <div class="ttd-box">
+            <div class="ttd-label">Mengetahui,</div>
+            <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+            <div class="ttd-name" id="ttdNamaKepsek">_______________________</div>
+            <div class="ttd-nip" id="ttdNipKepsek">NIP: -</div>
+          </div>
+          <div class="ttd-box">
+            <div class="ttd-label">Guru Pengampu,</div>
+            <div class="ttd-role">Guru Mata Pelajaran</div>
+            <div class="ttd-name" id="ttdNamaGuru">_______________________</div>
+            <div class="ttd-nip" id="ttdNipGuru">NIP: -</div>
+          </div>
+        </div>
+        
         <div class="output-actions-bar">
           <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
@@ -378,11 +457,37 @@ function attachEvents() {
   document.getElementById('btnSaveDb').addEventListener('click', saveToDatabase);
   document.getElementById('btnEdit').addEventListener('click', toggleEditMode);
   document.getElementById('btnDownload').addEventListener('click', handleDownload);
+  
+  // Auto-update tanda tangan saat input berubah
+  const inputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
+  inputs.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateTTDPreview);
+    }
+  });
+}
+
+function updateTTDPreview() {
+  const namaKepsek = document.getElementById('inpKepsek')?.value || '';
+  const nipKepsek = document.getElementById('inpNipKepsek')?.value || '';
+  const namaGuru = document.getElementById('inpGuruPengampu')?.value || '';
+  const nipGuru = document.getElementById('inpNipGuru')?.value || '';
+  
+  const ttdNamaKepsek = document.getElementById('ttdNamaKepsek');
+  const ttdNipKepsek = document.getElementById('ttdNipKepsek');
+  const ttdNamaGuru = document.getElementById('ttdNamaGuru');
+  const ttdNipGuru = document.getElementById('ttdNipGuru');
+  
+  if (ttdNamaKepsek) ttdNamaKepsek.textContent = namaKepsek || '_______________________';
+  if (ttdNipKepsek) ttdNipKepsek.textContent = nipKepsek ? `NIP: ${nipKepsek}` : 'NIP: -';
+  if (ttdNamaGuru) ttdNamaGuru.textContent = namaGuru || '_______________________';
+  if (ttdNipGuru) ttdNipGuru.textContent = nipGuru ? `NIP: ${nipGuru}` : 'NIP: -';
 }
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('️ API Key tidak tersedia.');
+    alert('⚠️ API Key tidak tersedia.');
     return;
   }
 
@@ -478,10 +583,14 @@ async function handleGenerate() {
 
     document.getElementById('outputContent').innerText = aiText;
     document.getElementById('outputArea').style.display = 'block';
+    
+    // Update tanda tangan
+    updateTTDPreview();
+    
     document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (error) {
-    alert(' Error: ' + error.message);
+    alert('❌ Error: ' + error.message);
     console.error(error);
   } finally {
     document.getElementById('loadingState').style.display = 'none';
@@ -522,7 +631,7 @@ function exitEditMode() {
   
   contentEl.contentEditable = false;
   contentEl.classList.remove('editing');
-  editBtn.innerHTML = '✏️ Edit';
+  editBtn.innerHTML = '️ Edit';
   editBtn.classList.remove('active');
   indicator.style.display = 'none';
 }
@@ -535,10 +644,17 @@ function handleDownload() {
   const topik = document.getElementById('inpTopik').value || 'Modul-Ajar';
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const kelas = document.getElementById('inpKelas').value.split(' ')[0] || 'X';
+  const sekolah = document.getElementById('inpSekolah').value || 'SDN 139 LAMANDA';
+  const namaKepsek = document.getElementById('inpKepsek').value || '_______________________';
+  const nipKepsek = document.getElementById('inpNipKepsek').value || '-';
+  const namaGuru = document.getElementById('inpGuruPengampu').value || '_______________________';
+  const nipGuru = document.getElementById('inpNipGuru').value || '-';
   
-  const header = `===============================================\nMODUL AJAR KURIKULUM MERDEKA\n===============================================\nMata Pelajaran : ${mapel}\nKelas/Fase     : ${kelas}\nTopik          : ${topik}\nSekolah        : ${document.getElementById('inpSekolah').value}\nPenyusun       : ${document.getElementById('inpGuru').value}\nTanggal        : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}\n===============================================\n\n`;
+  const header = `===============================================\nMODUL AJAR KURIKULUM MERDEKA\n===============================================\nMata Pelajaran : ${mapel}\nKelas/Fase     : ${kelas}\nTopik          : ${topik}\nSekolah        : ${sekolah}\nPenyusun       : ${document.getElementById('inpGuru').value}\nTanggal        : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}\n===============================================\n\n`;
 
-  const blob = new Blob([header + content], { type: 'text/plain;charset=utf-8' });
+  const ttdFooter = `\n\n===============================================\nTANDA TANGAN\n===============================================\n\nMengetahui,                              Guru Pengampu,\nKepala Sekolah                           Guru Mata Pelajaran\nSDN 139 LAMANDA\n\n\n\n\n\n${namaKepsek.padEnd(40)} ${namaGuru}\nNIP: ${nipKepsek.padEnd(34)} NIP: ${nipGuru}\n`;
+
+  const blob = new Blob([header + content + ttdFooter], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -573,6 +689,16 @@ async function saveToDatabase() {
       sekolah: document.getElementById('inpSekolah').value,
       model: document.getElementById('inpModel').value,
       konten: content,
+      tandaTangan: {
+        kepalaSekolah: {
+          nama: document.getElementById('inpKepsek').value,
+          nip: document.getElementById('inpNipKepsek').value
+        },
+        guruPengampu: {
+          nama: document.getElementById('inpGuruPengampu').value,
+          nip: document.getElementById('inpNipGuru').value
+        }
+      },
       createdAt: Date.now(),
       createdBy: currentUser.uid || 'unknown'
     });
