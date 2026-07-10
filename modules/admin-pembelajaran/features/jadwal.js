@@ -1,9 +1,8 @@
 // modules/admin-pembelajaran/features/jadwal.js
 // =========================================
-// FIX: Bel Otomatis dengan 3 Layer Backup
-// 1. speechSynthesis (TTS)
-// 2. Audio Beep (Web Audio API)
-// 3. Browser Notification API
+// FITUR: JADWAL PEMBELAJARAN + BEL OTOMATIS
+// MOBILE COMPATIBILITY FIX
+// 3 LAYER BACKUP: TTS + Beep + Vibrate
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -50,9 +49,9 @@ export async function init(container, db) {
   loadTTDDefaults();
   requestNotificationPermission();
   
-  // Unlock audio on first interaction
   document.addEventListener('click', unlockAudio, { once: true });
   document.addEventListener('keydown', unlockAudio, { once: true });
+  document.addEventListener('touchstart', unlockAudio, { once: true });
 }
 
 export function cleanup() {
@@ -61,9 +60,6 @@ export function cleanup() {
   stopBelOtomatis();
 }
 
-/**
- * Request Notification Permission
- */
 function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission().then(permission => {
@@ -73,9 +69,6 @@ function requestNotificationPermission() {
   }
 }
 
-/**
- * Unlock Audio Context
- */
 function unlockAudio() {
   try {
     if (!audioContext) {
@@ -235,7 +228,7 @@ function renderUI(container) {
       </div>
 
       <div class="jadwal-form">
-        <div class="form-section-title"> 1. Pilih Kelas</div>
+        <div class="form-section-title">📋 1. Pilih Kelas</div>
         <div class="form-grid">
           <div class="form-group">
             <label>🎓 Kelas / Fase</label>
@@ -250,7 +243,7 @@ function renderUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label>👤 Wali Kelas</label>
+            <label> Wali Kelas</label>
             <input type="text" id="inpWaliKelas" class="form-control" placeholder="Nama Wali Kelas">
           </div>
         </div>
@@ -272,13 +265,13 @@ function renderUI(container) {
             <label>🔔 Aktifkan Bel Suara</label>
             <select id="optBelOtomatis" class="form-control">
               <option value="yes">✅ Ya, aktifkan</option>
-              <option value="no"> Tidak</option>
+              <option value="no">❌ Tidak</option>
             </select>
           </div>
           <div class="form-group">
             <label>🗣️ Jenis Suara</label>
             <select id="optVoiceGender" class="form-control">
-              <option value="female">👩 Perempuan</option>
+              <option value="female"> Perempuan</option>
               <option value="male">👨 Laki-laki</option>
             </select>
           </div>
@@ -310,20 +303,20 @@ function renderUI(container) {
           </div>
         </div>
         
-        <div class="form-section-title">✍️ 4. Tanda Tangan (Untuk Download)</div>
+        <div class="form-section-title">️ 4. Tanda Tangan (Untuk Download)</div>
         <div class="form-grid">
           <div class="form-group">
             <label>👨‍💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
-            <label>🔢 NIP Kepala Sekolah</label>
+            <label> NIP Kepala Sekolah</label>
             <input type="text" id="inpNipKepsek" class="form-control" placeholder="NIP Kepala Sekolah">
           </div>
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩‍🏫 Nama Guru Pengampu</label>
+            <label>‍🏫 Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
@@ -334,7 +327,7 @@ function renderUI(container) {
 
         <div class="gen-action">
           <button class="btn-action btn-save" id="btnSave" onclick="saveJadwal()">💾 Simpan Jadwal</button>
-          <button class="btn-action btn-print" id="btnPrint" onclick="printJadwal()">🖨️ Print</button>
+          <button class="btn-action btn-print" id="btnPrint" onclick="printJadwal()">️ Print</button>
           <button class="btn-action btn-download" id="btnDownload" onclick="downloadWord()">📥 Download Word</button>
           <button class="btn-action btn-reset" id="btnReset" onclick="resetJadwal()">🔄 Reset</button>
           
@@ -354,9 +347,9 @@ function renderUI(container) {
 
       <div style="margin-top: 20px; padding: 20px; background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 8px; text-align: center;" id="belIndicator">
         <div style="font-size: 14px; color: #831843; margin-bottom: 5px;">🔔 Status Bel Otomatis</div>
-        <div style="font-size: 18px; font-weight: 700; color: #be185d;" id="belStatus">️ Non-aktif</div>
+        <div style="font-size: 18px; font-weight: 700; color: #be185d;" id="belStatus">⏸️ Non-aktif</div>
         <div style="font-size: 12px; color: #64748b; margin-top: 5px;" id="belNextTime">Bel berikutnya: -</div>
-        <div class="countdown-display" id="countdownDisplay">--:--:--</div>
+        <div class="countdown-display" id="countdownDisplay">-- : -- : --</div>
         <div style="font-size: 11px; color: #64748b; margin-top: 5px;" id="belCurrentTime">Waktu sekarang: -</div>
       </div>
     </div>
@@ -401,7 +394,7 @@ window.selectColor = function(mapel, warna) {
 window.editJadwal = function(hari, jp) {
   const kelas = document.getElementById('inpKelas').value;
   if (!kelas) {
-    alert('⚠️ Pilih kelas terlebih dahulu!');
+    alert('️ Pilih kelas terlebih dahulu!');
     return;
   }
   
@@ -482,7 +475,7 @@ window.saveJadwal = async function() {
   if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   
   const waliKelas = document.getElementById('inpWaliKelas').value;
-  if (!waliKelas) { alert('️ Isi nama wali kelas!'); return; }
+  if (!waliKelas) { alert('⚠️ Isi nama wali kelas!'); return; }
   
   const jadwalData = {};
   HARI_LIST.forEach(hari => {
@@ -493,7 +486,7 @@ window.saveJadwal = async function() {
       
       if (mapel !== '-' && mapel !== '🕐 ISTIRAHAT') {
         jadwalData[`${hari}_${jp}`] = { mapel, guru: guru === '-' ? '' : guru };
-      } else if (mapel === ' ISTIRAHAT') {
+      } else if (mapel === '🕐 ISTIRAHAT') {
         jadwalData[`${hari}_${jp}`] = { istirahat: true };
       }
     }
@@ -567,7 +560,7 @@ window.downloadWord = function() {
       const mapel = cell.querySelector('.mapel-name').textContent;
       const guru = cell.querySelector('.mapel-guru').textContent;
       
-      if (mapel === '🕐 ISTIRAHAT') {
+      if (mapel === ' ISTIRAHAT') {
         tableHTML += `<td style="text-align: center; background: #94a3b8; color: white; font-style: italic;">ISTIRAHAT</td>`;
       } else if (mapel === '-') {
         tableHTML += `<td style="text-align: center; background: #f1f5f9;">-</td>`;
@@ -638,8 +631,8 @@ window.testBelManual = function(belType) {
   const titles = {
     mulai: '🔔 Bel Masuk Kelas',
     istirahat: '☕ Bel Istirahat',
-    lanjut: '📚 Bel Masuk Kembali',
-    pulang: '🏠 Bel Pulang'
+    lanjut: ' Bel Masuk Kembali',
+    pulang: ' Bel Pulang'
   };
   
   const text = texts[belType];
@@ -651,7 +644,7 @@ window.testBelManual = function(belType) {
   }
   
   playBeep();
-  setTimeout(() => speakText(text), 500);
+  setTimeout(() => speakTextMobile(text), 500);
   showBelNotification(title, text);
   showToast(`🧪 Test ${title}`);
 };
@@ -684,9 +677,15 @@ function playBeep() {
   }
 }
 
-function speakText(text) {
+/**
+ * MOBILE-FRIENDLY SPEECH SYNTHESIS
+ */
+function speakTextMobile(text) {
   if (!speechSynth) {
-    console.error('❌ speechSynthesis tidak tersedia');
+    console.error(' speechSynthesis tidak tersedia');
+    playBeep();
+    playBeep();
+    playBeep();
     return;
   }
   
@@ -700,7 +699,7 @@ function speakText(text) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
-    utterance.rate = 0.95;
+    utterance.rate = 0.9;
     utterance.pitch = 1;
     utterance.volume = 1;
     
@@ -715,36 +714,214 @@ function speakText(text) {
       utterance.pitch = 1.15;
     }
     
-    utterance.onstart = () => console.log('️ Mulai bicara:', text);
-    utterance.onend = () => console.log('✅ Selesai bicara');
-    utterance.onerror = (e) => console.error('❌ Error TTS:', e);
+    utterance.onstart = () => {
+      console.log('🗣️ TTS started');
+      showToast('🔊 Membacakan: ' + text.substring(0, 30) + '...');
+    };
+    
+    utterance.onend = () => {
+      console.log('✅ TTS ended');
+    };
+    
+    utterance.onerror = (e) => {
+      console.error('❌ TTS error:', e);
+      playBeep();
+      playBeep();
+    };
     
     speechSynth.speak(utterance);
+    console.log('📢 Speaking:', text);
   } catch (e) {
-    console.error('Error speakText:', e);
+    console.error('TTS exception:', e);
+    playBeep();
+    setTimeout(() => playBeep(), 500);
+    setTimeout(() => playBeep(), 1000);
+  }
+}
+
+/**
+ * UPDATE WAKTU REAL-TIME (FIX MOBILE)
+ */
+function startTimeDisplay() {
+  setInterval(() => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const currentTime = `${hours}:${minutes}:${seconds}`;
+    
+    const timeEl = document.getElementById('belCurrentTime');
+    if (timeEl) {
+      timeEl.textContent = `Waktu sekarang: ${currentTime}`;
+    }
+    
+    updateCountdownDisplay();
+  }, 1000);
+}
+
+/**
+ * UPDATE COUNTDOWN DISPLAY (FIX MOBILE)
+ */
+function updateCountdownDisplay() {
+  const belMulai = document.getElementById('inpBelMulai')?.value || '07:00';
+  const belIstirahat1 = document.getElementById('inpBelIstirahat1')?.value || '09:00';
+  const belLanjut = document.getElementById('inpBelLanjut')?.value || '09:30';
+  const belPulang = document.getElementById('inpBelPulang')?.value || '13:00';
+  
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentSeconds = now.getSeconds();
+  
+  const belTimes = [
+    { time: belMulai, name: 'Mulai Belajar' },
+    { time: belIstirahat1, name: 'Istirahat' },
+    { time: belLanjut, name: 'Lanjut Belajar' },
+    { time: belPulang, name: 'Pulang' }
+  ];
+  
+  let nextBel = null;
+  for (const bel of belTimes) {
+    const [h, m] = bel.time.split(':').map(Number);
+    const belMinutes = h * 60 + m;
+    if (belMinutes > currentMinutes || (belMinutes === currentMinutes && currentSeconds === 0)) {
+      nextBel = { ...bel, minutes: belMinutes };
+      break;
+    }
+  }
+  
+  const countdownEl = document.getElementById('countdownDisplay');
+  if (countdownEl) {
+    if (nextBel) {
+      const diff = nextBel.minutes - currentMinutes;
+      const hours = Math.floor(diff / 60);
+      const mins = diff % 60;
+      const secs = 60 - currentSeconds;
+      countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    } else {
+      countdownEl.textContent = '00:00:00';
+    }
+  }
+  
+  const nextEl = document.getElementById('belNextTime');
+  if (nextEl && nextBel) {
+    nextEl.textContent = `Bel berikutnya: ${nextBel.name} (${nextBel.time})`;
+  }
+}
+
+/**
+ * CHECK BEL TIME (MOBILE OPTIMIZED)
+ */
+function checkBelTimeMobile() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const currentTime = `${hours}:${minutes}`;
+  
+  const timeEl = document.getElementById('belCurrentTime');
+  if (timeEl) {
+    timeEl.textContent = `Waktu sekarang: ${hours}:${minutes}:${seconds}`;
+  }
+  
+  updateCountdownDisplay();
+  
+  if (seconds !== '00' && seconds !== '01' && seconds !== '02' && 
+      seconds !== '03' && seconds !== '04') return;
+  
+  if (lastBelMinute === currentTime) return;
+  
+  const belConfigs = [
+    { 
+      id: 'mulai',
+      time: document.getElementById('inpBelMulai')?.value,
+      text: document.getElementById('txtBelMulai')?.value,
+      title: '🔔 Bel Masuk Kelas'
+    },
+    { 
+      id: 'istirahat',
+      time: document.getElementById('inpBelIstirahat1')?.value,
+      text: document.getElementById('txtBelIstirahat1')?.value,
+      title: '☕ Bel Istirahat'
+    },
+    { 
+      id: 'lanjut',
+      time: document.getElementById('inpBelLanjut')?.value,
+      text: document.getElementById('txtBelLanjut')?.value,
+      title: '📚 Bel Masuk Kembali'
+    },
+    { 
+      id: 'pulang',
+      time: document.getElementById('inpBelPulang')?.value,
+      text: document.getElementById('txtBelPulang')?.value,
+      title: '🏠 Bel Pulang'
+    }
+  ];
+  
+  console.log(`⏰ [MOBILE] Check: ${currentTime}:${seconds}`);
+  
+  const activeBel = belConfigs.find(bel => bel.time === currentTime);
+  
+  if (activeBel) {
+    if (!activeBel.text || activeBel.text.trim() === '') {
+      console.warn('⚠️ Bel tidak ada teks!');
+      lastBelMinute = currentTime;
+      return;
+    }
+    
+    lastBelMinute = currentTime;
+    
+    console.log(`🔔 [MOBILE] BEL AKTIF: ${activeBel.title}`);
+    console.log(`📝 Teks: "${activeBel.text}"`);
+    
+    playBeep();
+    showBelNotification(activeBel.title, activeBel.text);
+    sendBrowserNotification(activeBel.title, activeBel.text);
+    
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+    
+    setTimeout(() => {
+      speakTextMobile(activeBel.text);
+    }, 1500);
+    
+    updateNextBelTime();
   }
 }
 
 function startBelOtomatis() {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
   unlockAudio();
   
   if (belInterval) clearInterval(belInterval);
   
   lastBelMinute = '';
   
-  // Check setiap 200ms untuk akurasi maksimal
-  belInterval = setInterval(() => {
-    checkBelTime();
-  }, 200);
+  startTimeDisplay();
+  
+  if (isMobile) {
+    console.log('📱 Mobile detected, using mobile mode');
+    belInterval = setInterval(() => {
+      checkBelTimeMobile();
+    }, 500);
+  } else {
+    console.log('💻 Desktop detected, using desktop mode');
+    belInterval = setInterval(() => {
+      checkBelTime();
+    }, 200);
+  }
   
   const statusEl = document.getElementById('belStatus');
   if (statusEl) {
     statusEl.textContent = '✅ Aktif - Memantau waktu bel';
     statusEl.style.color = '#10b981';
   }
-  updateNextBelTime();
-  showToast('🔔 Bel suara aktif! Sistem akan memantau waktu bel.');
   
+  startTimeDisplay();
+  updateCountdownDisplay();
+  
+  showToast('🔔 Bel otomatis aktif!');
   console.log('✅ Bel otomatis dimulai');
 }
 
@@ -767,19 +944,15 @@ function checkBelTime() {
   const seconds = String(now.getSeconds()).padStart(2, '0');
   const currentTime = `${hours}:${minutes}`;
   
-  // Update UI
   const timeEl = document.getElementById('belCurrentTime');
   if (timeEl) {
-    timeEl.textContent = `Waktu sekarang: ${currentTime}:${seconds}`;
+    timeEl.textContent = `Waktu sekarang: ${hours}:${minutes}:${seconds}`;
   }
   
-  // Update countdown
-  updateCountdown();
+  updateCountdownDisplay();
   
-  // Hanya check di detik 00-02 (window 3 detik)
-  if (seconds !== '00' && seconds !== '01' && seconds !== '02') return;
+  if (seconds !== '00' && seconds !== '01') return;
   
-  // Cegah bel berbunyi 2x
   if (lastBelMinute === currentTime) return;
   
   const belConfigs = [
@@ -825,60 +998,15 @@ function checkBelTime() {
     console.log(`🔔 BEL AKTIF: ${activeBel.title}`);
     console.log(`📝 Teks: "${activeBel.text}"`);
     
-    // 1. Play beep
     playBeep();
-    
-    // 2. Show notification
     showBelNotification(activeBel.title, activeBel.text);
-    
-    // 3. Browser notification (backup)
     sendBrowserNotification(activeBel.title, activeBel.text);
     
-    // 4. TTS setelah 1 detik
     setTimeout(() => {
-      speakText(activeBel.text);
+      speakTextMobile(activeBel.text);
     }, 1000);
     
     updateNextBelTime();
-  }
-}
-
-function updateCountdown() {
-  const belMulai = document.getElementById('inpBelMulai')?.value || '07:00';
-  const belIstirahat1 = document.getElementById('inpBelIstirahat1')?.value || '09:00';
-  const belLanjut = document.getElementById('inpBelLanjut')?.value || '09:30';
-  const belPulang = document.getElementById('inpBelPulang')?.value || '13:00';
-  
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  
-  const belTimes = [
-    { time: belMulai, name: 'Mulai Belajar' },
-    { time: belIstirahat1, name: 'Istirahat' },
-    { time: belLanjut, name: 'Lanjut Belajar' },
-    { time: belPulang, name: 'Pulang' }
-  ];
-  
-  let nextBel = null;
-  for (const bel of belTimes) {
-    const [h, m] = bel.time.split(':').map(Number);
-    const belMinutes = h * 60 + m;
-    if (belMinutes > currentMinutes) {
-      nextBel = { ...bel, minutes: belMinutes };
-      break;
-    }
-  }
-  
-  const countdownEl = document.getElementById('countdownDisplay');
-  if (countdownEl) {
-    if (nextBel) {
-      const diff = nextBel.minutes - currentMinutes;
-      const hours = Math.floor(diff / 60);
-      const mins = diff % 60;
-      countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
-    } else {
-      countdownEl.textContent = '00:00:00';
-    }
   }
 }
 
