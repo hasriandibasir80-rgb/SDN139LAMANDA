@@ -1,19 +1,15 @@
 // modules/admin-pembelajaran/features/jadwal.js
 // =========================================
 // FITUR: JADWAL PEMBELAJARAN (MANUAL INPUT)
-// TANPA TANDA TANGAN DI TAMPILAN
 // DENGAN VOICE NOTIFICATION (TTS)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { getDatabase, ref, get, push, set, update } 
+import { getDatabase, ref, get, set } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getFirestore, doc, getDoc } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
-const firestore = getFirestore();
 
 // Konstanta CSS
 const CSS_PATH = '../../../css/modules/jadwal.css';
@@ -21,12 +17,9 @@ const CSS_ID = 'jadwal-css';
 
 // State
 const HARI_LIST = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
-const JP_LIST = Array.from({length: 8}, (_, i) => `JP ${i + 1}`);
 
 // Default data
 const DEFAULT_JADWAL = {
-  kelas: '',
-  data: {},
   warnaMapel: {
     'Matematika': '#3b82f6',
     'Bahasa Indonesia': '#10b981',
@@ -44,7 +37,7 @@ const DEFAULT_JADWAL = {
 // Audio Synthesizer
 let speechSynth = window.speechSynthesis;
 let belInterval = null;
-let lastBelMinute = ''; // Flag untuk mencegah bel berbunyi 2x di menit yang sama
+let lastBelMinute = '';
 
 /**
  * Init
@@ -63,7 +56,7 @@ export function cleanup() {
 }
 
 /**
- * Load CSS - Eksternal dengan fallback inline
+ * Load CSS
  */
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
@@ -74,7 +67,7 @@ function loadCSS() {
   link.id = CSS_ID;
   
   link.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
+    console.warn('⚠️ CSS eksternal gagal');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
@@ -84,9 +77,6 @@ function loadCSS() {
   document.head.appendChild(link);
 }
 
-/**
- * Fallback CSS inline
- */
 function getInlineCSS() {
   return `
     .jadwal-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); }
@@ -119,31 +109,24 @@ function getInlineCSS() {
     .color-option { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: all 0.2s; }
     .color-option:hover { transform: scale(1.2); }
     .color-option.selected { border-color: #1e293b; box-shadow: 0 0 0 2px white, 0 0 0 4px #1e293b; }
-    .gen-action { margin-top: 30px; text-align: center; }
-    .btn-action { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin: 0 5px; }
+    .gen-action { margin-top: 30px; text-align: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .btn-action { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
     .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .btn-save { background: #10b981; color: white; }
-    .btn-save:hover { background: #059669; }
     .btn-print { background: #8b5cf6; color: white; }
-    .btn-print:hover { background: #7c3aed; }
     .btn-download { background: #3b82f6; color: white; }
-    .btn-download:hover { background: #2563eb; }
     .btn-reset { background: #6b7280; color: white; }
-    .btn-reset:hover { background: #4b5563; }
     @keyframes bellPulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.1); } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
     .bell-notif-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; }
     .bell-notif-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 40px 60px; border-radius: 20px; box-shadow: 0 20px 60px rgba(236, 72, 153, 0.4); z-index: 10000; text-align: center; animation: bellPulse 1s ease; }
     .bell-notif-icon { font-size: 48px; margin-bottom: 15px; }
     .bell-notif-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
     .bell-notif-time { font-size: 14px; opacity: 0.9; }
-    @media print { body * { visibility: hidden; } .jadwal-container, .jadwal-container * { visibility: visible; } .jadwal-container { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; } .gen-action, .form-section-title { display: none !important; } .jadwal-grid-wrapper { overflow: visible; } }
-    @media (max-width: 768px) { .jadwal-container { padding: 15px; } .jadwal-header { padding: 20px; } .jadwal-header h2 { font-size: 22px; } .jadwal-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .btn-action { width: 100%; justify-content: center; margin: 5px 0; } }
+    @media print { body * { visibility: hidden; } .jadwal-container, .jadwal-container * { visibility: visible; } .jadwal-container { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; } .gen-action, .form-section-title { display: none !important; } }
+    @media (max-width: 768px) { .jadwal-container { padding: 15px; } .jadwal-header { padding: 20px; } .jadwal-header h2 { font-size: 22px; } .jadwal-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .btn-action { width: 100%; justify-content: center; } }
   `;
 }
 
-/**
- * Load Data Tanda Tangan Default dari localStorage
- */
 function loadTTDDefaults() {
   const saved = localStorage.getItem('jadwal_ttd');
   let ttdData = {
@@ -175,9 +158,6 @@ function loadTTDDefaults() {
   });
 }
 
-/**
- * Save Data Tanda Tangan ke localStorage
- */
 function saveTTDDefaults() {
   const ttdData = {
     namaKepsek: document.getElementById('inpKepsek')?.value || '',
@@ -217,12 +197,12 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="jadwal-container">
       <div class="jadwal-header">
-        <h2> Jadwal Pembelajaran</h2>
+        <h2>📅 Jadwal Pembelajaran</h2>
         <p>Input jadwal pembelajaran per kelas secara manual. Klik cell untuk edit.</p>
       </div>
 
       <div class="jadwal-form">
-        <div class="form-section-title">📋 1. Pilih Kelas</div>
+        <div class="form-section-title"> 1. Pilih Kelas</div>
         <div class="form-grid">
           <div class="form-group">
             <label>🎓 Kelas / Fase</label>
@@ -237,12 +217,12 @@ function renderUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label> Wali Kelas</label>
+            <label>👤 Wali Kelas</label>
             <input type="text" id="inpWaliKelas" class="form-control" placeholder="Nama Wali Kelas">
           </div>
         </div>
 
-        <div class="form-section-title">🎨 2. Warna Per Mapel (Opsional)</div>
+        <div class="form-section-title"> 2. Warna Per Mapel</div>
         <div class="form-group">
           <label>Pilih warna untuk setiap mata pelajaran:</label>
           <div class="color-picker-wrapper" id="colorPicker">
@@ -256,7 +236,7 @@ function renderUI(container) {
         <div class="form-section-title"> 3. Pengaturan Bel Suara Otomatis</div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Aktifkan Bel Suara</label>
+            <label>🔔 Aktifkan Bel Suara</label>
             <select id="optBelOtomatis" class="form-control">
               <option value="yes">✅ Ya, aktifkan</option>
               <option value="no">❌ Tidak</option>
@@ -265,16 +245,16 @@ function renderUI(container) {
           <div class="form-group">
             <label>🗣️ Jenis Suara</label>
             <select id="optVoiceGender" class="form-control">
-              <option value="female"> Perempuan</option>
+              <option value="female">👩 Perempuan</option>
               <option value="male">👨 Laki-laki</option>
             </select>
           </div>
         </div>
         
-        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;"> Waktu Bel & Pesan Suara</div>
+        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;">⏰ Waktu Bel & Pesan Suara</div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Bel Mulai Belajar</label>
+            <label>🔔 Bel Mulai Belajar</label>
             <input type="time" id="inpBelMulai" class="form-control" value="07:00">
             <input type="text" id="txtBelMulai" class="form-control" style="margin-top: 5px;" placeholder="Pesan suara bel masuk" value="Selamat pagi, ayo masuk kelas dan belajar yang rajin ya!">
           </div>
@@ -286,7 +266,7 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Bel Lanjut Belajar</label>
+            <label>📚 Bel Lanjut Belajar</label>
             <input type="time" id="inpBelLanjut" class="form-control" value="09:30">
             <input type="text" id="txtBelLanjut" class="form-control" style="margin-top: 5px;" placeholder="Pesan suara bel masuk kembali" value="Waktunya masuk kelas kembali, ayo lanjut belajar dengan semangat!">
           </div>
@@ -297,10 +277,10 @@ function renderUI(container) {
           </div>
         </div>
         
-        <div class="form-section-title">✍️ 4. Tanda Tangan (Default - Bisa Diedit)</div>
+        <div class="form-section-title">✍️ 4. Tanda Tangan (Untuk Download)</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>💼 Nama Kepala Sekolah</label>
+            <label>👨‍💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -310,11 +290,11 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩🏫 Nama Guru Pengampu</label>
+            <label>👩‍🏫 Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label> NIP Guru Pengampu</label>
+            <label>🔢 NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
@@ -323,8 +303,13 @@ function renderUI(container) {
           <button class="btn-action btn-save" id="btnSave" onclick="saveJadwal()">💾 Simpan Jadwal</button>
           <button class="btn-action btn-print" id="btnPrint" onclick="printJadwal()">🖨️ Print</button>
           <button class="btn-action btn-download" id="btnDownload" onclick="downloadWord()">📥 Download Word</button>
-          <button class="btn-action btn-reset" id="btnReset" onclick="resetJadwal()">🔄 Reset</button>
-          <button class="btn-action" id="btnTestBel" onclick="testBel()" style="background: #f59e0b; color: white;">🗣️ Test Suara</button>
+          <button class="btn-action btn-reset" id="btnReset" onclick="resetJadwal()"> Reset</button>
+          
+          <!-- Tombol Test Individual -->
+          <button class="btn-action" onclick="testBelManual('mulai')" style="background: #3b82f6; color: white;">🧪 Test Masuk</button>
+          <button class="btn-action" onclick="testBelManual('istirahat')" style="background: #f59e0b; color: white;"> Test Istirahat</button>
+          <button class="btn-action" onclick="testBelManual('lanjut')" style="background: #10b981; color: white;">🧪 Test Lanjut</button>
+          <button class="btn-action" onclick="testBelManual('pulang')" style="background: #ef4444; color: white;">🧪 Test Pulang</button>
         </div>
       </div>
 
@@ -337,8 +322,8 @@ function renderUI(container) {
 
       <!-- Bel Indicator -->
       <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 8px; text-align: center;" id="belIndicator">
-        <div style="font-size: 14px; color: #831843; margin-bottom: 5px;"> Status Bel Otomatis</div>
-        <div style="font-size: 18px; font-weight: 700; color: #be185d;" id="belStatus">️ Non-aktif</div>
+        <div style="font-size: 14px; color: #831843; margin-bottom: 5px;">🔔 Status Bel Otomatis</div>
+        <div style="font-size: 18px; font-weight: 700; color: #be185d;" id="belStatus">⏸️ Non-aktif</div>
         <div style="font-size: 12px; color: #64748b; margin-top: 5px;" id="belNextTime">Bel berikutnya: -</div>
       </div>
     </div>
@@ -414,7 +399,7 @@ function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
   if (isIstirahat) {
     cell.className = 'mapel-cell istirahat';
     cell.innerHTML = `
-      <span class="mapel-name">🕐 ISTIRAHAT</span>
+      <span class="mapel-name"> ISTIRAHAT</span>
       <span class="mapel-guru">-</span>
     `;
     cell.onclick = null;
@@ -510,7 +495,7 @@ window.saveJadwal = async function() {
     showToast('✅ Jadwal & Bel berhasil disimpan!');
   } catch (error) {
     console.error('Error save:', error);
-    alert('❌ Gagal menyimpan: ' + error.message);
+    alert(' Gagal menyimpan: ' + error.message);
   }
 };
 
@@ -621,13 +606,41 @@ window.downloadWord = function() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   
-  showToast(' File Word berhasil diunduh!');
+  showToast('📥 File Word berhasil diunduh!');
 };
 
-window.testBel = function() {
-  const text = document.getElementById('txtBelMulai')?.value || "Selamat pagi, ayo masuk kelas!";
+/**
+ * Test Bel Manual - Langsung putar teks dari input
+ */
+window.testBelManual = function(belType) {
+  const texts = {
+    mulai: document.getElementById('txtBelMulai')?.value,
+    istirahat: document.getElementById('txtBelIstirahat1')?.value,
+    lanjut: document.getElementById('txtBelLanjut')?.value,
+    pulang: document.getElementById('txtBelPulang')?.value
+  };
+  
+  const titles = {
+    mulai: '🔔 Bel Masuk Kelas',
+    istirahat: '☕ Bel Istirahat',
+    lanjut: '📚 Bel Masuk Kembali',
+    pulang: '🏠 Bel Pulang'
+  };
+  
+  const text = texts[belType];
+  const title = titles[belType];
+  
+  if (!text) {
+    alert('⚠️ Teks bel kosong!');
+    return;
+  }
+  
+  console.log(`🧪 Test manual: ${title}`);
+  console.log(`📝 Teks: "${text}"`);
+  
   speakText(text);
-  showToast('️ Test suara: ' + text);
+  showBelNotification(title, text);
+  showToast(` Test ${title}: "${text}"`);
 };
 
 function speakText(text) {
@@ -660,7 +673,6 @@ function speakText(text) {
 function startBelOtomatis() {
   if (belInterval) clearInterval(belInterval);
   
-  // Reset flag
   lastBelMinute = '';
   
   belInterval = setInterval(() => {
@@ -689,22 +701,28 @@ function stopBelOtomatis() {
 }
 
 /**
- * Check waktu bel - DENGAN FLAG ANTI-DUPLIKASI
+ * Check waktu bel - DENGAN DEBUGGING & REAL-TIME TEXT
  */
 function checkBelTime() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
   const currentTime = `${hours}:${minutes}`;
-  const currentSecond = now.getSeconds();
+  
+  // Debug log
+  console.log(`⏰ Check bel: ${currentTime}:${seconds}`);
   
   // Hanya check di detik ke-0
-  if (currentSecond !== 0) return;
+  if (seconds !== '00') return;
   
   // Cegah bel berbunyi 2x di menit yang sama
-  if (lastBelMinute === currentTime) return;
+  if (lastBelMinute === currentTime) {
+    console.log('️ Skip - Sudah berbunyi di menit ini');
+    return;
+  }
   
-  // Ambil semua waktu bel dan teksnya
+  // Baca waktu dan teks BEL SAAT INI JUGA (real-time)
   const belConfigs = [
     { 
       id: 'mulai',
@@ -722,7 +740,7 @@ function checkBelTime() {
       id: 'lanjut',
       time: document.getElementById('inpBelLanjut')?.value,
       text: document.getElementById('txtBelLanjut')?.value,
-      title: ' Bel Masuk Kembali'
+      title: '📚 Bel Masuk Kembali'
     },
     { 
       id: 'pulang',
@@ -732,12 +750,29 @@ function checkBelTime() {
     }
   ];
   
-  // Cari bel yang harus berbunyi
-  const activeBel = belConfigs.find(bel => bel.time === currentTime);
+  // Debug: Tampilkan semua konfigurasi bel
+  console.log('📋 Konfigurasi bel:', belConfigs);
   
-  if (activeBel && activeBel.text) {
+  // Cari bel yang harus berbunyi
+  const activeBel = belConfigs.find(bel => {
+    const match = bel.time === currentTime;
+    if (match) {
+      console.log(`✅ Bel ditemukan: ${bel.id} - Waktu: ${bel.time} - Teks: "${bel.text}"`);
+    }
+    return match;
+  });
+  
+  if (activeBel) {
+    if (!activeBel.text || activeBel.text.trim() === '') {
+      console.warn('⚠️ Bel tidak ada teks!');
+      return;
+    }
+    
     // Set flag agar tidak ter-trigger lagi di menit ini
     lastBelMinute = currentTime;
+    
+    console.log(`🔔 MEMUTAR BEL: ${activeBel.title}`);
+    console.log(`📝 Teks: "${activeBel.text}"`);
     
     // Putar suara
     speakText(activeBel.text);
@@ -747,8 +782,8 @@ function checkBelTime() {
     
     // Update next bel time
     updateNextBelTime();
-    
-    console.log(`🔔 Bel aktif: ${activeBel.title} - "${activeBel.text}"`);
+  } else {
+    console.log('❌ Tidak ada bel yang aktif saat ini');
   }
 }
 
@@ -757,7 +792,7 @@ function showBelNotification(title, message) {
   notif.innerHTML = `
     <div class="bell-notif-overlay"></div>
     <div class="bell-notif-content">
-      <div class="bell-notif-icon"></div>
+      <div class="bell-notif-icon">🔔</div>
       <div class="bell-notif-title">${title}</div>
       <div class="bell-notif-time">${message}</div>
       <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">${new Date().toLocaleTimeString('id-ID')}</div>
