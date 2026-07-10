@@ -6,13 +6,11 @@
 // =========================================
 
 // Konfigurasi URL Audio (Sesuaikan jika path berbeda)
-const BASE_AUDIO_URL = 'https://hasriandibasir80-rgb.github.io/SDN139LAMANDA/assets/audio/';
-
 const DAFTAR_BEL = [
-  { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '🔔', file: 'bel-masuk.mp3', warna: '#3b82f6' },
-  { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'bel-istirahat.mp3', warna: '#f59e0b' },
-  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '📚', file: 'bel-lanjut.mp3', warna: '#10b981' },
-  { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'bel-pulang.mp3', warna: '#ef4444' }
+  { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav', warna: '#3b82f6' },
+  { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-04.wav', warna: '#f59e0b' },
+  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '📚', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-03.wav', warna: '#10b981' },
+  { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-02.wav', warna: '#ef4444' }
 ];
 
 // State Audio
