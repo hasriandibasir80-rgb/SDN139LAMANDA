@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kontrol Bel Sekolah - SDN 139 LAMANDA</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    .back-button {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: white;
+      color: #1e3a8a;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    .back-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+    #app {
+      padding: 100px 20px 20px;
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-button">← Kembali ke Dashboard</a>
+  <div id="app"></div>
+
+  <script type="module">
+    import { init } from './modules/kontrol-bel/kontrol-bel.js';
+    init(document.getElementById('app'));
+  </script>
+</body>
+</html>
