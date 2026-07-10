@@ -3,7 +3,7 @@
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // TEMA: PINK ELEGANT
 // API: Groq (LLaMA 3.3)
-// DENGAN DOWNLOAD WORD FORMAT
+// DENGAN DOWNLOAD WORD FORMAT (FINAL)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -313,7 +313,7 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2> Generator Modul Ajar AI</h2>
+        <h2>🤖 Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
           ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
         </p>
@@ -323,7 +323,7 @@ function renderUI(container) {
         <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👤 Nama Guru / Penyusun</label>
+            <label> Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
@@ -366,10 +366,10 @@ function renderUI(container) {
           <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">✍️ 2. Tanda Tangan</div>
+        <div class="form-section-title">️ 2. Tanda Tangan</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👨💼 Nama Kepala Sekolah</label>
+            <label>👨‍💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -379,7 +379,7 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩‍🏫 Nama Guru Pengampu</label>
+            <label>👩‍ Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
@@ -427,7 +427,7 @@ function renderUI(container) {
       <div class="output-area" id="outputArea">
         <div class="output-header">
           <h3>📄 Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
@@ -494,7 +494,7 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('️ API Key tidak tersedia.');
+    alert('⚠️ API Key tidak tersedia.');
     return;
   }
 
@@ -671,7 +671,7 @@ function exitEditMode() {
 }
 
 /**
- * Download sebagai Word Document (.doc)
+ * Download sebagai Word Document (.doc) - FINAL VERSION
  */
 function handleDownloadWord() {
   const content = document.getElementById('outputContent').innerText;
@@ -689,6 +689,7 @@ function handleDownloadWord() {
   const nipKepsek = document.getElementById('inpNipKepsek').value || '-';
   const namaGuruPengampu = document.getElementById('inpGuruPengampu').value || '_______________________';
   const nipGuruPengampu = document.getElementById('inpNipGuru').value || '-';
+  const waktu = document.getElementById('inpWaktu').value || '-';
   
   // Format HTML untuk Word
   let htmlContent = `
@@ -708,34 +709,131 @@ function handleDownloadWord() {
       </xml>
       <![endif]-->
       <style>
-        @page { size: A4; margin: 2cm; }
-        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
-        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
-        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
-        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
-        h4 { font-size: 11pt; font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
-        p { margin: 5px 0; text-align: justify; }
-        ul, ol { margin: 10px 0; padding-left: 30px; }
-        li { margin: 5px 0; }
-        .header-info table { border: none; width: auto; margin: 0 auto; }
-        .header-info td { border: none; padding: 3px 5px; font-size: 11pt; }
-        .ttd-section { display: table; width: 100%; margin-top: 40px; }
-        .ttd-box { display: table-cell; width: 50%; text-align: center; vertical-align: top; }
-        .ttd-role { font-weight: bold; margin-bottom: 80px; }
-        .ttd-name { border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
-        .page-break { page-break-after: always; }
+        @page { size: A4; margin: 2.5cm 2cm 2cm 2cm; }
+        body { 
+          font-family: 'Times New Roman', Times, serif; 
+          font-size: 12pt; 
+          margin: 0; 
+          line-height: 1.6;
+          text-align: justify;
+        }
+        h1 { 
+          text-align: center; 
+          font-size: 16pt; 
+          font-weight: bold; 
+          margin: 0 0 5px 0; 
+          text-transform: uppercase;
+          line-height: 1.3;
+        }
+        .header-info {
+          text-align: center;
+          margin-bottom: 30px;
+          padding-bottom: 15px;
+          border-bottom: 2px solid #000;
+        }
+        .header-info table { 
+          border: none; 
+          width: 80%; 
+          margin: 15px auto; 
+          font-size: 11pt;
+        }
+        .header-info td { 
+          border: none; 
+          padding: 3px 5px; 
+          text-align: left;
+        }
+        .header-info td:first-child {
+          width: 35%;
+          font-weight: bold;
+        }
+        h2 { 
+          font-size: 13pt; 
+          font-weight: bold; 
+          margin: 20px 0 10px 0;
+          border-bottom: 1px solid #000;
+          padding-bottom: 3px;
+        }
+        h3 { 
+          font-size: 12pt; 
+          font-weight: bold; 
+          margin: 15px 0 8px 0;
+        }
+        h4 { 
+          font-size: 11pt; 
+          font-weight: bold; 
+          margin: 12px 0 5px 0;
+        }
+        p { 
+          margin: 5px 0; 
+          text-indent: 0;
+        }
+        ul, ol { 
+          margin: 8px 0; 
+          padding-left: 30px; 
+        }
+        li { 
+          margin: 4px 0; 
+          line-height: 1.5;
+        }
+        .ttd-section { 
+          margin-top: 40px; 
+          margin-bottom: 20px;
+          page-break-inside: avoid;
+        }
+        .ttd-table {
+          width: 100%;
+          border: none;
+          border-collapse: collapse;
+        }
+        .ttd-table td {
+          width: 50%;
+          vertical-align: top;
+          text-align: center;
+          padding: 10px;
+          border: none;
+        }
+        .ttd-label {
+          font-size: 11pt;
+          margin-bottom: 5px;
+        }
+        .ttd-role {
+          font-weight: bold;
+          font-size: 11pt;
+          margin-bottom: 60px;
+          line-height: 1.4;
+        }
+        .ttd-name {
+          font-weight: bold;
+          font-size: 11pt;
+          border-bottom: 1px solid #000;
+          display: inline-block;
+          min-width: 200px;
+          margin-bottom: 5px;
+          padding-bottom: 2px;
+        }
+        .ttd-nip {
+          font-size: 10pt;
+        }
+        .footer-note {
+          margin-top: 30px;
+          font-size: 9pt;
+          color: #666;
+          text-align: right;
+          font-style: italic;
+        }
       </style>
     </head>
     <body>
-      <div class="header-info" style="text-align: center; margin-bottom: 30px;">
+      <!-- Header Info -->
+      <div class="header-info">
         <h1>MODUL AJAR</h1>
-        <h2>${topik.toUpperCase()}</h2>
-        <table style="margin: 15px auto; border: none;">
-          <tr><td style="border: none;"><strong>Sekolah</strong></td><td style="border: none;">: ${sekolah}</td></tr>
-          <tr><td style="border: none;"><strong>Mata Pelajaran</strong></td><td style="border: none;">: ${mapel}</td></tr>
-          <tr><td style="border: none;"><strong>Kelas/Semester</strong></td><td style="border: none;">: ${kelas} / Semester ${labelSemester}</td></tr>
-          <tr><td style="border: none;"><strong>Alokasi Waktu</strong></td><td style="border: none;">: ${document.getElementById('inpWaktu').value}</td></tr>
-          <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${namaGuru}</td></tr>
+        <h1>${topik.toUpperCase()}</h1>
+        <table>
+          <tr><td>Sekolah</td><td>: ${sekolah}</td></tr>
+          <tr><td>Mata Pelajaran</td><td>: ${mapel}</td></tr>
+          <tr><td>Kelas/Semester</td><td>: ${kelas} / Semester ${labelSemester}</td></tr>
+          <tr><td>Alokasi Waktu</td><td>: ${waktu}</td></tr>
+          <tr><td>Guru Pengampu</td><td>: ${namaGuru}</td></tr>
         </table>
       </div>
   `;
@@ -753,26 +851,30 @@ function handleDownloadWord() {
 
   htmlContent += formattedContent;
 
-  // Tanda Tangan
+  // Tanda Tangan - Side by Side
   htmlContent += `
     <div class="ttd-section">
-      <div class="ttd-box">
-        <div>Mengetahui,</div>
-        <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
-        <div class="ttd-name">${namaKepsek}</div>
-        <div>NIP: ${nipKepsek}</div>
-      </div>
-      <div class="ttd-box">
-        <div>Guru Pengampu,</div>
-        <div class="ttd-role">Guru Mata Pelajaran</div>
-        <div class="ttd-name">${namaGuruPengampu}</div>
-        <div>NIP: ${nipGuruPengampu}</div>
-      </div>
+      <table class="ttd-table">
+        <tr>
+          <td>
+            <div class="ttd-label">Mengetahui,</div>
+            <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+            <div class="ttd-name">${namaKepsek}</div>
+            <div class="ttd-nip">NIP: ${nipKepsek}</div>
+          </td>
+          <td>
+            <div class="ttd-label">Guru Pengampu,</div>
+            <div class="ttd-role">Guru Mata Pelajaran</div>
+            <div class="ttd-name">${namaGuruPengampu}</div>
+            <div class="ttd-nip">NIP: ${nipGuruPengampu}</div>
+          </td>
+        </tr>
+      </table>
     </div>
 
-    <div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;">
-      <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
-      <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    <div class="footer-note">
+      Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran<br>
+      SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
     </div>
     </body>
     </html>
