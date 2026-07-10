@@ -2,6 +2,7 @@
 // =========================================
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // STRUKTUR: A. Informasi Umum, B. Komponen Inti, C. Penutup, D. Lampiran
+// TANDA TANGAN: Default persisten (localStorage), bisa diedit
 // DOWNLOAD WORD: Tanpa angka "1." di awal
 // =========================================
 
@@ -23,6 +24,14 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 const CSS_ID = 'modul-ajar-css';
 let storedApiKey = null;
 
+// Default data tanda tangan (akan di-override oleh localStorage jika ada)
+const DEFAULT_TTD = {
+  namaKepsek: 'Imam munandar SP.d',
+  nipKepsek: '-',
+  namaGuru: 'Hasriandi basir SP.d',
+  nipGuru: '-'
+};
+
 /**
  * Init
  */
@@ -31,6 +40,7 @@ export async function init(container, db) {
   renderUI(container);
   attachEvents();
   await loadApiKeyFromFirestore();
+  loadTTDDefaults(); // Load data tanda tangan default
 }
 
 export function cleanup() {
@@ -172,7 +182,6 @@ function loadCSS() {
     .output-content ul, .output-content ol { padding-left: 30px; }
     .output-content li { margin-bottom: 8px; }
     
-    /* Tanda Tangan Section */
     .ttd-section {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -306,6 +315,56 @@ async function loadApiKeyFromFirestore() {
   }
 }
 
+/**
+ * Load Data Tanda Tangan Default dari localStorage
+ * Jika belum ada, pakai DEFAULT_TTD
+ */
+function loadTTDDefaults() {
+  const saved = localStorage.getItem('modulAjar_ttd');
+  let ttdData = { ...DEFAULT_TTD };
+  
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      ttdData = { ...ttdData, ...parsed };
+    } catch (e) {
+      console.warn('Gagal parse TTD data:', e);
+    }
+  }
+  
+  // Isi field dengan data default
+  const fields = {
+    inpKepsek: ttdData.namaKepsek,
+    inpNipKepsek: ttdData.nipKepsek,
+    inpGuruPengampu: ttdData.namaGuru,
+    inpNipGuru: ttdData.nipGuru
+  };
+  
+  Object.entries(fields).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+  
+  // Update preview tanda tangan
+  updateTTDPreview();
+  
+  console.log('✅ TTD defaults loaded:', ttdData);
+}
+
+/**
+ * Save Data Tanda Tangan ke localStorage
+ */
+function saveTTDDefaults() {
+  const ttdData = {
+    namaKepsek: document.getElementById('inpKepsek')?.value || DEFAULT_TTD.namaKepsek,
+    nipKepsek: document.getElementById('inpNipKepsek')?.value || DEFAULT_TTD.nipKepsek,
+    namaGuru: document.getElementById('inpGuruPengampu')?.value || DEFAULT_TTD.namaGuru,
+    nipGuru: document.getElementById('inpNipGuru')?.value || DEFAULT_TTD.nipGuru
+  };
+  
+  localStorage.setItem('modulAjar_ttd', JSON.stringify(ttdData));
+}
+
 function renderUI(container) {
   const aiReady = storedApiKey ? true : false;
   
@@ -314,7 +373,7 @@ function renderUI(container) {
       <div class="gen-header">
         <h2> Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
-          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">️ API Key Belum Aktif</span>'}
+          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
         </p>
       </div>
 
@@ -323,10 +382,10 @@ function renderUI(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>👤 Nama Guru / Penyusun</label>
-            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
+            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || 'Hasriandi basir SP.d'}">
           </div>
           <div class="form-group">
-            <label> Satuan Pendidikan</label>
+            <label>🏫 Satuan Pendidikan</label>
             <input type="text" id="inpSekolah" class="form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
           </div>
         </div>
@@ -365,10 +424,10 @@ function renderUI(container) {
           <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">✍️ 2. Tanda Tangan</div>
+        <div class="form-section-title">✍️ 2. Tanda Tangan (Default - Bisa Diedit)</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>‍💼 Nama Kepala Sekolah</label>
+            <label>👨‍💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -378,16 +437,16 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩🏫 Nama Guru Pengampu</label>
-            <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu" value="${currentUser.namaLengkap || currentUser.nama || ''}">
+            <label>👩‍🏫 Nama Guru Pengampu</label>
+            <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label> NIP Guru Pengampu</label>
+            <label>🔢 NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
 
-        <div class="form-section-title"> 3. Komponen Inti</div>
+        <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
           <label>📖 Capaian Pembelajaran (CP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -425,8 +484,8 @@ function renderUI(container) {
 
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3> Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
+          <h3>📄 Hasil Generate</h3>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
@@ -449,8 +508,8 @@ function renderUI(container) {
         <div class="output-actions-bar">
           <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
-          <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
-          <button class="btn-action btn-download" id="btnDownload">📥 Download Word</button>
+          <button class="btn-action btn-edit" id="btnEdit">️ Edit</button>
+          <button class="btn-action btn-download" id="btnDownload"> Download Word</button>
         </div>
       </div>
     </div>
@@ -464,12 +523,15 @@ function attachEvents() {
   document.getElementById('btnEdit').addEventListener('click', toggleEditMode);
   document.getElementById('btnDownload').addEventListener('click', handleDownloadWord);
   
-  // Auto-update tanda tangan saat input berubah
-  const inputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
-  inputs.forEach(id => {
+  // Auto-update tanda tangan saat input berubah + auto-save ke localStorage
+  const ttdInputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
+  ttdInputs.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
-      el.addEventListener('input', updateTTDPreview);
+      el.addEventListener('input', () => {
+        updateTTDPreview();
+        saveTTDDefaults(); // Auto-save setiap kali user mengetik
+      });
     }
   });
 }
@@ -522,7 +584,6 @@ async function handleGenerate() {
   document.getElementById('outputArea').style.display = 'none';
   document.getElementById('btnGenerate').disabled = true;
 
-  // ✅ PROMPT DENGAN STRUKTUR A, B, C, D
   const prompt = `
     Bertindaklah sebagai Guru Ahli Kurikulum Merdeka di Indonesia. 
     Buatkan draf MODUL AJAR lengkap dan profesional berdasarkan data berikut:
@@ -540,7 +601,7 @@ async function handleGenerate() {
     - Karakteristik Siswa: ${data.karakteristik}
 
     INSTRUKSI OUTPUT:
-    WAJIB gunakan struktur berikut dengan heading yang JELAS (tanpa nomor urut 1, 2, 3 di awal):
+    WAJIB gunakan struktur berikut dengan heading yang JELAS:
 
     # MODUL AJAR
 
@@ -592,7 +653,6 @@ async function handleGenerate() {
     - Kegiatan pembelajaran harus AKTIF, kreatif, dan berpusat pada siswa
     - Asesmen harus autentik dan beragam
     - Pastikan alur kegiatan logis dan terukur waktunya
-    - JANGAN gunakan nomor urut (1., 2., 3.) di awal heading utama
   `;
 
   try {
@@ -624,7 +684,6 @@ async function handleGenerate() {
     document.getElementById('outputContent').innerText = aiText;
     document.getElementById('outputArea').style.display = 'block';
     
-    // Update tanda tangan
     updateTTDPreview();
     
     document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -677,8 +736,7 @@ function exitEditMode() {
 }
 
 /**
- * Download sebagai Word Document (.doc) - FINAL VERSION
- * TANPA angka "1." di awal dokumen
+ * Download sebagai Word Document (.doc)
  */
 function handleDownloadWord() {
   const content = document.getElementById('outputContent').innerText;
@@ -698,7 +756,6 @@ function handleDownloadWord() {
   const nipGuruPengampu = document.getElementById('inpNipGuru').value || '-';
   const waktu = document.getElementById('inpWaktu').value || '-';
   
-  // Format HTML untuk Word
   let htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' 
           xmlns:w='urn:schemas-microsoft-com:office:word' 
@@ -830,7 +887,6 @@ function handleDownloadWord() {
       </style>
     </head>
     <body>
-      <!-- Header Info -->
       <div class="header-info">
         <h1>MODUL AJAR</h1>
         <h2>${topik.toUpperCase()}</h2>
@@ -844,23 +900,20 @@ function handleDownloadWord() {
       </div>
   `;
 
-  // ✅ Convert markdown ke HTML - TANPA regex numbered list
-  // Hanya handle: bold, italic, line break, dan bullet points
+  // Convert markdown ke HTML - TANPA regex numbered list
   let formattedContent = content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')            // Heading 2
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')           // Heading 3
-    .replace(/^# (.*$)/gim, '')                        // Hapus heading 1 (sudah ada di header)
-    .replace(/^[-•] (.*$)/gim, '<ul><li>$1</li></ul>') // Bullet points
-    .replace(/\n/gim, '<br>');                         // Line break
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^# (.*$)/gim, '')
+    .replace(/^[-•] (.*$)/gim, '<ul><li>$1</li></ul>')
+    .replace(/\n/gim, '<br>');
 
-  // Bersihkan duplikasi <ul> yang berdekatan
   formattedContent = formattedContent.replace(/<\/ul>\s*<ul>/gim, '');
 
   htmlContent += formattedContent;
 
-  // Tanda Tangan - Side by Side
   htmlContent += `
     <div class="ttd-section">
       <table class="ttd-table">
