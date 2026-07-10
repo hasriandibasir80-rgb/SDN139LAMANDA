@@ -3,7 +3,7 @@
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // TEMA: PINK ELEGANT
 // API: Groq (LLaMA 3.3)
-// DENGAN TANDA TANGAN KEPALA SEKOLAH & GURU
+// DENGAN DOWNLOAD WORD FORMAT
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -303,7 +303,7 @@ async function loadApiKeyFromFirestore() {
     
     console.log('✅ API Key loaded:', storedApiKey ? 'Available' : 'Not found');
   } catch (error) {
-    console.error(' Error load API key:', error);
+    console.error('❌ Error load API key:', error);
   }
 }
 
@@ -313,7 +313,7 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2>🤖 Generator Modul Ajar AI</h2>
+        <h2> Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
           ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
         </p>
@@ -323,7 +323,7 @@ function renderUI(container) {
         <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Nama Guru / Penyusun</label>
+            <label>👤 Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
@@ -337,6 +337,15 @@ function renderUI(container) {
             <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
           </div>
           <div class="form-group">
+            <label>🎓 Semester</label>
+            <select id="inpSemester" class="form-control">
+              <option value="1">Semester 1 (Ganjil)</option>
+              <option value="2">Semester 2 (Genap)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
             <label>🎓 Kelas / Fase</label>
             <select id="inpKelas" class="form-control">
               <option value="1 (Fase A)">Kelas 1 (Fase A)</option>
@@ -347,22 +356,20 @@ function renderUI(container) {
               <option value="6 (Fase C)">Kelas 6 (Fase C)</option>
             </select>
           </div>
-        </div>
-        <div class="form-grid">
           <div class="form-group">
             <label>📝 Topik / Judul Modul</label>
             <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
           </div>
-          <div class="form-group">
-            <label>⏰ Alokasi Waktu</label>
-            <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
-          </div>
+        </div>
+        <div class="form-group">
+          <label>⏰ Alokasi Waktu</label>
+          <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">️ 2. Tanda Tangan (Otomatis terisi di output)</div>
+        <div class="form-section-title">✍️ 2. Tanda Tangan</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👨‍💼 Nama Kepala Sekolah</label>
+            <label>👨💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -383,7 +390,7 @@ function renderUI(container) {
 
         <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
-          <label> Capaian Pembelajaran (CP) - <i>Opsional</i></label>
+          <label>📖 Capaian Pembelajaran (CP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
@@ -420,7 +427,7 @@ function renderUI(container) {
       <div class="output-area" id="outputArea">
         <div class="output-header">
           <h3>📄 Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
@@ -444,7 +451,7 @@ function renderUI(container) {
           <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
           <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
-          <button class="btn-action btn-download" id="btnDownload">⬇️ Unduh</button>
+          <button class="btn-action btn-download" id="btnDownload">📥 Download Word</button>
         </div>
       </div>
     </div>
@@ -456,7 +463,7 @@ function attachEvents() {
   document.getElementById('btnPrint').addEventListener('click', handlePrint);
   document.getElementById('btnSaveDb').addEventListener('click', saveToDatabase);
   document.getElementById('btnEdit').addEventListener('click', toggleEditMode);
-  document.getElementById('btnDownload').addEventListener('click', handleDownload);
+  document.getElementById('btnDownload').addEventListener('click', handleDownloadWord);
   
   // Auto-update tanda tangan saat input berubah
   const inputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
@@ -487,15 +494,19 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ API Key tidak tersedia.');
+    alert('️ API Key tidak tersedia.');
     return;
   }
+
+  const semester = document.getElementById('inpSemester').value;
+  const labelSemester = semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
 
   const data = {
     guru: document.getElementById('inpGuru').value || '[Nama Guru]',
     sekolah: document.getElementById('inpSekolah').value || 'SDN 139 LAMANDA',
     mapel: document.getElementById('inpMapel').value,
     kelas: document.getElementById('inpKelas').value,
+    semester: labelSemester,
     topik: document.getElementById('inpTopik').value,
     waktu: document.getElementById('inpWaktu').value,
     cp: document.getElementById('inpCP').value || 'Sesuaikan dengan fase dan kelas yang dipilih.',
@@ -521,6 +532,7 @@ async function handleGenerate() {
     - Sekolah: ${data.sekolah}
     - Mata Pelajaran: ${data.mapel}
     - Kelas/Fase: ${data.kelas}
+    - Semester: ${data.semester}
     - Topik: ${data.topik}
     - Alokasi Waktu: ${data.waktu}
     - Model Pembelajaran: ${data.model}
@@ -533,26 +545,48 @@ async function handleGenerate() {
     # MODUL AJAR: ${data.topik.toUpperCase()}
 
     ## A. INFORMASI UMUM
-    1. Identitas Modul
-    2. Kompetensi Awal
-    3. Profil Pelajar Pancasila (PILIH 2-3 dimensi yang PALING RELEVAN)
-    4. Sarana dan Prasarana
-    5. Target Peserta Didik
-    6. Model Pembelajaran
+    1. **Nama Sekolah**: ${data.sekolah}
+    2. **Penyusun**: ${data.guru}
+    3. **Mata Pelajaran**: ${data.mapel}
+    4. **Topik/Materi**: ${data.topik}
+    5. **Semester**: ${data.semester}
+    6. **Kelas/Fase**: ${data.kelas}
+    7. **Alokasi Waktu**: ${data.waktu}
+    8. **Kompetensi Awal**: (jelaskan kompetensi yang harus dimiliki siswa sebelum mempelajari topik ini)
+    9. **Profil Pelajar Pancasila**: (PILIH 2-3 dimensi yang PALING RELEVAN dengan topik ini, jelaskan alasannya)
+    10. **Sarana dan Prasarana**: (sebutkan sarana prasarana yang dibutuhkan)
+    11. **Target Peserta Didik**: (sesuaikan dengan karakteristik: ${data.karakteristik})
+    12. **Model Pembelajaran**: ${data.model}
 
     ## B. KOMPONEN INTI
-    1. Tujuan Pembelajaran (3-5 tujuan)
-    2. Pemahaman Bermakna
-    3. Pertanyaan Pemantik
-    4. Kegiatan Pembelajaran (Pendahuluan, Inti, Penutup)
-    5. Asesmen
-    6. Pengayaan dan Remedial
+    1. **Tujuan Pembelajaran** (3-5 tujuan spesifik, terukur, dan operasional)
+    2. **Pemahaman Bermakna** (manfaat yang akan diperoleh siswa dalam kehidupan sehari-hari)
+    3. **Pertanyaan Pemantik** (3-5 pertanyaan esensial untuk memancing rasa ingin tahu)
+    4. **Kegiatan Pembelajaran**:
+       - **Pertemuan 1**: 
+         * Pendahuluan (10 menit)
+         * Inti (50 menit) - JELaskan detail aktivitas guru dan siswa sesuai model ${data.model}
+         * Penutup (10 menit)
+       - **Pertemuan 2**: (jika alokasi waktu > 1x pertemuan)
+    5. **Asesmen**:
+       - Asesmen Diagnostik (sebelum pembelajaran)
+       - Asesmen Formatif (selama pembelajaran)
+       - Asesmen Sumatif (akhir pembelajaran)
+    6. **Pengayaan dan Remedial**: (program untuk siswa yang sudah/tbelum mencapai tujuan)
 
     ## C. LAMPIRAN
-    1. LKPD
-    2. Bahan Bacaan
-    3. Glosarium
-    4. Daftar Pustaka
+    1. **Lembar Kerja Peserta Didik (LKPD)** - Buatkan 1 contoh LKPD sederhana yang relevan dengan topik
+    2. **Bahan Bacaan Guru dan Peserta Didik** (materi pendukung)
+    3. **Glosarium** (5-10 istilah penting beserta definisinya)
+    4. **Daftar Pustaka** (referensi yang digunakan)
+
+    CATATAN PENTING:
+    - Gunakan bahasa Indonesia formal dan edukatif
+    - Sesuaikan dengan fase perkembangan siswa (${data.kelas})
+    - Kegiatan pembelajaran harus AKTIF, kreatif, inovatif, dan berpusat pada siswa
+    - Asesmen harus autentik dan beragam (observasi, tes, portofolio, dll)
+    - Pastikan alur kegiatan logis dan terukur waktunya
+    - Integrasi nilai-nilai Profil Pelajar Pancasila dalam kegiatan
   `;
 
   try {
@@ -631,12 +665,15 @@ function exitEditMode() {
   
   contentEl.contentEditable = false;
   contentEl.classList.remove('editing');
-  editBtn.innerHTML = '️ Edit';
+  editBtn.innerHTML = '✏️ Edit';
   editBtn.classList.remove('active');
   indicator.style.display = 'none';
 }
 
-function handleDownload() {
+/**
+ * Download sebagai Word Document (.doc)
+ */
+function handleDownloadWord() {
   const content = document.getElementById('outputContent').innerText;
   if (!content) { alert('Tidak ada konten untuk diunduh!'); return; }
   exitEditMode();
@@ -644,27 +681,114 @@ function handleDownload() {
   const topik = document.getElementById('inpTopik').value || 'Modul-Ajar';
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const kelas = document.getElementById('inpKelas').value.split(' ')[0] || 'X';
+  const semester = document.getElementById('inpSemester').value;
+  const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
   const sekolah = document.getElementById('inpSekolah').value || 'SDN 139 LAMANDA';
+  const namaGuru = document.getElementById('inpGuru').value || 'Guru';
   const namaKepsek = document.getElementById('inpKepsek').value || '_______________________';
   const nipKepsek = document.getElementById('inpNipKepsek').value || '-';
-  const namaGuru = document.getElementById('inpGuruPengampu').value || '_______________________';
-  const nipGuru = document.getElementById('inpNipGuru').value || '-';
+  const namaGuruPengampu = document.getElementById('inpGuruPengampu').value || '_______________________';
+  const nipGuruPengampu = document.getElementById('inpNipGuru').value || '-';
   
-  const header = `===============================================\nMODUL AJAR KURIKULUM MERDEKA\n===============================================\nMata Pelajaran : ${mapel}\nKelas/Fase     : ${kelas}\nTopik          : ${topik}\nSekolah        : ${sekolah}\nPenyusun       : ${document.getElementById('inpGuru').value}\nTanggal        : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}\n===============================================\n\n`;
+  // Format HTML untuk Word
+  let htmlContent = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+          xmlns:w='urn:schemas-microsoft-com:office:word' 
+          xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>Modul Ajar - ${topik}</title>
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>100</w:Zoom>
+          <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
+      <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
+        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        h4 { font-size: 11pt; font-weight: bold; margin-top: 15px; margin-bottom: 8px; }
+        p { margin: 5px 0; text-align: justify; }
+        ul, ol { margin: 10px 0; padding-left: 30px; }
+        li { margin: 5px 0; }
+        .header-info table { border: none; width: auto; margin: 0 auto; }
+        .header-info td { border: none; padding: 3px 5px; font-size: 11pt; }
+        .ttd-section { display: table; width: 100%; margin-top: 40px; }
+        .ttd-box { display: table-cell; width: 50%; text-align: center; vertical-align: top; }
+        .ttd-role { font-weight: bold; margin-bottom: 80px; }
+        .ttd-name { border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
+        .page-break { page-break-after: always; }
+      </style>
+    </head>
+    <body>
+      <div class="header-info" style="text-align: center; margin-bottom: 30px;">
+        <h1>MODUL AJAR</h1>
+        <h2>${topik.toUpperCase()}</h2>
+        <table style="margin: 15px auto; border: none;">
+          <tr><td style="border: none;"><strong>Sekolah</strong></td><td style="border: none;">: ${sekolah}</td></tr>
+          <tr><td style="border: none;"><strong>Mata Pelajaran</strong></td><td style="border: none;">: ${mapel}</td></tr>
+          <tr><td style="border: none;"><strong>Kelas/Semester</strong></td><td style="border: none;">: ${kelas} / Semester ${labelSemester}</td></tr>
+          <tr><td style="border: none;"><strong>Alokasi Waktu</strong></td><td style="border: none;">: ${document.getElementById('inpWaktu').value}</td></tr>
+          <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${namaGuru}</td></tr>
+        </table>
+      </div>
+  `;
 
-  const ttdFooter = `\n\n===============================================\nTANDA TANGAN\n===============================================\n\nMengetahui,                              Guru Pengampu,\nKepala Sekolah                           Guru Mata Pelajaran\nSDN 139 LAMANDA\n\n\n\n\n\n${namaKepsek.padEnd(40)} ${namaGuru}\nNIP: ${nipKepsek.padEnd(34)} NIP: ${nipGuru}\n`;
+  // Convert markdown ke HTML sederhana
+  let formattedContent = content
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+    .replace(/^\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+    .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
+    .replace(/^\d\. (.*$)/gim, '<ol><li>$1</li></ol>')
+    .replace(/\n/gim, '<br>');
 
-  const blob = new Blob([header + content + ttdFooter], { type: 'text/plain;charset=utf-8' });
+  htmlContent += formattedContent;
+
+  // Tanda Tangan
+  htmlContent += `
+    <div class="ttd-section">
+      <div class="ttd-box">
+        <div>Mengetahui,</div>
+        <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+        <div class="ttd-name">${namaKepsek}</div>
+        <div>NIP: ${nipKepsek}</div>
+      </div>
+      <div class="ttd-box">
+        <div>Guru Pengampu,</div>
+        <div class="ttd-role">Guru Mata Pelajaran</div>
+        <div class="ttd-name">${namaGuruPengampu}</div>
+        <div>NIP: ${nipGuruPengampu}</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;">
+      <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
+      <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Modul-Ajar-${mapel}-Kelas${kelas}-${topik.replace(/\s+/g, '-')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Modul_Ajar_${mapel}_Kelas${kelas}_Sem${semester}_${topik.replace(/\s+/g, '_')}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  
-  showToast('📥 File berhasil diunduh!');
+
+  showToast('📥 File Word berhasil diunduh!');
 }
 
 async function saveToDatabase() {
@@ -674,6 +798,7 @@ async function saveToDatabase() {
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const topik = document.getElementById('inpTopik').value || 'Tanpa Judul';
   const kelas = document.getElementById('inpKelas').value;
+  const semester = document.getElementById('inpSemester').value;
   const guru = document.getElementById('inpGuru').value || currentUser.nama || 'Anonim';
 
   if (!confirm(`Simpan modul ajar ini?\n\nMapel: ${mapel}\nTopik: ${topik}\nKelas: ${kelas}`)) return;
@@ -684,6 +809,7 @@ async function saveToDatabase() {
       judul: topik,
       mapel: mapel,
       kelas: kelas.split(' ')[0],
+      semester: semester,
       fase: kelas.includes('A') ? 'A' : kelas.includes('B') ? 'B' : 'C',
       guru: guru,
       sekolah: document.getElementById('inpSekolah').value,
