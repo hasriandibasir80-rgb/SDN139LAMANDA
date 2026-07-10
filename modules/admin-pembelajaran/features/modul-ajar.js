@@ -15,7 +15,8 @@ const database = getDatabase();
 const firestore = getFirestore();
 
 // State
-const CSS_ID = 'modul-ajar-gen-css';
+const CSS_PATH = '../../../css/modules/modul-ajar.css';
+const CSS_ID = 'modul-ajar-css';
 let storedApiKey = '';
 
 /**
@@ -31,6 +32,19 @@ export async function init(container, db) {
 export function cleanup() {
   const css = document.getElementById(CSS_ID);
   if (css) css.remove();
+}
+
+/**
+ * Load CSS Eksternal
+ */
+function loadCSS() {
+  if (document.getElementById(CSS_ID)) return;
+  
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = CSS_PATH;
+  link.id = CSS_ID;
+  document.head.appendChild(link);
 }
 
 /**
@@ -59,73 +73,17 @@ async function loadApiKeyFromFirestore() {
   }
 }
 
-function loadCSS() {
-  if (document.getElementById(CSS_ID)) return;
-  const style = document.createElement('style');
-  style.id = CSS_ID;
-  style.textContent = `
-    .gen-container { background: #f8fafc; border-radius: 12px; padding: 20px; font-family: 'Segoe UI', sans-serif; max-width: 1000px; margin: 0 auto; }
-    .gen-header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .gen-header h2 { margin: 0 0 5px 0; font-size: 24px; }
-    .gen-header p { margin: 0; opacity: 0.9; font-size: 14px; }
-    
-    /* Form Layout */
-    .gen-form { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .form-section-title { font-size: 16px; font-weight: 700; color: #4f46e5; margin: 20px 0 15px 0; border-bottom: 2px solid #e0e7ff; padding-bottom: 5px; }
-    .form-section-title:first-child { margin-top: 0; }
-    
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-    .form-group { margin-bottom: 15px; }
-    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #334155; }
-    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; transition: border-color 0.2s; }
-    .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
-    textarea.form-control { resize: vertical; min-height: 80px; }
-    
-    /* Action Button */
-    .gen-action { margin-top: 25px; text-align: center; }
-    .btn-generate { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); transition: transform 0.2s; display: inline-flex; align-items: center; gap: 10px; }
-    .btn-generate:hover:not(:disabled) { transform: translateY(-2px); }
-    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; background: #9ca3af; box-shadow: none; }
-    
-    /* Loading */
-    .loading-overlay { display: none; text-align: center; padding: 40px; background: white; border-radius: 12px; margin-top: 20px; }
-    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    
-    /* Output Area */
-    .output-area { display: none; margin-top: 20px; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-    .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; flex-wrap: wrap; gap: 10px; }
-    .output-actions { display: flex; gap: 10px; }
-    .output-content { line-height: 1.7; color: #334155; font-size: 14px; white-space: pre-wrap; font-family: 'Segoe UI', sans-serif; }
-    .output-content h1 { font-size: 20px; color: #1e293b; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
-    .output-content h2 { font-size: 17px; color: #4f46e5; margin-top: 20px; }
-    .output-content h3 { font-size: 15px; color: #6366f1; margin-top: 15px; }
-    .output-content ul, .output-content ol { padding-left: 25px; }
-    .output-content li { margin-bottom: 5px; }
-    .btn-copy { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
-    .btn-copy:hover { background: #0284c7; }
-    .btn-save-db { background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; }
-    .btn-save-db:hover { background: #059669; }
-    
-    @media (max-width: 768px) { 
-      .form-grid { grid-template-columns: 1fr; } 
-      .output-header { flex-direction: column; align-items: flex-start; }
-    }
-  `;
-  document.head.appendChild(style);
-}
-
 function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2> Generator Modul Ajar AI</h2>
+        <h2>🤖 Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.</p>
       </div>
 
       <!-- Form Input (Format Baku) -->
       <div class="gen-form">
-        <div class="form-section-title">📋 1. Informasi Umum</div>
+        <div class="form-section-title"> 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label>Nama Guru / Penyusun</label>
@@ -164,7 +122,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title">📚 2. Komponen Inti</div>
+        <div class="form-section-title"> 2. Komponen Inti</div>
         <div class="form-group">
           <label>Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
           <textarea id="inpCP" class="form-control" rows="3" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -204,13 +162,18 @@ function renderUI(container) {
       <!-- Output Result -->
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3 style="margin:0; color:#1e293b;"> Hasil Generate</h3>
-          <div class="output-actions">
-            <button class="btn-save-db" id="btnSaveDb">💾 Simpan ke DB</button>
-            <button class="btn-copy" id="btnCopy">📋 Salin Teks</button>
-          </div>
+          <h3 style="margin:0; color:#1e293b;">📄 Hasil Generate</h3>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
+        
+        <!-- Action Buttons di Bawah Output -->
+        <div class="output-actions-bar">
+          <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
+          <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
+          <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
+          <button class="btn-action btn-download" id="btnDownload">⬇️ Unduh</button>
+        </div>
       </div>
     </div>
   `;
@@ -220,16 +183,17 @@ function attachEvents() {
   // Generate Action
   document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
 
-  // Copy Action
-  document.getElementById('btnCopy').addEventListener('click', () => {
-    const text = document.getElementById('outputContent').innerText;
-    navigator.clipboard.writeText(text).then(() => {
-      showToast('✅ Teks berhasil disalin ke clipboard!');
-    });
-  });
+  // Print Action
+  document.getElementById('btnPrint').addEventListener('click', handlePrint);
 
   // Save to DB Action
   document.getElementById('btnSaveDb').addEventListener('click', saveToDatabase);
+
+  // Edit Action (Toggle)
+  document.getElementById('btnEdit').addEventListener('click', toggleEditMode);
+
+  // Download Action
+  document.getElementById('btnDownload').addEventListener('click', handleDownload);
 }
 
 async function handleGenerate() {
@@ -349,12 +313,115 @@ async function handleGenerate() {
     document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (error) {
-    alert('❌ Error: ' + error.message);
+    alert(' Error: ' + error.message);
     console.error(error);
   } finally {
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('btnGenerate').disabled = false;
   }
+}
+
+/**
+ * Print Modul Ajar
+ */
+function handlePrint() {
+  const content = document.getElementById('outputContent').innerText;
+  if (!content) {
+    alert('Tidak ada konten untuk dicetak!');
+    return;
+  }
+  
+  // Exit edit mode jika aktif
+  exitEditMode();
+  
+  window.print();
+}
+
+/**
+ * Toggle Edit Mode (Content Editable)
+ */
+function toggleEditMode() {
+  const contentEl = document.getElementById('outputContent');
+  const editBtn = document.getElementById('btnEdit');
+  const indicator = document.getElementById('editIndicator');
+  
+  if (contentEl.isContentEditable) {
+    // Exit Edit Mode
+    exitEditMode();
+    showToast('✅ Perubahan disimpan (lokal)');
+  } else {
+    // Enter Edit Mode
+    contentEl.contentEditable = true;
+    contentEl.classList.add('editing');
+    contentEl.focus();
+    editBtn.innerHTML = '✅ Selesai Edit';
+    editBtn.classList.add('active');
+    indicator.style.display = 'inline-block';
+    showToast('✏️ Mode Edit aktif. Klik "Selesai Edit" setelah selesai.');
+  }
+}
+
+/**
+ * Exit Edit Mode
+ */
+function exitEditMode() {
+  const contentEl = document.getElementById('outputContent');
+  const editBtn = document.getElementById('btnEdit');
+  const indicator = document.getElementById('editIndicator');
+  
+  contentEl.contentEditable = false;
+  contentEl.classList.remove('editing');
+  editBtn.innerHTML = '✏️ Edit';
+  editBtn.classList.remove('active');
+  indicator.style.display = 'none';
+}
+
+/**
+ * Download Modul Ajar (Format .txt)
+ */
+function handleDownload() {
+  const content = document.getElementById('outputContent').innerText;
+  if (!content) {
+    alert('Tidak ada konten untuk diunduh!');
+    return;
+  }
+
+  // Exit edit mode jika aktif
+  exitEditMode();
+
+  const topik = document.getElementById('inpTopik').value || 'Modul-Ajar';
+  const mapel = document.getElementById('inpMapel').value || 'Umum';
+  const kelas = document.getElementById('inpKelas').value.split(' ')[0] || 'X';
+  
+  // Buat konten dengan header
+  const header = `
+===============================================
+MODUL AJAR KURIKULUM MERDEKA
+===============================================
+Mata Pelajaran : ${mapel}
+Kelas/Fase     : ${kelas}
+Topik          : ${topik}
+Sekolah        : ${document.getElementById('inpSekolah').value}
+Penyusun       : ${document.getElementById('inpGuru').value}
+Tanggal Generate: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+===============================================
+
+`;
+
+  const fullContent = header + content;
+  
+  // Buat blob dan download
+  const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Modul-Ajar-${mapel}-Kelas${kelas}-${topik.replace(/\s+/g, '-')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  showToast('📥 File berhasil diunduh!');
 }
 
 /**
@@ -391,7 +458,7 @@ async function saveToDatabase() {
       createdBy: currentUser.uid || 'unknown'
     });
 
-    showToast('💾 Modul ajar berhasil disimpan ke database!');
+    showToast(' Modul ajar berhasil disimpan ke database!');
   } catch (error) {
     alert('Gagal menyimpan: ' + error.message);
   }
