@@ -5,7 +5,7 @@
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { getDatabase, ref, get } 
+import { getDatabase, ref, get, push, set } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getFirestore, doc, getDoc } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -34,17 +34,11 @@ export function cleanup() {
 }
 
 /**
- * Load API Key dari Firestore
- * Path: config/apiKeys -> sama seperti alur ct-tp-atp
+ * Load API Key dari Firestore (Clean & Direct)
  */
 async function loadApiKeyFromFirestore() {
-  const statusEl = document.getElementById('apiStatus');
-  const btnGenerate = document.getElementById('btnGenerate');
-  
-  if (!statusEl) return;
-  
   try {
-    // Coba path 1: config/apiKeys (global)
+    // Ambil dari path config/apiKeys di Firestore
     const configRef = doc(firestore, 'config', 'apiKeys');
     const configSnap = await getDoc(configRef);
     
@@ -53,34 +47,15 @@ async function loadApiKeyFromFirestore() {
       storedApiKey = data.openai || data.gemini || data.ai || '';
     }
     
-    // Jika kosong, coba path 2: users/{uid}/settings
-    if (!storedApiKey && currentUser.uid) {
-      const userRef = doc(firestore, 'users', currentUser.uid, 'settings', 'apiKeys');
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        storedApiKey = userSnap.data().key || '';
-      }
+    // Jika API key ditemukan, aktifkan tombol generate
+    const btnGenerate = document.getElementById('btnGenerate');
+    if (btnGenerate) {
+      btnGenerate.disabled = !storedApiKey;
     }
     
-    // Jika masih kosong, coba RTDB sebagai fallback
-    if (!storedApiKey) {
-      const rtdbSnap = await get(ref(database, 'config/apiKey'));
-      if (rtdbSnap.exists()) {
-        storedApiKey = rtdbSnap.val();
-      }
-    }
-    
-    if (storedApiKey) {
-      statusEl.innerHTML = '✅ <span style="color:#10b981; font-weight:600;">API Key terhubung otomatis dari sistem</span>';
-      if (btnGenerate) btnGenerate.disabled = false;
-    } else {
-      statusEl.innerHTML = '⚠️ <span style="color:#f59e0b; font-weight:600;">API Key belum dikonfigurasi. Hubungi Admin untuk setup di Control Center.</span>';
-      if (btnGenerate) btnGenerate.disabled = true;
-    }
+    console.log('✅ API Key loaded:', storedApiKey ? 'Available' : 'Not found');
   } catch (error) {
     console.error('Error load API Key:', error);
-    statusEl.innerHTML = '❌ <span style="color:#ef4444;">Gagal memuat API Key: ' + error.message + '</span>';
-    if (btnGenerate) btnGenerate.disabled = true;
   }
 }
 
@@ -93,9 +68,6 @@ function loadCSS() {
     .gen-header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .gen-header h2 { margin: 0 0 5px 0; font-size: 24px; }
     .gen-header p { margin: 0; opacity: 0.9; font-size: 14px; }
-    
-    /* API Status Bar */
-    .api-status-bar { background: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #10b981; font-size: 13px; display: flex; align-items: center; gap: 10px; }
     
     /* Form Layout */
     .gen-form { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
@@ -147,13 +119,8 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2>🤖 Generator Modul Ajar AI</h2>
+        <h2> Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.</p>
-      </div>
-
-      <!-- API Status (Auto-load dari Firestore) -->
-      <div class="api-status-bar" id="apiStatus">
-        ⏳ Memeriksa koneksi API Key...
       </div>
 
       <!-- Form Input (Format Baku) -->
@@ -197,7 +164,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title"> 2. Komponen Inti</div>
+        <div class="form-section-title">📚 2. Komponen Inti</div>
         <div class="form-group">
           <label>Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
           <textarea id="inpCP" class="form-control" rows="3" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -237,7 +204,7 @@ function renderUI(container) {
       <!-- Output Result -->
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3 style="margin:0; color:#1e293b;">📄 Hasil Generate</h3>
+          <h3 style="margin:0; color:#1e293b;"> Hasil Generate</h3>
           <div class="output-actions">
             <button class="btn-save-db" id="btnSaveDb">💾 Simpan ke DB</button>
             <button class="btn-copy" id="btnCopy">📋 Salin Teks</button>
@@ -267,7 +234,7 @@ function attachEvents() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ API Key belum tersedia. Hubungi Admin untuk konfigurasi.');
+    alert('⚠️ API Key tidak tersedia.');
     return;
   }
 
@@ -294,7 +261,7 @@ async function handleGenerate() {
   document.getElementById('outputArea').style.display = 'none';
   document.getElementById('btnGenerate').disabled = true;
 
-  // Construct Prompt (Profil Pancasila dihapus dari input, AI auto-select)
+  // Construct Prompt
   const prompt = `
     Bertindaklah sebagai Guru Ahli Kurikulum Merdeka di Indonesia. 
     Buatkan draf MODUL AJAR lengkap dan profesional berdasarkan data berikut:
@@ -414,7 +381,7 @@ async function saveToDatabase() {
     await set(newRef, {
       judul: topik,
       mapel: mapel,
-      kelas: kelas.split(' ')[0], // Ambil angka kelas saja
+      kelas: kelas.split(' ')[0],
       fase: kelas.includes('A') ? 'A' : kelas.includes('B') ? 'B' : 'C',
       guru: guru,
       sekolah: document.getElementById('inpSekolah').value,
