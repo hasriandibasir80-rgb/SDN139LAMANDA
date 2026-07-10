@@ -1,0 +1,369 @@
+/* =========================================
+   JADWAL PEMBELAJARAN - STYLING
+   Tema: Pink Elegant
+   ========================================= */
+
+.jadwal-container { 
+  background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+  border-radius: 16px; 
+  padding: 25px; 
+  font-family: 'Segoe UI', sans-serif; 
+  max-width: 1200px; 
+  margin: 0 auto;
+  box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15);
+}
+
+.jadwal-header { 
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); 
+  color: white; 
+  padding: 30px; 
+  border-radius: 12px; 
+  margin-bottom: 25px; 
+  box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); 
+}
+
+.jadwal-header h2 { 
+  margin: 0 0 8px 0; 
+  font-size: 28px; 
+  font-weight: 700; 
+}
+
+.jadwal-header p { 
+  margin: 0; 
+  opacity: 0.95; 
+  font-size: 15px; 
+}
+
+.jadwal-form { 
+  background: white; 
+  padding: 30px; 
+  border-radius: 12px; 
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); 
+}
+
+.form-section-title { 
+  font-size: 18px; 
+  font-weight: 700; 
+  color: #be185d; 
+  margin: 25px 0 18px 0; 
+  border-bottom: 3px solid #fce7f3; 
+  padding-bottom: 8px; 
+}
+
+.form-section-title:first-child { 
+  margin-top: 0; 
+}
+
+.form-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 20px; 
+  margin-bottom: 15px; 
+}
+
+.form-group { 
+  margin-bottom: 18px; 
+}
+
+.form-group label { 
+  display: block; 
+  margin-bottom: 8px; 
+  font-weight: 600; 
+  font-size: 14px; 
+  color: #831843; 
+}
+
+.form-control { 
+  width: 100%; 
+  padding: 14px 16px; 
+  border: 2px solid #fbcfe8; 
+  border-radius: 8px; 
+  font-size: 15px; 
+  box-sizing: border-box; 
+  transition: all 0.2s;
+  background: white;
+  color: #831843;
+}
+
+.form-control:focus { 
+  outline: none; 
+  border-color: #ec4899; 
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); 
+}
+
+select.form-control { 
+  cursor: pointer; 
+}
+
+/* Jadwal Grid */
+.jadwal-grid-wrapper {
+  overflow-x: auto;
+  margin: 20px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.jadwal-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  min-width: 800px;
+}
+
+.jadwal-table th {
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
+  color: white;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid #ec4899;
+}
+
+.jadwal-table td {
+  padding: 10px 8px;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  vertical-align: top;
+  min-width: 120px;
+}
+
+.jadwal-table tr:nth-child(even) {
+  background: #fff1f2;
+}
+
+.jadwal-table tr:nth-child(odd) {
+  background: white;
+}
+
+.jp-cell {
+  font-weight: 600;
+  color: #831843;
+  background: #fce7f3;
+}
+
+.mapel-cell {
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+
+.mapel-cell:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.mapel-cell.istirahat {
+  background: #94a3b8;
+  color: white;
+  font-style: italic;
+}
+
+.mapel-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.mapel-guru {
+  font-size: 11px;
+  color: #475569;
+}
+
+.mapel-cell.empty {
+  background: #f1f5f9;
+  color: #94a3b8;
+}
+
+/* Color Picker */
+.color-picker-wrapper {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.color-option {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.color-option:hover {
+  transform: scale(1.2);
+}
+
+.color-option.selected {
+  border-color: #1e293b;
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #1e293b;
+}
+
+/* Action Buttons */
+.gen-action { 
+  margin-top: 30px; 
+  text-align: center; 
+}
+
+.btn-action { 
+  padding: 12px 24px; 
+  border: none; 
+  border-radius: 8px; 
+  font-weight: 600; 
+  font-size: 15px; 
+  cursor: pointer; 
+  display: inline-flex; 
+  align-items: center; 
+  gap: 8px; 
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  margin: 0 5px;
+}
+
+.btn-action:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+}
+
+.btn-save { background: #10b981; color: white; }
+.btn-save:hover { background: #059669; }
+
+.btn-print { background: #8b5cf6; color: white; }
+.btn-print:hover { background: #7c3aed; }
+
+.btn-download { background: #3b82f6; color: white; }
+.btn-download:hover { background: #2563eb; }
+
+.btn-reset { background: #6b7280; color: white; }
+.btn-reset:hover { background: #4b5563; }
+
+/* Tanda Tangan Section */
+.ttd-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 2px solid #fce7f3;
+}
+
+.ttd-box {
+  text-align: center;
+  padding: 15px;
+  background: #fff1f2;
+  border-radius: 8px;
+}
+
+.ttd-label { 
+  font-size: 13px; 
+  color: #831843; 
+  font-weight: 600; 
+  margin-bottom: 8px; 
+}
+
+.ttd-role { 
+  font-size: 16px; 
+  font-weight: 700; 
+  color: #be185d; 
+  margin-bottom: 60px; 
+  min-height: 80px; 
+}
+
+.ttd-name { 
+  font-size: 15px; 
+  font-weight: 700; 
+  color: #1e293b; 
+  margin-bottom: 4px; 
+  border-bottom: 1px solid #831843; 
+  padding-bottom: 4px; 
+}
+
+.ttd-nip { 
+  font-size: 13px; 
+  color: #64748b; 
+}
+
+/* Bel Notification Animation */
+@keyframes bellPulse {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  50% { transform: translate(-50%, -50%) scale(1.1); }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.bell-notif-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+}
+
+.bell-notif-content {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%);
+  color: white;
+  padding: 40px 60px;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(236, 72, 153, 0.4);
+  z-index: 10000;
+  text-align: center;
+  animation: bellPulse 1s ease;
+}
+
+.bell-notif-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.bell-notif-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.bell-notif-time {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* Print Styles */
+@media print {
+  body * { visibility: hidden; }
+  .jadwal-container, .jadwal-container * { visibility: visible; }
+  .jadwal-container { 
+    position: absolute; 
+    left: 0; 
+    top: 0; 
+    width: 100%; 
+    padding: 20px; 
+    box-shadow: none; 
+    border: none; 
+    background: white !important; 
+  }
+  .gen-action, .form-section-title { display: none !important; }
+  .jadwal-grid-wrapper { overflow: visible; }
+  .ttd-section { page-break-inside: avoid; }
+}
+
+/* Responsive */
+@media (max-width: 768px) { 
+  .jadwal-container { padding: 15px; }
+  .jadwal-header { padding: 20px; }
+  .jadwal-header h2 { font-size: 22px; }
+  .jadwal-form { padding: 20px; }
+  .form-grid { grid-template-columns: 1fr; gap: 15px; } 
+  .ttd-section { grid-template-columns: 1fr; gap: 20px; }
+  .btn-action { width: 100%; justify-content: center; margin: 5px 0; }
+}
