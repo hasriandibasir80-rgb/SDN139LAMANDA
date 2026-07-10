@@ -1,386 +1,313 @@
 // modules/admin-pembelajaran/features/modul-ajar.js
 // =========================================
-// SUB-FITUR: MODUL AJAR (KURIKULUM MERDEKA)
+// FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { getDatabase, ref, get, push, set, update, remove } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-const database = getDatabase();
-
-// Konstanta CSS
-const CSS_PATH = '../../../css/modules/modul-ajar.css';
-const CSS_ID = 'modul-ajar-css';
 
 // State
-let allModulData = [];
-let filteredData = [];
+const CSS_ID = 'modul-ajar-gen-css';
+let isGenerating = false;
 
 /**
- * Fungsi init
+ * Init
  */
 export async function init(container, db) {
-  loadFeatureCSS();
+  loadCSS();
   renderUI(container);
-  attachEventListeners(container);
-  await loadDataModul();
+  attachEvents();
+  loadSavedApiKey();
 }
 
 export function cleanup() {
-  const cssLink = document.getElementById(CSS_ID);
-  if (cssLink) cssLink.remove();
+  const css = document.getElementById(CSS_ID);
+  if (css) css.remove();
 }
 
-function loadFeatureCSS() {
+function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
-  const cssLink = document.createElement('link');
-  cssLink.rel = 'stylesheet';
-  cssLink.href = CSS_PATH;
-  cssLink.id = CSS_ID;
-  
-  // Fallback inline CSS jika file eksternal gagal
-  cssLink.onerror = () => {
-    const inlineCSS = document.createElement('style');
-    inlineCSS.id = CSS_ID + '-inline';
-    inlineCSS.textContent = getInlineCSS();
-    document.head.appendChild(inlineCSS);
-  };
-  document.head.appendChild(cssLink);
-}
-
-function getInlineCSS() {
-  return `
-    .ma-container { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1); font-family: 'Segoe UI', sans-serif; }
-    .ma-header { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 20px 30px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-    .ma-header h2 { margin: 0; font-size: 24px; font-weight: 700; }
-    .ma-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-    .ma-stat-card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 15px; }
-    .ma-stat-icon { font-size: 28px; background: #e0e7ff; padding: 10px; border-radius: 8px; }
-    .ma-stat-info h4 { margin: 0; font-size: 12px; color: #6b7280; text-transform: uppercase; }
-    .ma-stat-info p { margin: 5px 0 0; font-size: 20px; font-weight: bold; color: #4f46e5; }
-    .ma-toolbar { background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-    .ma-search { flex: 1; min-width: 200px; padding: 10px 15px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
-    .ma-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
-    .ma-btn-primary { background: #4f46e5; color: white; }
-    .ma-btn-primary:hover { background: #4338ca; }
-    .ma-btn-secondary { background: #e5e7eb; color: #374151; }
-    .ma-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-    .ma-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: transform 0.2s; border: 1px solid #e5e7eb; display: flex; flex-direction: column; }
-    .ma-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
-    .ma-card-header { background: #f3f4f6; padding: 15px; border-bottom: 1px solid #e5e7eb; }
-    .ma-card-title { margin: 0 0 5px 0; font-size: 16px; font-weight: 700; color: #1f2937; }
-    .ma-card-subtitle { margin: 0; font-size: 13px; color: #6b7280; }
-    .ma-card-body { padding: 15px; flex: 1; }
-    .ma-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-right: 5px; margin-bottom: 5px; }
-    .badge-kelas { background: #dbeafe; color: #1e40af; }
-    .badge-fase { background: #fce7f3; color: #9d174d; }
-    .ma-card-footer { padding: 15px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px; background: #f9fafb; }
-    .ma-btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; }
-    .btn-edit { background: #fbbf24; color: white; }
-    .btn-delete { background: #ef4444; color: white; }
-    .ma-empty { text-align: center; padding: 40px; color: #6b7280; background: white; border-radius: 12px; grid-column: 1 / -1; }
+  const style = document.createElement('style');
+  style.id = CSS_ID;
+  style.textContent = `
+    .gen-container { background: #f8fafc; border-radius: 12px; padding: 20px; font-family: 'Segoe UI', sans-serif; max-width: 1000px; margin: 0 auto; }
+    .gen-header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .gen-header h2 { margin: 0 0 5px 0; font-size: 24px; }
+    .gen-header p { margin: 0; opacity: 0.9; font-size: 14px; }
     
-    /* Modal Styles */
-    .ma-modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
-    .ma-modal-content { background: white; border-radius: 12px; width: 90%; max-width: 700px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px rgba(0,0,0,0.1); }
-    .ma-modal-header { background: #4f46e5; color: white; padding: 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; }
-    .ma-modal-header h3 { margin: 0; }
-    .ma-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
-    .ma-modal-body { padding: 20px; }
-    .ma-form-group { margin-bottom: 15px; }
-    .ma-form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 13px; color: #374151; }
-    .ma-input, .ma-select, .ma-textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; box-sizing: border-box; font-family: inherit; }
-    .ma-input:focus, .ma-select:focus, .ma-textarea:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
-    .ma-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-    .ma-modal-footer { padding: 15px 20px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px; background: #f9fafb; border-radius: 0 0 12px 12px; }
+    /* API Key Section */
+    .api-section { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .api-input { flex: 1; min-width: 200px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+    .api-save-btn { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600; }
     
-    @media (max-width: 768px) { .ma-row { grid-template-columns: 1fr; } .ma-toolbar { flex-direction: column; align-items: stretch; } }
+    /* Form Layout */
+    .gen-form { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .form-section-title { font-size: 16px; font-weight: 700; color: #4f46e5; margin: 20px 0 15px 0; border-bottom: 2px solid #e0e7ff; padding-bottom: 5px; }
+    .form-section-title:first-child { margin-top: 0; }
+    
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+    .form-group { margin-bottom: 15px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #334155; }
+    .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; box-sizing: border-box; transition: border-color 0.2s; }
+    .form-control:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    
+    /* Checkbox Group */
+    .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+    .checkbox-item { display: flex; align-items: center; gap: 6px; background: #f1f5f9; padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
+    .checkbox-item input { cursor: pointer; }
+    
+    /* Action Button */
+    .gen-action { margin-top: 25px; text-align: center; }
+    .btn-generate { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; border: none; padding: 15px 40px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); transition: transform 0.2s; display: inline-flex; align-items: center; gap: 10px; }
+    .btn-generate:hover:not(:disabled) { transform: translateY(-2px); }
+    .btn-generate:disabled { opacity: 0.7; cursor: not-allowed; }
+    
+    /* Loading */
+    .loading-overlay { display: none; text-align: center; padding: 40px; background: white; border-radius: 12px; margin-top: 20px; }
+    .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    
+    /* Output Area */
+    .output-area { display: none; margin-top: 20px; background: white; border-radius: 12px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+    .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; }
+    .output-content { line-height: 1.6; color: #334155; font-size: 14px; white-space: pre-wrap; }
+    .output-content h1, .output-content h2, .output-content h3 { color: #1e293b; margin-top: 20px; }
+    .btn-copy { background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    
+    @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
   `;
+  document.head.appendChild(style);
 }
 
 function renderUI(container) {
   container.innerHTML = `
-    <div class="ma-container">
-      <div class="ma-header">
-        <div>
-          <h2>📘 Modul Ajar</h2>
-          <p style="margin: 5px 0 0; opacity: 0.9; font-size: 14px;">Manajemen Modul Ajar Kurikulum Merdeka</p>
+    <div class="gen-container">
+      <div class="gen-header">
+        <h2>🤖 Generator Modul Ajar AI</h2>
+        <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.</p>
+      </div>
+
+      <!-- API Key Config -->
+      <div class="api-section">
+        <label style="font-weight:600; font-size:13px;"> API Key (OpenAI/Gemini):</label>
+        <input type="password" id="apiKeyInput" class="api-input" placeholder="sk-... atau AIza...">
+        <button class="api-save-btn" id="btnSaveKey">Simpan Key</button>
+      </div>
+
+      <!-- Form Input (Format Baku) -->
+      <div class="gen-form">
+        <div class="form-section-title">1. Informasi Umum</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Nama Guru / Penyusun</label>
+            <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda">
+          </div>
+          <div class="form-group">
+            <label>Satuan Pendidikan</label>
+            <input type="text" id="inpSekolah" class="form-control" value="SDN 139 LAMANDA">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Mata Pelajaran</label>
+            <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
+          </div>
+          <div class="form-group">
+            <label>Kelas / Fase</label>
+            <select id="inpKelas" class="form-control">
+              <option value="1 (Fase A)">Kelas 1 (Fase A)</option>
+              <option value="2 (Fase A)">Kelas 2 (Fase A)</option>
+              <option value="3 (Fase B)">Kelas 3 (Fase B)</option>
+              <option value="4 (Fase B)">Kelas 4 (Fase B)</option>
+              <option value="5 (Fase C)">Kelas 5 (Fase C)</option>
+              <option value="6 (Fase C)">Kelas 6 (Fase C)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Topik / Judul Modul</label>
+            <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
+          </div>
+          <div class="form-group">
+            <label>Alokasi Waktu</label>
+            <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
+          </div>
+        </div>
+
+        <div class="form-section-title">2. Komponen Inti & Profil Pelajar Pancasila</div>
+        <div class="form-group">
+          <label>Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
+          <textarea id="inpCP" class="form-control" rows="3" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label>Dimensi Profil Pelajar Pancasila (Pilih yang relevan)</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" value="Beriman, Bertakwa kepada Tuhan YME, dan Berakhlak Mulia"> Beriman & Bertakwa</label>
+            <label class="checkbox-item"><input type="checkbox" value="Berkebinekaan Global"> Berkebinekaan Global</label>
+            <label class="checkbox-item"><input type="checkbox" value="Bergotong Royong"> Bergotong Royong</label>
+            <label class="checkbox-item"><input type="checkbox" value="Mandiri"> Mandiri</label>
+            <label class="checkbox-item"><input type="checkbox" value="Bernalar Kritis"> Bernalar Kritis</label>
+            <label class="checkbox-item"><input type="checkbox" value="Kreatif"> Kreatif</label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Model Pembelajaran</label>
+          <select id="inpModel" class="form-control">
+            <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
+            <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
+            <option value="Discovery Learning">Discovery Learning</option>
+            <option value="Inquiry Learning">Inquiry Learning</option>
+            <option value="Tatap Muka Klasikal">Tatap Muka Klasikal</option>
+          </select>
+        </div>
+
+        <div class="gen-action">
+          <button class="btn-generate" id="btnGenerate">
+            <span>✨</span> Generate Modul Ajar
+          </button>
         </div>
       </div>
 
-      <div class="ma-stats">
-        <div class="ma-stat-card">
-          <div class="ma-stat-icon">📚</div>
-          <div class="ma-stat-info">
-            <h4>Total Modul</h4>
-            <p id="statTotal">0</p>
-          </div>
-        </div>
-        <div class="ma-stat-card">
-          <div class="ma-stat-icon"></div>
-          <div class="ma-stat-info">
-            <h4>Kelas Terdaftar</h4>
-            <p id="statKelas">0</p>
-          </div>
-        </div>
+      <!-- Loading State -->
+      <div class="loading-overlay" id="loadingState">
+        <div class="spinner"></div>
+        <h3 style="color:#4f46e5; margin-bottom:10px;">Sedang Menyusun Modul Ajar...</h3>
+        <p style="color:#64748b; font-size:13px;">AI sedang menganalisis parameter dan menulis draf lengkap.<br>Mohon tunggu 10-30 detik.</p>
       </div>
 
-      <div class="ma-toolbar">
-        <input type="text" id="searchInput" class="ma-search" placeholder="Cari judul modul atau kelas...">
-        <button class="ma-btn ma-btn-primary" id="btnTambah"> Tambah Modul</button>
-      </div>
-
-      <div class="ma-grid" id="modulGrid">
-        <div class="ma-empty">⏳ Memuat data modul ajar...</div>
-      </div>
-    </div>
-
-    <!-- Modal Form -->
-    <div id="modalForm" class="ma-modal">
-      <div class="ma-modal-content">
-        <div class="ma-modal-header">
-          <h3 id="modalTitle">Tambah Modul Ajar</h3>
-          <button class="ma-close" id="btnClose">&times;</button>
+      <!-- Output Result -->
+      <div class="output-area" id="outputArea">
+        <div class="output-header">
+          <h3 style="margin:0; color:#1e293b;">📄 Hasil Generate</h3>
+          <button class="btn-copy" id="btnCopy">📋 Salin Teks</button>
         </div>
-        <div class="ma-modal-body">
-          <input type="hidden" id="inputId">
-          
-          <div class="ma-form-group">
-            <label>Judul Modul / Topik</label>
-            <input type="text" id="inputJudul" class="ma-input" placeholder="Contoh: Bilangan Cacah sampai 100">
-          </div>
-          
-          <div class="ma-row">
-            <div class="ma-form-group">
-              <label>Mata Pelajaran</label>
-              <input type="text" id="inputMapel" class="ma-input" placeholder="Contoh: Matematika">
-            </div>
-            <div class="ma-form-group">
-              <label>Kelas</label>
-              <select id="inputKelas" class="ma-select">
-                <option value="1">Kelas 1</option>
-                <option value="2">Kelas 2</option>
-                <option value="3">Kelas 3</option>
-                <option value="4">Kelas 4</option>
-                <option value="5">Kelas 5</option>
-                <option value="6">Kelas 6</option>
-              </select>
-            </div>
-          </div>
-
-          <div class="ma-row">
-            <div class="ma-form-group">
-              <label>Fase</label>
-              <select id="inputFase" class="ma-select">
-                <option value="A">Fase A (Kelas 1-2)</option>
-                <option value="B">Fase B (Kelas 3-4)</option>
-                <option value="C">Fase C (Kelas 5-6)</option>
-              </select>
-            </div>
-            <div class="ma-form-group">
-              <label>Alokasi Waktu</label>
-              <input type="text" id="inputWaktu" class="ma-input" placeholder="Contoh: 2 x 35 Menit">
-            </div>
-          </div>
-
-          <div class="ma-form-group">
-            <label>Capaian Pembelajaran (CP)</label>
-            <textarea id="inputCP" class="ma-textarea" rows="3" placeholder="Deskripsi CP..."></textarea>
-          </div>
-
-          <div class="ma-form-group">
-            <label>Tujuan Pembelajaran (TP)</label>
-            <textarea id="inputTP" class="ma-textarea" rows="3" placeholder="Deskripsi TP..."></textarea>
-          </div>
-        </div>
-        <div class="ma-modal-footer">
-          <button class="ma-btn ma-btn-secondary" id="btnBatal">Batal</button>
-          <button class="ma-btn ma-btn-primary" id="btnSimpan">💾 Simpan</button>
-        </div>
+        <div class="output-content" id="outputContent"></div>
       </div>
     </div>
   `;
 }
 
-async function loadDataModul() {
-  try {
-    const snapshot = await get(ref(database, 'modulAjar'));
-    allModulData = [];
-    const kelasSet = new Set();
-
-    if (snapshot.exists()) {
-      snapshot.forEach(child => {
-        const data = child.val();
-        allModulData.push({ id: child.key, ...data });
-        if (data.kelas) kelasSet.add(data.kelas);
-      });
+function attachEvents() {
+  // Save API Key
+  document.getElementById('btnSaveKey').addEventListener('click', () => {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (key) {
+      localStorage.setItem('ai_api_key', key);
+      alert('✅ API Key disimpan di browser Anda.');
     }
+  });
 
-    // Sort terbaru di atas
-    allModulData.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    filteredData = [...allModulData];
+  // Generate Action
+  document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
 
-    document.getElementById('statTotal').textContent = allModulData.length;
-    document.getElementById('statKelas').textContent = kelasSet.size;
+  // Copy Action
+  document.getElementById('btnCopy').addEventListener('click', () => {
+    const text = document.getElementById('outputContent').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      alert('✅ Teks berhasil disalin!');
+    });
+  });
+}
 
-    renderGrid();
-  } catch (error) {
-    console.error('Error load modul:', error);
-    document.getElementById('modulGrid').innerHTML = `<div class="ma-empty" style="color:red;">Gagal memuat data: ${error.message}</div>`;
+function loadSavedApiKey() {
+  const savedKey = localStorage.getItem('ai_api_key');
+  if (savedKey) {
+    document.getElementById('apiKeyInput').value = savedKey;
   }
 }
 
-function renderGrid() {
-  const grid = document.getElementById('modulGrid');
-  grid.innerHTML = '';
-
-  if (filteredData.length === 0) {
-    grid.innerHTML = '<div class="ma-empty">📭 Belum ada data modul ajar. Klik "Tambah Modul" untuk memulai.</div>';
+async function handleGenerate() {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) {
+    alert('️ Masukkan API Key terlebih dahulu!');
     return;
   }
 
-  filteredData.forEach(item => {
-    const card = document.createElement('div');
-    card.className = 'ma-card';
-    card.innerHTML = `
-      <div class="ma-card-header">
-        <h3 class="ma-card-title">${item.judul || 'Tanpa Judul'}</h3>
-        <p class="ma-card-subtitle">${item.mapel || '-'}</p>
-      </div>
-      <div class="ma-card-body">
-        <span class="ma-badge badge-kelas">Kelas ${item.kelas}</span>
-        <span class="ma-badge badge-fase">Fase ${item.fase}</span>
-        <p style="margin: 10px 0 0; font-size: 12px; color: #6b7280;">️ ${item.waktu || '-'}</p>
-      </div>
-      <div class="ma-card-footer">
-        <button class="ma-btn-sm btn-edit" data-id="${item.id}">✏️ Edit</button>
-        <button class="ma-btn-sm btn-delete" data-id="${item.id}">🗑️ Hapus</button>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-
-  // Attach events
-  document.querySelectorAll('.btn-edit').forEach(btn => {
-    btn.addEventListener('click', (e) => openModal(e.currentTarget.dataset.id));
-  });
-  document.querySelectorAll('.btn-delete').forEach(btn => {
-    btn.addEventListener('click', (e) => deleteModul(e.currentTarget.dataset.id));
-  });
-}
-
-function openModal(id = null) {
-  const modal = document.getElementById('modalForm');
-  const title = document.getElementById('modalTitle');
-  
-  // Reset form
-  document.getElementById('inputId').value = '';
-  document.getElementById('inputJudul').value = '';
-  document.getElementById('inputMapel').value = '';
-  document.getElementById('inputKelas').value = '1';
-  document.getElementById('inputFase').value = 'A';
-  document.getElementById('inputWaktu').value = '';
-  document.getElementById('inputCP').value = '';
-  document.getElementById('inputTP').value = '';
-
-  if (id) {
-    title.textContent = 'Edit Modul Ajar';
-    const item = allModulData.find(d => d.id === id);
-    if (item) {
-      document.getElementById('inputId').value = item.id;
-      document.getElementById('inputJudul').value = item.judul || '';
-      document.getElementById('inputMapel').value = item.mapel || '';
-      document.getElementById('inputKelas').value = item.kelas || '1';
-      document.getElementById('inputFase').value = item.fase || 'A';
-      document.getElementById('inputWaktu').value = item.waktu || '';
-      document.getElementById('inputCP').value = item.cp || '';
-      document.getElementById('inputTP').value = item.tp || '';
-    }
-  } else {
-    title.textContent = 'Tambah Modul Ajar';
-  }
-
-  modal.style.display = 'flex';
-}
-
-function closeModal() {
-  document.getElementById('modalForm').style.display = 'none';
-}
-
-async function simpanModul() {
-  const id = document.getElementById('inputId').value;
+  // Gather Data
   const data = {
-    judul: document.getElementById('inputJudul').value.trim(),
-    mapel: document.getElementById('inputMapel').value.trim(),
-    kelas: document.getElementById('inputKelas').value,
-    fase: document.getElementById('inputFase').value,
-    waktu: document.getElementById('inputWaktu').value.trim(),
-    cp: document.getElementById('inputCP').value.trim(),
-    tp: document.getElementById('inputTP').value.trim(),
-    updatedAt: Date.now()
+    guru: document.getElementById('inpGuru').value || '[Nama Guru]',
+    sekolah: document.getElementById('inpSekolah').value || 'SDN 139 LAMANDA',
+    mapel: document.getElementById('inpMapel').value,
+    kelas: document.getElementById('inpKelas').value,
+    topik: document.getElementById('inpTopik').value,
+    waktu: document.getElementById('inpWaktu').value,
+    cp: document.getElementById('inpCP').value || 'Biarkan AI yang menyesuaikan dengan fase.',
+    model: document.getElementById('inpModel').value,
+    profil: Array.from(document.querySelectorAll('.checkbox-group input:checked')).map(cb => cb.value).join(', ')
   };
 
-  if (!data.judul || !data.mapel) {
-    alert('Judul dan Mata Pelajaran wajib diisi!');
+  if (!data.mapel || !data.topik) {
+    alert('⚠️ Mata Pelajaran dan Topik wajib diisi!');
     return;
   }
 
+  // UI Loading
+  document.getElementById('loadingState').style.display = 'block';
+  document.getElementById('outputArea').style.display = 'none';
+  document.getElementById('btnGenerate').disabled = true;
+
+  // Construct Prompt
+  const prompt = `
+    Bertindaklah sebagai Guru Ahli Kurikulum Merdeka di Indonesia. 
+    Buatkan draf MODUL AJAR lengkap berdasarkan data berikut:
+    
+    - Penyusun: ${data.guru}
+    - Sekolah: ${data.sekolah}
+    - Mata Pelajaran: ${data.mapel}
+    - Kelas/Fase: ${data.kelas}
+    - Topik: ${data.topik}
+    - Alokasi Waktu: ${data.waktu}
+    - Model Pembelajaran: ${data.model}
+    - Profil Pelajar Pancasila: ${data.profil || 'Pilih yang paling relevan'}
+    - Capaian Pembelajaran (CP): ${data.cp}
+
+    Format output harus terstruktur dengan jelas (gunakan Markdown/Heading) mencakup:
+    1. INFORMASI UMUM (Identitas, Kompetensi Awal, Profil Pelajar Pancasila, Sarana Prasarana, Target Peserta Didik).
+    2. KOMPONEN INTI (Tujuan Pembelajaran, Pemahaman Bermakna, Pertanyaan Pemantik, Kegiatan Pembelajaran [Pendahuluan, Inti, Penutup], Asesmen, Pengayaan & Remedial).
+    3. LAMPIRAN (LKPD sederhana, Bahan Bacaan, Glosarium, Daftar Pustaka).
+    
+    Pastikan bahasa Indonesia yang digunakan formal, edukatif, dan sesuai kaidah kurikulum.
+  `;
+
   try {
-    if (id) {
-      await update(ref(database, `modulAjar/${id}`), data);
-      showToast('✅ Modul berhasil diupdate!');
-    } else {
-      data.createdAt = Date.now();
-      const newRef = push(ref(database, 'modulAjar'));
-      await set(newRef, data);
-      showToast('✅ Modul baru berhasil ditambahkan!');
+    // Call AI (Using OpenAI Compatible Format - Works for OpenAI, Groq, etc.)
+    // Note: If using Gemini, the endpoint and payload structure differs slightly.
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo", // Or gpt-4o-mini
+        messages: [
+          { role: "system", content: "Anda adalah ahli pendidikan dan pengembang kurikulum." },
+          { role: "user", content: prompt }
+        ],
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json();
+      throw new Error(errData.error?.message || 'Gagal menghubungi API');
     }
-    closeModal();
-    await loadDataModul();
+
+    const result = await response.json();
+    const aiText = result.choices[0].message.content;
+
+    // Render Output
+    document.getElementById('outputContent').innerText = aiText; // Using innerText to preserve formatting safely
+    document.getElementById('outputArea').style.display = 'block';
+
   } catch (error) {
-    alert('Gagal menyimpan: ' + error.message);
+    alert('❌ Error: ' + error.message);
+    console.error(error);
+  } finally {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('btnGenerate').disabled = false;
   }
-}
-
-async function deleteModul(id) {
-  if (!confirm('Yakin ingin menghapus modul ini?')) return;
-  try {
-    await remove(ref(database, `modulAjar/${id}`));
-    showToast('🗑️ Modul dihapus!');
-    await loadDataModul();
-  } catch (error) {
-    alert('Gagal menghapus: ' + error.message);
-  }
-}
-
-function showToast(msg) {
-  const toast = document.createElement('div');
-  toast.textContent = msg;
-  toast.style.cssText = `position: fixed; top: 20px; right: 20px; background: #10b981; color: white; padding: 12px 20px; border-radius: 8px; z-index: 10001; box-shadow: 0 4px 12px rgba(0,0,0,0.15);`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-function attachEventListeners(container) {
-  document.getElementById('btnTambah').addEventListener('click', () => openModal());
-  document.getElementById('btnClose').addEventListener('click', closeModal);
-  document.getElementById('btnBatal').addEventListener('click', closeModal);
-  document.getElementById('btnSimpan').addEventListener('click', simpanModul);
-  
-  document.getElementById('searchInput').addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase();
-    filteredData = allModulData.filter(d => 
-      (d.judul && d.judul.toLowerCase().includes(q)) || 
-      (d.mapel && d.mapel.toLowerCase().includes(q)) ||
-      (d.kelas && d.kelas.includes(q))
-    );
-    renderGrid();
-  });
-
-  // Close modal on outside click
-  document.getElementById('modalForm').addEventListener('click', (e) => {
-    if (e.target.id === 'modalForm') closeModal();
-  });
 }
