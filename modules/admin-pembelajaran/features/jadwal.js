@@ -1,10 +1,8 @@
 // modules/admin-pembelajaran/features/jadwal.js
 // =========================================
 // FITUR: JADWAL PEMBELAJARAN (MANUAL INPUT)
-// GRID: Senin-Jumat, 8 JP
-// CUSTOM: Warna per mapel, editable langsung
-// BEL OTOMATIS: Mulai, Istirahat, Lanjut, Pulang
-// OUTPUT: Print & Download Word
+// TANPA TANDA TANGAN
+// DENGAN VOICE NOTIFICATION (TTS)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -43,16 +41,8 @@ const DEFAULT_JADWAL = {
   }
 };
 
-// Default data tanda tangan
-const DEFAULT_TTD = {
-  namaKepsek: 'Imam munandar SP.d',
-  nipKepsek: '-',
-  namaGuru: 'Hasriandi basir SP.d',
-  nipGuru: '-'
-};
-
-// Audio Context untuk bel
-let audioContext = null;
+// Audio Synthesizer
+let speechSynth = window.speechSynthesis;
 let belInterval = null;
 
 /**
@@ -62,7 +52,7 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  loadTTDDefaults();
+  loadTTDDefaults(); // Load nama-nama untuk placeholder input
 }
 
 export function cleanup() {
@@ -95,7 +85,7 @@ function loadCSS() {
 }
 
 /**
- * Fallback CSS inline (jika file eksternal gagal)
+ * Fallback CSS inline
  */
 function getInlineCSS() {
   return `
@@ -140,20 +130,14 @@ function getInlineCSS() {
     .btn-download:hover { background: #2563eb; }
     .btn-reset { background: #6b7280; color: white; }
     .btn-reset:hover { background: #4b5563; }
-    .ttd-section { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; padding-top: 20px; border-top: 2px solid #fce7f3; }
-    .ttd-box { text-align: center; padding: 15px; background: #fff1f2; border-radius: 8px; }
-    .ttd-label { font-size: 13px; color: #831843; font-weight: 600; margin-bottom: 8px; }
-    .ttd-role { font-size: 16px; font-weight: 700; color: #be185d; margin-bottom: 60px; min-height: 80px; }
-    .ttd-name { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px; border-bottom: 1px solid #831843; padding-bottom: 4px; }
-    .ttd-nip { font-size: 13px; color: #64748b; }
     @keyframes bellPulse { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 50% { transform: translate(-50%, -50%) scale(1.1); } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
     .bell-notif-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; }
     .bell-notif-content { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 40px 60px; border-radius: 20px; box-shadow: 0 20px 60px rgba(236, 72, 153, 0.4); z-index: 10000; text-align: center; animation: bellPulse 1s ease; }
     .bell-notif-icon { font-size: 48px; margin-bottom: 15px; }
     .bell-notif-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
     .bell-notif-time { font-size: 14px; opacity: 0.9; }
-    @media print { body * { visibility: hidden; } .jadwal-container, .jadwal-container * { visibility: visible; } .jadwal-container { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; } .gen-action, .form-section-title { display: none !important; } .jadwal-grid-wrapper { overflow: visible; } .ttd-section { page-break-inside: avoid; } }
-    @media (max-width: 768px) { .jadwal-container { padding: 15px; } .jadwal-header { padding: 20px; } .jadwal-header h2 { font-size: 22px; } .jadwal-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .ttd-section { grid-template-columns: 1fr; gap: 20px; } .btn-action { width: 100%; justify-content: center; margin: 5px 0; } }
+    @media print { body * { visibility: hidden; } .jadwal-container, .jadwal-container * { visibility: visible; } .jadwal-container { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; } .gen-action, .form-section-title { display: none !important; } .jadwal-grid-wrapper { overflow: visible; } }
+    @media (max-width: 768px) { .jadwal-container { padding: 15px; } .jadwal-header { padding: 20px; } .jadwal-header h2 { font-size: 22px; } .jadwal-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .btn-action { width: 100%; justify-content: center; margin: 5px 0; } }
   `;
 }
 
@@ -162,7 +146,12 @@ function getInlineCSS() {
  */
 function loadTTDDefaults() {
   const saved = localStorage.getItem('jadwal_ttd');
-  let ttdData = { ...DEFAULT_TTD };
+  let ttdData = {
+    namaKepsek: 'Imam munandar SP.d',
+    nipKepsek: '-',
+    namaGuru: 'Hasriandi basir SP.d',
+    nipGuru: '-'
+  };
   
   if (saved) {
     try {
@@ -184,8 +173,6 @@ function loadTTDDefaults() {
     const el = document.getElementById(id);
     if (el) el.value = value;
   });
-  
-  updateTTDPreview();
 }
 
 /**
@@ -193,10 +180,10 @@ function loadTTDDefaults() {
  */
 function saveTTDDefaults() {
   const ttdData = {
-    namaKepsek: document.getElementById('inpKepsek')?.value || DEFAULT_TTD.namaKepsek,
-    nipKepsek: document.getElementById('inpNipKepsek')?.value || DEFAULT_TTD.nipKepsek,
-    namaGuru: document.getElementById('inpGuruPengampu')?.value || DEFAULT_TTD.namaGuru,
-    nipGuru: document.getElementById('inpNipGuru')?.value || DEFAULT_TTD.nipGuru
+    namaKepsek: document.getElementById('inpKepsek')?.value || '',
+    nipKepsek: document.getElementById('inpNipKepsek')?.value || '',
+    namaGuru: document.getElementById('inpGuruPengampu')?.value || '',
+    nipGuru: document.getElementById('inpNipGuru')?.value || ''
   };
   
   localStorage.setItem('jadwal_ttd', JSON.stringify(ttdData));
@@ -268,50 +255,54 @@ function renderUI(container) {
           <p style="font-size: 12px; color: #64748b; margin-top: 8px;">Klik warna untuk mengubah warna mapel</p>
         </div>
 
-        <div class="form-section-title">🔔 3. Pengaturan Bel Otomatis</div>
+        <div class="form-section-title">🔔 3. Pengaturan Bel Suara Otomatis</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>🔔 Aktifkan Bel Otomatis</label>
+            <label> Aktifkan Bel Suara</label>
             <select id="optBelOtomatis" class="form-control">
-              <option value="yes">✅ Ya, aktifkan bel</option>
+              <option value="yes">✅ Ya, aktifkan</option>
               <option value="no">❌ Tidak</option>
             </select>
           </div>
           <div class="form-group">
-            <label>🔊 Volume Bel</label>
-            <input type="range" id="inpVolumeBel" min="0" max="100" value="70" class="form-control">
-            <div style="text-align: center; margin-top: 5px; font-size: 12px;">
-              <span id="volumeValue">70</span>%
-            </div>
+            <label>🗣️ Jenis Suara</label>
+            <select id="optVoiceGender" class="form-control">
+              <option value="female">👩 Perempuan</option>
+              <option value="male">👨 Laki-laki</option>
+            </select>
           </div>
         </div>
         
-        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;">⏰ Waktu Bel</div>
+        <div class="form-section-title" style="margin-top: 20px; font-size: 16px; color: #db2777;"> Waktu Bel & Pesan Suara</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>🔔 Bel Mulai Belajar</label>
+            <label> Bel Mulai Belajar</label>
             <input type="time" id="inpBelMulai" class="form-control" value="07:00">
+            <input type="text" id="txtBelMulai" class="form-control" style="margin-top: 5px;" placeholder="Contoh: Ayo masuk kelas, belajar yang rajin ya" value="Selamat pagi, ayo masuk kelas dan belajar yang rajin ya!">
           </div>
           <div class="form-group">
-            <label> Bel Istirahat 1</label>
+            <label>☕ Bel Istirahat 1</label>
             <input type="time" id="inpBelIstirahat1" class="form-control" value="09:00">
+            <input type="text" id="txtBelIstirahat1" class="form-control" style="margin-top: 5px;" placeholder="Contoh: Istirahat dulu ya" value="Waktunya istirahat, silakan pergi ke kantin.">
           </div>
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>📚 Bel Lanjut Belajar</label>
+            <label> Bel Lanjut Belajar</label>
             <input type="time" id="inpBelLanjut" class="form-control" value="09:30">
+            <input type="text" id="txtBelLanjut" class="form-control" style="margin-top: 5px;" placeholder="Contoh: Masuk lagi ya" value="Waktunya masuk kelas lagi, ayo lanjut belajar.">
           </div>
           <div class="form-group">
             <label>🏠 Bel Pulang</label>
             <input type="time" id="inpBelPulang" class="form-control" value="13:00">
+            <input type="text" id="txtBelPulang" class="form-control" style="margin-top: 5px;" placeholder="Contoh: Sudah pulang" value="Terima kasih, sampai jumpa besok, hati-hati di jalan.">
           </div>
         </div>
         
-        <div class="form-section-title">✍️ 4. Tanda Tangan (Default - Bisa Diedit)</div>
+        <div class="form-section-title">️ 4. Tanda Tangan (Default - Bisa Diedit)</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>‍💼 Nama Kepala Sekolah</label>
+            <label>👨‍ Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -321,11 +312,11 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩🏫 Nama Guru Pengampu</label>
+            <label>👩‍🏫 Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label> NIP Guru Pengampu</label>
+            <label>🔢 NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
@@ -335,7 +326,7 @@ function renderUI(container) {
           <button class="btn-action btn-print" id="btnPrint" onclick="printJadwal()">🖨️ Print</button>
           <button class="btn-action btn-download" id="btnDownload" onclick="downloadWord()">📥 Download Word</button>
           <button class="btn-action btn-reset" id="btnReset" onclick="resetJadwal()">🔄 Reset</button>
-          <button class="btn-action" id="btnTestBel" onclick="testBel()" style="background: #f59e0b; color: white;">🔔 Test Bel</button>
+          <button class="btn-action" id="btnTestBel" onclick="testBel()" style="background: #f59e0b; color: white;">🗣️ Test Suara</button>
         </div>
       </div>
 
@@ -344,22 +335,6 @@ function renderUI(container) {
           ${headerRow}
           ${rows}
         </table>
-      </div>
-
-      <!-- Tanda Tangan Section -->
-      <div class="ttd-section" id="ttdSection">
-        <div class="ttd-box">
-          <div class="ttd-label">Mengetahui,</div>
-          <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
-          <div class="ttd-name" id="ttdNamaKepsek">_______________________</div>
-          <div class="ttd-nip" id="ttdNipKepsek">NIP: -</div>
-        </div>
-        <div class="ttd-box">
-          <div class="ttd-label">Wali Kelas,</div>
-          <div class="ttd-role">Guru Kelas</div>
-          <div class="ttd-name" id="ttdNamaGuru">_______________________</div>
-          <div class="ttd-nip" id="ttdNipGuru">NIP: -</div>
-        </div>
       </div>
 
       <!-- Bel Indicator -->
@@ -373,13 +348,12 @@ function renderUI(container) {
 }
 
 function attachEvents() {
-  // Auto-update tanda tangan + auto-save
+  // Auto-save tanda tangan
   const ttdInputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
   ttdInputs.forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('input', () => {
-        updateTTDPreview();
         saveTTDDefaults();
       });
     }
@@ -387,9 +361,6 @@ function attachEvents() {
   
   // Load jadwal saat kelas dipilih
   document.getElementById('inpKelas').addEventListener('change', loadJadwal);
-  
-  // Update volume display
-  document.getElementById('inpVolumeBel')?.addEventListener('input', updateVolumeDisplay);
   
   // Start/Stop bel otomatis
   document.getElementById('optBelOtomatis')?.addEventListener('change', (e) => {
@@ -404,23 +375,6 @@ function attachEvents() {
   ['inpBelMulai', 'inpBelIstirahat1', 'inpBelLanjut', 'inpBelPulang'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', updateNextBelTime);
   });
-}
-
-function updateTTDPreview() {
-  const namaKepsek = document.getElementById('inpKepsek')?.value || '';
-  const nipKepsek = document.getElementById('inpNipKepsek')?.value || '';
-  const namaGuru = document.getElementById('inpGuruPengampu')?.value || '';
-  const nipGuru = document.getElementById('inpNipGuru')?.value || '';
-  
-  const ttdNamaKepsek = document.getElementById('ttdNamaKepsek');
-  const ttdNipKepsek = document.getElementById('ttdNipKepsek');
-  const ttdNamaGuru = document.getElementById('ttdNamaGuru');
-  const ttdNipGuru = document.getElementById('ttdNipGuru');
-  
-  if (ttdNamaKepsek) ttdNamaKepsek.textContent = namaKepsek || '_______________________';
-  if (ttdNipKepsek) ttdNipKepsek.textContent = nipKepsek ? `NIP: ${nipKepsek}` : 'NIP: -';
-  if (ttdNamaGuru) ttdNamaGuru.textContent = namaGuru || '_______________________';
-  if (ttdNipGuru) ttdNipGuru.textContent = nipGuru ? `NIP: ${nipGuru}` : 'NIP: -';
 }
 
 /**
@@ -445,7 +399,6 @@ window.editJadwal = function(hari, jp) {
     return;
   }
   
-  // Cek apakah ini jam istirahat (JP 4-5)
   if (jp === 4 || jp === 5) {
     const confirmIstirahat = confirm(`Jam ${jp} (${hari}) adalah jam istirahat. Kosongkan?`);
     if (confirmIstirahat) {
@@ -454,17 +407,15 @@ window.editJadwal = function(hari, jp) {
     return;
   }
   
-  // Get current data
   const cell = document.querySelector(`td[data-hari="${hari}"][data-jp="${jp}"] .mapel-cell`);
   const currentMapel = cell.querySelector('.mapel-name').textContent;
   const currentGuru = cell.querySelector('.mapel-guru').textContent;
   
-  // Prompt input
   const mapel = prompt('Mata Pelajaran:', currentMapel === '-' ? '' : currentMapel);
-  if (mapel === null) return; // Cancel
+  if (mapel === null) return;
   
   const guru = prompt('Nama Guru:', currentGuru === '-' ? '' : currentGuru);
-  if (guru === null) return; // Cancel
+  if (guru === null) return;
   
   updateCell(hari, jp, mapel.trim(), guru.trim());
 };
@@ -478,10 +429,10 @@ function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
   if (isIstirahat) {
     cell.className = 'mapel-cell istirahat';
     cell.innerHTML = `
-      <span class="mapel-name">🕐 ISTIRAHAT</span>
+      <span class="mapel-name"> ISTIRAHAT</span>
       <span class="mapel-guru">-</span>
     `;
-    cell.onclick = null; // Disable edit
+    cell.onclick = null;
     return;
   }
   
@@ -494,7 +445,7 @@ function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
   } else {
     const warna = DEFAULT_JADWAL.warnaMapel[mapel] || '#94a3b8';
     cell.className = 'mapel-cell';
-    cell.style.background = warna + '20'; // 20% opacity
+    cell.style.background = warna + '20';
     cell.style.border = `2px solid ${warna}`;
     cell.innerHTML = `
       <span class="mapel-name" style="color: ${warna}">${mapel}</span>
@@ -516,13 +467,8 @@ async function loadJadwal() {
     const snapshot = await get(ref(database, `jadwal/${kelas.replace(/\s+/g, '_')}`));
     if (snapshot.exists()) {
       const data = snapshot.val();
+      if (data.waliKelas) document.getElementById('inpWaliKelas').value = data.waliKelas;
       
-      // Isi wali kelas
-      if (data.waliKelas) {
-        document.getElementById('inpWaliKelas').value = data.waliKelas;
-      }
-      
-      // Isi jadwal
       Object.entries(data.data || {}).forEach(([key, value]) => {
         const [hari, jp] = key.split('_');
         if (value.istirahat) {
@@ -531,15 +477,12 @@ async function loadJadwal() {
           updateCell(hari, parseInt(jp), value.mapel || '', value.guru || '');
         }
       });
-      
       showToast('✅ Jadwal berhasil dimuat!');
     } else {
-      // Reset tabel
       resetJadwalTable();
     }
   } catch (error) {
     console.error('Error load jadwal:', error);
-    alert('❌ Gagal memuat jadwal: ' + error.message);
   }
 }
 
@@ -548,18 +491,11 @@ async function loadJadwal() {
  */
 window.saveJadwal = async function() {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) {
-    alert('⚠️ Pilih kelas terlebih dahulu!');
-    return;
-  }
+  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   
   const waliKelas = document.getElementById('inpWaliKelas').value;
-  if (!waliKelas) {
-    alert('⚠️ Isi nama wali kelas!');
-    return;
-  }
+  if (!waliKelas) { alert('️ Isi nama wali kelas!'); return; }
   
-  // Collect data dari tabel
   const jadwalData = {};
   HARI_LIST.forEach(hari => {
     for (let jp = 1; jp <= 8; jp++) {
@@ -568,10 +504,7 @@ window.saveJadwal = async function() {
       const guru = cell.querySelector('.mapel-guru').textContent;
       
       if (mapel !== '-' && mapel !== '🕐 ISTIRAHAT') {
-        jadwalData[`${hari}_${jp}`] = {
-          mapel: mapel,
-          guru: guru === '-' ? '' : guru
-        };
+        jadwalData[`${hari}_${jp}`] = { mapel, guru: guru === '-' ? '' : guru };
       } else if (mapel === '🕐 ISTIRAHAT') {
         jadwalData[`${hari}_${jp}`] = { istirahat: true };
       }
@@ -580,31 +513,26 @@ window.saveJadwal = async function() {
   
   try {
     await set(ref(database, `jadwal/${kelas.replace(/\s+/g, '_')}`), {
-      kelas: kelas,
-      waliKelas: waliKelas,
-      data: jadwalData,
-      updatedAt: Date.now(),
-      updatedBy: currentUser.uid || 'unknown'
+      kelas, waliKelas, data: jadwalData, updatedAt: Date.now()
     });
     
     // Simpan pengaturan bel
     const belSettings = {
       aktif: document.getElementById('optBelOtomatis')?.value === 'yes',
-      volume: document.getElementById('inpVolumeBel')?.value || 70,
+      voice: document.getElementById('optVoiceGender')?.value || 'female',
       waktu: {
-        mulai: document.getElementById('inpBelMulai')?.value || '07:00',
-        istirahat1: document.getElementById('inpBelIstirahat1')?.value || '09:00',
-        lanjut: document.getElementById('inpBelLanjut')?.value || '09:30',
-        pulang: document.getElementById('inpBelPulang')?.value || '13:00'
+        mulai: { time: document.getElementById('inpBelMulai')?.value, text: document.getElementById('txtBelMulai')?.value },
+        istirahat1: { time: document.getElementById('inpBelIstirahat1')?.value, text: document.getElementById('txtBelIstirahat1')?.value },
+        lanjut: { time: document.getElementById('inpBelLanjut')?.value, text: document.getElementById('txtBelLanjut')?.value },
+        pulang: { time: document.getElementById('inpBelPulang')?.value, text: document.getElementById('txtBelPulang')?.value }
       }
     };
-    
     await set(ref(database, `jadwal_settings/${kelas.replace(/\s+/g, '_')}`), belSettings);
     
-    showToast('✅ Jadwal berhasil disimpan!');
+    showToast('✅ Jadwal & Bel berhasil disimpan!');
   } catch (error) {
-    console.error('Error save jadwal:', error);
-    alert('❌ Gagal menyimpan jadwal: ' + error.message);
+    console.error('Error save:', error);
+    alert('❌ Gagal menyimpan: ' + error.message);
   }
 };
 
@@ -612,7 +540,7 @@ window.saveJadwal = async function() {
  * Reset tabel
  */
 window.resetJadwal = function() {
-  if (confirm('🔄 Reset semua jadwal? Data yang belum tersimpan akan hilang.')) {
+  if (confirm('🔄 Reset semua jadwal?')) {
     resetJadwalTable();
   }
 };
@@ -630,10 +558,7 @@ function resetJadwalTable() {
  */
 window.printJadwal = function() {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) {
-    alert('⚠️ Pilih kelas terlebih dahulu!');
-    return;
-  }
+  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   window.print();
 };
 
@@ -642,10 +567,7 @@ window.printJadwal = function() {
  */
 window.downloadWord = function() {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) {
-    alert('⚠️ Pilih kelas terlebih dahulu!');
-    return;
-  }
+  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
   
   const waliKelas = document.getElementById('inpWaliKelas').value || '_______________________';
   const namaKepsek = document.getElementById('inpKepsek').value || '_______________________';
@@ -680,48 +602,27 @@ window.downloadWord = function() {
         tableHTML += `<td style="text-align: center; background: #f1f5f9;">-</td>`;
       } else {
         const warna = DEFAULT_JADWAL.warnaMapel[mapel] || '#94a3b8';
-        tableHTML += `
-          <td style="text-align: center; background: ${warna}20; border: 2px solid ${warna};">
-            <strong style="color: ${warna}">${mapel}</strong><br>
-            <small>${guru}</small>
-          </td>
-        `;
+        tableHTML += `<td style="text-align: center; background: ${warna}20; border: 2px solid ${warna};"><strong style="color: ${warna}">${mapel}</strong><br><small>${guru}</small></td>`;
       }
     });
     
     tableHTML += `</tr>`;
   }
   
-  tableHTML += `
-      </tbody>
-    </table>
-  `;
+  tableHTML += `</tbody></table>`;
   
-  // Full HTML document
   const htmlContent = `
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Jadwal Pembelajaran - ${kelas}</title>
-    </head>
+    <html><head><meta charset="utf-8"><title>Jadwal Pembelajaran</title></head>
     <body style="font-family: 'Times New Roman', serif; margin: 2cm;">
       <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px double #000; padding-bottom: 15px;">
         <h1 style="margin: 0; font-size: 18pt; text-transform: uppercase;">JADWAL PEMBELAJARAN</h1>
-        <h2 style="margin: 5px 0; font-size: 14pt; text-transform: uppercase;">${kelas}</h2>
+        <h2 style="margin: 5px 0; font-size: 14pt;">${kelas}</h2>
         <p style="margin: 5px 0; font-size: 11pt;">Tahun Ajaran 2026/2027</p>
       </div>
-      
       <div style="margin-bottom: 20px;">
-        <table style="width: 60%; margin: 0 auto;">
-          <tr>
-            <td style="width: 35%;"><strong>Wali Kelas</strong></td>
-            <td>: ${waliKelas}</td>
-          </tr>
-        </table>
+        <table style="width: 60%; margin: 0 auto;"><tr><td style="width: 35%;"><strong>Wali Kelas</strong></td><td>: ${waliKelas}</td></tr></table>
       </div>
-      
       ${tableHTML}
-      
       <div style="margin-top: 40px; display: table; width: 100%;">
         <div style="display: table-cell; width: 50%; text-align: center; vertical-align: top;">
           <div>Mengetahui,</div>
@@ -736,20 +637,17 @@ window.downloadWord = function() {
           <div>NIP: ${nipGuru}</div>
         </div>
       </div>
-      
       <div style="margin-top: 30px; text-align: right; font-size: 9pt; font-style: italic; color: #666;">
-        Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran<br>
-        SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+        SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID')}
       </div>
-    </body>
-    </html>
+    </body></html>
   `;
   
   const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Jadwal_Pembelajaran_${kelas.replace(/\s+/g, '_')}.doc`;
+  link.download = `Jadwal_${kelas.replace(/\s+/g, '_')}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -759,76 +657,64 @@ window.downloadWord = function() {
 };
 
 /**
- * Test Bel - Putar suara bel
+ * Test Bel - Putar suara
  */
 window.testBel = function() {
-  playBelSound();
-  showToast('🔔 Test bel berhasil!');
+  const text = document.getElementById('txtBelMulai')?.value || "Selamat pagi, ayo masuk kelas!";
+  speakText(text);
+  showToast('🗣️ Test suara: ' + text);
 };
 
 /**
- * Play Bel Sound - Menggunakan Web Audio API
+ * Text to Speech Function
  */
-function playBelSound() {
-  try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Frekuensi bel sekolah (sekitar 800-1000 Hz)
-    oscillator.frequency.value = 880;
-    oscillator.type = 'sine';
-    
-    // Volume
-    const volume = document.getElementById('inpVolumeBel')?.value || 70;
-    gainNode.gain.value = volume / 100;
-    
-    // Durasi bel (2 detik)
-    oscillator.start();
-    setTimeout(() => {
-      oscillator.stop();
-    }, 2000);
-    
-  } catch (error) {
-    console.error('Error play bel:', error);
+function speakText(text) {
+  if (!speechSynth) {
+    alert('Browser Anda tidak mendukung fitur suara.');
+    return;
   }
+  
+  // Cancel current speech
+  speechSynth.cancel();
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'id-ID'; // Bahasa Indonesia
+  utterance.rate = 1; // Kecepatan normal
+  utterance.pitch = 1;
+  
+  // Pilih gender
+  const gender = document.getElementById('optVoiceGender')?.value || 'female';
+  const voices = speechSynth.getVoices();
+  
+  // Cari suara Indonesia
+  let selectedVoice = voices.find(v => v.lang.includes('id'));
+  
+  // Jika tidak ada suara Indonesia, pakai default tapi set pitch
+  if (gender === 'male' && selectedVoice) {
+    utterance.pitch = 0.8; // Suara lebih berat
+  } else if (gender === 'female' && selectedVoice) {
+    utterance.pitch = 1.2; // Suara lebih tinggi
+  }
+  
+  speechSynth.speak(utterance);
 }
 
 /**
  * Start Bel Otomatis
  */
 function startBelOtomatis() {
-  const aktif = document.getElementById('optBelOtomatis')?.value === 'yes';
-  if (!aktif) return;
+  if (belInterval) clearInterval(belInterval);
   
-  // Clear interval sebelumnya
-  if (belInterval) {
-    clearInterval(belInterval);
-  }
-  
-  // Check setiap detik
   belInterval = setInterval(() => {
     checkBelTime();
   }, 1000);
   
-  // Update status
   const statusEl = document.getElementById('belStatus');
-  const nextEl = document.getElementById('belNextTime');
   if (statusEl) {
     statusEl.textContent = '✅ Aktif';
     statusEl.style.color = '#10b981';
   }
-  if (nextEl) {
-    updateNextBelTime();
-  }
-  
-  showToast('🔔 Bel otomatis aktif!');
+  showToast('🔔 Bel suara aktif!');
 }
 
 /**
@@ -839,8 +725,6 @@ function stopBelOtomatis() {
     clearInterval(belInterval);
     belInterval = null;
   }
-  
-  // Update status
   const statusEl = document.getElementById('belStatus');
   if (statusEl) {
     statusEl.textContent = '⏸️ Non-aktif';
@@ -856,54 +740,61 @@ function checkBelTime() {
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const currentSecond = now.getSeconds();
   
-  // Hanya check di detik ke-0
   if (currentSecond !== 0) return;
   
-  const belMulai = document.getElementById('inpBelMulai')?.value || '07:00';
-  const belIstirahat1 = document.getElementById('inpBelIstirahat1')?.value || '09:00';
-  const belLanjut = document.getElementById('inpBelLanjut')?.value || '09:30';
-  const belPulang = document.getElementById('inpBelPulang')?.value || '13:00';
+  const belMulai = document.getElementById('inpBelMulai')?.value;
+  const belIstirahat1 = document.getElementById('inpBelIstirahat1')?.value;
+  const belLanjut = document.getElementById('inpBelLanjut')?.value;
+  const belPulang = document.getElementById('inpBelPulang')?.value;
   
   let belName = '';
   
   if (currentTime === belMulai) {
-    belName = '🔔 Mulai Belajar';
+    belName = 'Bel Mulai Belajar';
   } else if (currentTime === belIstirahat1) {
-    belName = '☕ Istirahat 1';
+    belName = 'Bel Istirahat';
   } else if (currentTime === belLanjut) {
-    belName = '📚 Lanjut Belajar';
+    belName = 'Bel Lanjut';
   } else if (currentTime === belPulang) {
-    belName = '🏠 Waktu Pulang';
+    belName = 'Bel Pulang';
   }
   
   if (belName) {
-    playBelSound();
-    showBelNotification(belName);
-    updateNextBelTime();
+    // Get corresponding text
+    let text = '';
+    if (belName === 'Bel Mulai Belajar') text = document.getElementById('txtBelMulai')?.value;
+    else if (belName === 'Bel Istirahat') text = document.getElementById('txtBelIstirahat1')?.value;
+    else if (belName === 'Bel Lanjut') text = document.getElementById('txtBelLanjut')?.value;
+    else if (belName === 'Bel Pulang') text = document.getElementById('txtBelPulang')?.value;
+    
+    if (text) {
+      speakText(text);
+      showBelNotification(belName, text);
+      updateNextBelTime();
+    }
   }
 }
 
 /**
  * Show Bel Notification
  */
-function showBelNotification(message) {
-  // Buat notifikasi
+function showBelNotification(title, message) {
   const notif = document.createElement('div');
   notif.innerHTML = `
     <div class="bell-notif-overlay"></div>
     <div class="bell-notif-content">
-      <div class="bell-notif-icon">🔔</div>
-      <div class="bell-notif-title">${message}</div>
-      <div class="bell-notif-time">${new Date().toLocaleTimeString('id-ID')}</div>
+      <div class="bell-notif-icon"></div>
+      <div class="bell-notif-title">${title}</div>
+      <div class="bell-notif-time">${message}</div>
+      <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">${new Date().toLocaleTimeString('id-ID')}</div>
     </div>
   `;
   
   document.body.appendChild(notif);
   
-  // Hapus setelah 3 detik
   setTimeout(() => {
     notif.remove();
-  }, 3000);
+  }, 5000); // Tampilkan 5 detik agar teks terbaca
 }
 
 /**
@@ -920,7 +811,7 @@ function updateNextBelTime() {
   
   const belTimes = [
     { time: belMulai, name: 'Mulai Belajar' },
-    { time: belIstirahat1, name: 'Istirahat 1' },
+    { time: belIstirahat1, name: 'Istirahat' },
     { time: belLanjut, name: 'Lanjut Belajar' },
     { time: belPulang, name: 'Pulang' }
   ];
@@ -934,20 +825,7 @@ function updateNextBelTime() {
   }
   
   const nextEl = document.getElementById('belNextTime');
-  if (nextEl) {
-    nextEl.textContent = `Bel berikutnya: ${nextBel}`;
-  }
-}
-
-/**
- * Update volume display
- */
-function updateVolumeDisplay() {
-  const volume = document.getElementById('inpVolumeBel')?.value || 70;
-  const volumeValue = document.getElementById('volumeValue');
-  if (volumeValue) {
-    volumeValue.textContent = volume;
-  }
+  if (nextEl) nextEl.textContent = `Bel berikutnya: ${nextBel}`;
 }
 
 function showToast(msg) {
