@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Bel Sekolah Otomatis</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 400px;
+        }
+        h1 { color: #1a73e8; margin-bottom: 20px; }
+        .waktu-sekarang {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+            font-family: monospace;
+        }
+        .status {
+            color: #666;
+            font-style: italic;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #1557b0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔔 Bel Sekolah</h1>
+    <div class="status">Waktu Sistem Saat Ini:</div>
+    <div id="jam" class="waktu-sekarang">00:00:00</div>
+    
+    <!-- Browser butuh interaksi pengguna (klik) sebelum diizinkan bersuara -->
+    <button id="btnAktifkan">Aktifkan Sistem Bel</button>
+    <p id="infoStatus" style="color: red; margin-top: 10px;">Klik tombol di atas untuk memulai!</p>
+</div>
+
+<script>
+    // 1. DAFTAR JADWAL BEL & TEKS YANG AKAN DIUNGKAPKAN
+    // Format waktu harus selalu HH:MM:SS (24 Jam)
+    const jadwalBel = [
+        { waktu: "07:00:00", teks: "Pemberitahuan, jam pelajaran pertama dimulai. Kepada seluruh siswa dimohon masuk ke kelas masing-masing." },
+        { parseInt: "09:30:00", teks: "Waktunya istirahat pertama. Selamat menikmati istirahat." },
+        { waktu: "10:00:00", teks: "Waktu istirahat selesai. Jam pelajaran berikutnya dimulai." },
+        { waktu: "12:00:00", teks: "Waktunya istirahat kedua dan sholat dzuhur bagi yang muslim." },
+        { waktu: "14:00:00", teks: "Jam pelajaran selesai. Sampai jumpa besok pagi dan hati-hati di jalan." }
+    ];
+
+    let sistemAktif = false;
+
+    // Fungsi untuk memperbarui jam di layar dan memeriksa jadwal
+    function updateWaktu() {
+        const sekarang = new Date();
+        const jam = String(sekarang.getHours()).padStart(2, '0');
+        const menit = String(sekarang.getMinutes()).padStart(2, '0');
+        const detik = String(sekarang.getSeconds()).padStart(2, '0');
+        
+        const waktuSekarangString = `${jam}:${menit}:${detik}`;
+        document.getElementById('jam').innerText = waktuSekarangString;
+
+        // Jika user belum klik tombol aktifkan, jangan bunyikan suara
+        if (!sistemAktif) return;
+
+        // Cocokkan waktu sekarang dengan daftar jadwal
+        jadwalBel.forEach(jadwal => {
+            if (waktuSekarangString === jadwal.waktu) {
+                bunyikanBelTeks(jadwal.teks);
+            }
+        });
+    }
+
+    // Fungsi utama Text-to-Speech (Mengubah Teks jadi Suara)
+    function bunyikanBelTeks(teks) {
+        // Buat objek suara baru
+        const suara = new SpeechSynthesisUtterance(teks);
+        
+        // Atur ke bahasa Indonesia
+        suara.lang = 'id-ID'; 
+        suara.rate = 0.9; // Kecepatan bicara (0.1 - 10)
+        suara.pitch = 1;  // Nada suara (0 - 2)
+
+        // Jalankan suara
+        window.speechSynthesis.speak(suara);
+    }
+
+    // Event listener untuk tombol aktifkan
+    document.getElementById('btnAktifkan').addEventListener('click', () => {
+        sistemAktif = true;
+        document.getElementById('infoStatus').innerText = "🟢 Sistem Bel Aktif dan Memonitor Waktu...";
+        document.getElementById('infoStatus').style.color = "green";
+        
+        // Tes suara saat pertama kali diaktifkan
+        bunyikanBelTeks("Sistem bel otomatis berhasil diaktifkan.");
+    });
+
+    // Jalankan fungsi updateWaktu setiap 1 detik (1000 milidetik)
+    setInterval(updateWaktu, 1000);
+</script>
+
+</body>
+</html>
