@@ -40,7 +40,7 @@ const MENU_ITEMS = [
     icon: '📖', 
     title: 'Modul Ajar', 
     path: './features/modul-ajar.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'jurnal', 
