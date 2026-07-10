@@ -2,7 +2,7 @@
 // =========================================
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // TEMA: PINK ELEGANT
-// API KEY: Menggunakan struktur yang sama dengan cp-tp-atp.js
+// API: Groq (LLaMA 3.3)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -15,9 +15,13 @@ const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
 const firestore = getFirestore();
 
+// Groq API Configuration
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.3-70b-versatile';
+
 // State
 const CSS_ID = 'modul-ajar-css';
-let storedApiKey = null; // Sama seperti groqApiKey di cp-tp-atp.js
+let storedApiKey = null;
 
 /**
  * Init
@@ -26,7 +30,7 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  await loadApiKeyFromFirestore(); // Sama seperti loadGroqApiKey
+  await loadApiKeyFromFirestore();
 }
 
 export function cleanup() {
@@ -43,10 +47,6 @@ function loadCSS() {
   const style = document.createElement('style');
   style.id = CSS_ID;
   style.textContent = `
-    /* =========================================
-       MODUL AJAR GENERATOR - TEMA PINK
-       ========================================= */
-    
     .gen-container { 
       background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
       border-radius: 16px; 
@@ -56,7 +56,6 @@ function loadCSS() {
       margin: 0 auto;
       box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15);
     }
-
     .gen-header { 
       background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); 
       color: white; 
@@ -65,27 +64,14 @@ function loadCSS() {
       margin-bottom: 25px; 
       box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); 
     }
-
-    .gen-header h2 { 
-      margin: 0 0 8px 0; 
-      font-size: 28px; 
-      font-weight: 700;
-    }
-
-    .gen-header p { 
-      margin: 0; 
-      opacity: 0.95; 
-      font-size: 15px; 
-    }
-
-    /* Form Layout */
+    .gen-header h2 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; }
+    .gen-header p { margin: 0; opacity: 0.95; font-size: 15px; }
     .gen-form { 
       background: white; 
       padding: 30px; 
       border-radius: 12px; 
       box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); 
     }
-
     .form-section-title { 
       font-size: 18px; 
       font-weight: 700; 
@@ -94,30 +80,10 @@ function loadCSS() {
       border-bottom: 3px solid #fce7f3; 
       padding-bottom: 8px; 
     }
-
-    .form-section-title:first-child { 
-      margin-top: 0; 
-    }
-
-    .form-grid { 
-      display: grid; 
-      grid-template-columns: 1fr 1fr; 
-      gap: 20px; 
-      margin-bottom: 15px; 
-    }
-
-    .form-group { 
-      margin-bottom: 18px; 
-    }
-
-    .form-group label { 
-      display: block; 
-      margin-bottom: 8px; 
-      font-weight: 600; 
-      font-size: 14px; 
-      color: #831843; 
-    }
-
+    .form-section-title:first-child { margin-top: 0; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 15px; }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #831843; }
     .form-control { 
       width: 100%; 
       padding: 14px 16px; 
@@ -129,29 +95,10 @@ function loadCSS() {
       background: white;
       color: #831843;
     }
-
-    .form-control:focus { 
-      outline: none; 
-      border-color: #ec4899; 
-      box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); 
-    }
-
-    textarea.form-control { 
-      resize: vertical; 
-      min-height: 100px; 
-      font-family: inherit;
-    }
-
-    select.form-control {
-      cursor: pointer;
-    }
-
-    /* Action Button */
-    .gen-action { 
-      margin-top: 30px; 
-      text-align: center; 
-    }
-
+    .form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
+    textarea.form-control { resize: vertical; min-height: 100px; font-family: inherit; }
+    select.form-control { cursor: pointer; }
+    .gen-action { margin-top: 30px; text-align: center; }
     .btn-generate { 
       background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); 
       color: white; 
@@ -167,20 +114,8 @@ function loadCSS() {
       align-items: center; 
       gap: 12px; 
     }
-
-    .btn-generate:hover:not(:disabled) { 
-      transform: translateY(-3px); 
-      box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5);
-    }
-
-    .btn-generate:disabled { 
-      opacity: 0.5; 
-      cursor: not-allowed; 
-      background: #9ca3af; 
-      box-shadow: none; 
-    }
-
-    /* Loading */
+    .btn-generate:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(236, 72, 153, 0.5); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; background: #9ca3af; box-shadow: none; }
     .loading-overlay { 
       display: none; 
       text-align: center; 
@@ -190,7 +125,6 @@ function loadCSS() {
       margin-top: 25px;
       box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1);
     }
-
     .spinner { 
       border: 5px solid #fce7f3; 
       border-top: 5px solid #ec4899; 
@@ -200,13 +134,7 @@ function loadCSS() {
       animation: spin 1s linear infinite; 
       margin: 0 auto 20px; 
     }
-
-    @keyframes spin { 
-      0% { transform: rotate(0deg); } 
-      100% { transform: rotate(360deg); } 
-    }
-
-    /* Output Area */
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     .output-area { 
       display: none; 
       margin-top: 25px; 
@@ -216,7 +144,6 @@ function loadCSS() {
       box-shadow: 0 4px 12px rgba(236, 72, 153, 0.15); 
       border: 2px solid #fce7f3; 
     }
-
     .output-header { 
       display: flex; 
       justify-content: space-between; 
@@ -227,18 +154,8 @@ function loadCSS() {
       flex-wrap: wrap; 
       gap: 10px; 
     }
-
-    .output-header h3 {
-      margin: 0;
-      color: #831843;
-      font-size: 20px;
-    }
-
-    .output-actions { 
-      display: flex; 
-      gap: 10px; 
-    }
-
+    .output-header h3 { margin: 0; color: #831843; font-size: 20px; }
+    .output-actions { display: flex; gap: 10px; }
     .output-content { 
       line-height: 1.8; 
       color: #334155; 
@@ -250,37 +167,11 @@ function loadCSS() {
       border-radius: 8px;
       border-left: 4px solid #ec4899;
     }
-
-    .output-content h1 { 
-      font-size: 22px; 
-      color: #be185d; 
-      border-bottom: 2px solid #fbcfe8; 
-      padding-bottom: 10px; 
-      margin-top: 20px;
-    }
-
-    .output-content h2 { 
-      font-size: 18px; 
-      color: #ec4899; 
-      margin-top: 25px; 
-    }
-
-    .output-content h3 { 
-      font-size: 16px; 
-      color: #db2777; 
-      margin-top: 18px; 
-    }
-
-    .output-content ul, 
-    .output-content ol { 
-      padding-left: 30px; 
-    }
-
-    .output-content li { 
-      margin-bottom: 8px; 
-    }
-
-    /* Action Bar di Bawah Output */
+    .output-content h1 { font-size: 22px; color: #be185d; border-bottom: 2px solid #fbcfe8; padding-bottom: 10px; margin-top: 20px; }
+    .output-content h2 { font-size: 18px; color: #ec4899; margin-top: 25px; }
+    .output-content h3 { font-size: 16px; color: #db2777; margin-top: 18px; }
+    .output-content ul, .output-content ol { padding-left: 30px; }
+    .output-content li { margin-bottom: 8px; }
     .output-actions-bar { 
       display: flex; 
       gap: 12px; 
@@ -290,7 +181,6 @@ function loadCSS() {
       flex-wrap: wrap; 
       justify-content: center;
     }
-
     .btn-action { 
       padding: 12px 24px; 
       border: none; 
@@ -304,12 +194,7 @@ function loadCSS() {
       transition: all 0.2s;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
-
-    .btn-action:hover { 
-      transform: translateY(-2px); 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
-    }
-
+    .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .btn-print { background: #8b5cf6; color: white; }
     .btn-print:hover { background: #7c3aed; }
     .btn-save { background: #10b981; color: white; }
@@ -319,8 +204,6 @@ function loadCSS() {
     .btn-edit.active { background: #dc2626; }
     .btn-download { background: #3b82f6; color: white; }
     .btn-download:hover { background: #2563eb; }
-
-    /* Edit Mode */
     .output-content.editing { 
       border: 3px dashed #f59e0b; 
       padding: 20px; 
@@ -329,25 +212,13 @@ function loadCSS() {
       outline: none;
       min-height: 300px;
     }
-
-    /* Print Styles */
     @media print {
       body * { visibility: hidden; }
       .output-area, .output-area * { visibility: visible; }
-      .output-area { 
-        position: absolute; 
-        left: 0; 
-        top: 0; 
-        width: 100%; 
-        padding: 20px;
-        box-shadow: none;
-        border: none;
-        background: white !important;
-      }
+      .output-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; box-shadow: none; border: none; background: white !important; }
       .output-actions-bar, .output-header { display: none !important; }
       .output-content { border: none; background: white; }
     }
-
     @media (max-width: 768px) { 
       .gen-container { padding: 15px; }
       .gen-header { padding: 20px; }
@@ -365,18 +236,15 @@ function loadCSS() {
 
 /**
  * Load API Key dari Firestore
- * STRUKTUR SAMA PERSIS DENGAN cp-tp-atp.js
  */
 async function loadApiKeyFromFirestore() {
   try {
-    // Path yang sama: settings/api_key
     const docRef = doc(firestore, 'settings', 'api_key');
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
       const data = docSnap.data();
       if (data.keys) {
-        // Ambil semua keys yang active === true
         const activeKeys = Object.values(data.keys).filter(k => k.active === true);
         if (activeKeys.length > 0) {
           storedApiKey = activeKeys[0].value;
@@ -410,9 +278,8 @@ function renderUI(container) {
         </p>
       </div>
 
-      <!-- Form Input -->
       <div class="gen-form">
-        <div class="form-section-title">📋 1. Informasi Umum</div>
+        <div class="form-section-title"> 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label>👤 Nama Guru / Penyusun</label>
@@ -429,7 +296,7 @@ function renderUI(container) {
             <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
           </div>
           <div class="form-group">
-            <label> Kelas / Fase</label>
+            <label>🎓 Kelas / Fase</label>
             <select id="inpKelas" class="form-control">
               <option value="1 (Fase A)">Kelas 1 (Fase A)</option>
               <option value="2 (Fase A)">Kelas 2 (Fase A)</option>
@@ -446,19 +313,19 @@ function renderUI(container) {
             <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
           </div>
           <div class="form-group">
-            <label>⏰ Alokasi Waktu</label>
+            <label> Alokasi Waktu</label>
             <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
           </div>
         </div>
 
         <div class="form-section-title">📚 2. Komponen Inti</div>
         <div class="form-group">
-          <label> Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
+          <label>📖 Capaian Pembelajaran (CP) - <i>Opsional, AI bisa generate jika kosong</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
         <div class="form-group">
-          <label> Model Pembelajaran</label>
+          <label>🎨 Model Pembelajaran</label>
           <select id="inpModel" class="form-control">
             <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
             <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
@@ -481,24 +348,21 @@ function renderUI(container) {
         </div>
       </div>
 
-      <!-- Loading State -->
       <div class="loading-overlay" id="loadingState">
         <div class="spinner"></div>
         <h3 style="color:#ec4899; margin-bottom:10px;">Sedang Menyusun Modul Ajar...</h3>
         <p style="color:#64748b; font-size:14px;">AI sedang menganalisis parameter dan menulis draf lengkap.<br>Mohon tunggu 15-45 detik.</p>
       </div>
 
-      <!-- Output Result -->
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3> Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
+          <h3>📄 Hasil Generate</h3>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
-        <!-- Action Buttons di Bawah Output -->
         <div class="output-actions-bar">
-          <button class="btn-action btn-print" id="btnPrint">️ Print</button>
+          <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
           <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
           <button class="btn-action btn-download" id="btnDownload">⬇️ Unduh</button>
@@ -518,7 +382,7 @@ function attachEvents() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('️ API Key tidak tersedia. Periksa konfigurasi di Firestore.');
+    alert('️ API Key tidak tersedia.');
     return;
   }
 
@@ -564,46 +428,37 @@ async function handleGenerate() {
     # MODUL AJAR: ${data.topik.toUpperCase()}
 
     ## A. INFORMASI UMUM
-    1. Identitas Modul (Nama penyusun, institusi, tahun, mata pelajaran, kelas/fase, alokasi waktu)
+    1. Identitas Modul
     2. Kompetensi Awal
-    3. Profil Pelajar Pancasila (PILIH 2-3 dimensi yang PALING RELEVAN dengan topik ini, jelaskan alasannya)
+    3. Profil Pelajar Pancasila (PILIH 2-3 dimensi yang PALING RELEVAN)
     4. Sarana dan Prasarana
     5. Target Peserta Didik
-    6. Model Pembelajaran: ${data.model}
+    6. Model Pembelajaran
 
     ## B. KOMPONEN INTI
-    1. Tujuan Pembelajaran (3-5 tujuan spesifik, terukur)
+    1. Tujuan Pembelajaran (3-5 tujuan)
     2. Pemahaman Bermakna
-    3. Pertanyaan Pemantik (3-5 pertanyaan esensial)
-    4. Kegiatan Pembelajaran:
-       - Pertemuan 1: (Pendahuluan 10 menit, Inti 50 menit, Penutup 10 menit) - JELaskan detail aktivitas guru dan siswa
-       - Pertemuan 2: (jika alokasi waktu > 1x pertemuan)
-    5. Asesmen (Diagnostik, Formatif, Sumatif)
+    3. Pertanyaan Pemantik
+    4. Kegiatan Pembelajaran (Pendahuluan, Inti, Penutup)
+    5. Asesmen
     6. Pengayaan dan Remedial
 
     ## C. LAMPIRAN
-    1. Lembar Kerja Peserta Didik (LKPD) - Buatkan 1 contoh LKPD sederhana
-    2. Bahan Bacaan Guru dan Peserta Didik
-    3. Glosarium (5-10 istilah penting)
+    1. LKPD
+    2. Bahan Bacaan
+    3. Glosarium
     4. Daftar Pustaka
-
-    CATATAN PENTING:
-    - Gunakan bahasa Indonesia formal dan edukatif
-    - Sesuaikan dengan fase perkembangan siswa (${data.kelas})
-    - Kegiatan pembelajaran harus AKTIF, kreatif, dan berpusat pada siswa
-    - Asesmen harus autentik dan beragam
-    - Pastikan alur kegiatan logis dan terukur waktunya
   `;
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${storedApiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-3.5-turbo",
+        model: GROQ_MODEL,
         messages: [
           { role: "system", content: "Anda adalah ahli pendidikan dan pengembang kurikulum Kurikulum Merdeka di Indonesia." },
           { role: "user", content: prompt }
@@ -626,7 +481,7 @@ async function handleGenerate() {
     document.getElementById('outputArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   } catch (error) {
-    alert('❌ Error: ' + error.message);
+    alert(' Error: ' + error.message);
     console.error(error);
   } finally {
     document.getElementById('loadingState').style.display = 'none';
@@ -636,10 +491,7 @@ async function handleGenerate() {
 
 function handlePrint() {
   const content = document.getElementById('outputContent').innerText;
-  if (!content) {
-    alert('Tidak ada konten untuk dicetak!');
-    return;
-  }
+  if (!content) { alert('Tidak ada konten untuk dicetak!'); return; }
   exitEditMode();
   window.print();
 }
@@ -659,7 +511,7 @@ function toggleEditMode() {
     editBtn.innerHTML = '✅ Selesai Edit';
     editBtn.classList.add('active');
     indicator.style.display = 'inline-block';
-    showToast('✏️ Mode Edit aktif. Klik "Selesai Edit" setelah selesai.');
+    showToast('✏️ Mode Edit aktif.');
   }
 }
 
@@ -670,40 +522,23 @@ function exitEditMode() {
   
   contentEl.contentEditable = false;
   contentEl.classList.remove('editing');
-  editBtn.innerHTML = '️ Edit';
+  editBtn.innerHTML = '✏️ Edit';
   editBtn.classList.remove('active');
   indicator.style.display = 'none';
 }
 
 function handleDownload() {
   const content = document.getElementById('outputContent').innerText;
-  if (!content) {
-    alert('Tidak ada konten untuk diunduh!');
-    return;
-  }
-
+  if (!content) { alert('Tidak ada konten untuk diunduh!'); return; }
   exitEditMode();
 
   const topik = document.getElementById('inpTopik').value || 'Modul-Ajar';
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const kelas = document.getElementById('inpKelas').value.split(' ')[0] || 'X';
   
-  const header = `
-===============================================
-MODUL AJAR KURIKULUM MERDEKA
-===============================================
-Mata Pelajaran : ${mapel}
-Kelas/Fase     : ${kelas}
-Topik          : ${topik}
-Sekolah        : ${document.getElementById('inpSekolah').value}
-Penyusun       : ${document.getElementById('inpGuru').value}
-Tanggal Generate: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-===============================================
+  const header = `===============================================\nMODUL AJAR KURIKULUM MERDEKA\n===============================================\nMata Pelajaran : ${mapel}\nKelas/Fase     : ${kelas}\nTopik          : ${topik}\nSekolah        : ${document.getElementById('inpSekolah').value}\nPenyusun       : ${document.getElementById('inpGuru').value}\nTanggal        : ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}\n===============================================\n\n`;
 
-`;
-
-  const fullContent = header + content;
-  const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
+  const blob = new Blob([header + content], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -718,19 +553,14 @@ Tanggal Generate: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', mon
 
 async function saveToDatabase() {
   const content = document.getElementById('outputContent').innerText;
-  if (!content) {
-    alert('Tidak ada konten untuk disimpan!');
-    return;
-  }
+  if (!content) { alert('Tidak ada konten untuk disimpan!'); return; }
 
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const topik = document.getElementById('inpTopik').value || 'Tanpa Judul';
   const kelas = document.getElementById('inpKelas').value;
   const guru = document.getElementById('inpGuru').value || currentUser.nama || 'Anonim';
 
-  if (!confirm(`Simpan modul ajar ini ke database?\n\nMapel: ${mapel}\nTopik: ${topik}\nKelas: ${kelas}`)) {
-    return;
-  }
+  if (!confirm(`Simpan modul ajar ini?\n\nMapel: ${mapel}\nTopik: ${topik}\nKelas: ${kelas}`)) return;
 
   try {
     const newRef = push(ref(database, 'modulAjar'));
@@ -746,8 +576,7 @@ async function saveToDatabase() {
       createdAt: Date.now(),
       createdBy: currentUser.uid || 'unknown'
     });
-
-    showToast('💾 Modul ajar berhasil disimpan ke database!');
+    showToast('💾 Modul ajar berhasil disimpan!');
   } catch (error) {
     alert('Gagal menyimpan: ' + error.message);
   }
@@ -758,8 +587,5 @@ function showToast(msg) {
   toast.textContent = msg;
   toast.style.cssText = `position: fixed; top: 20px; right: 20px; background: #ec4899; color: white; padding: 14px 24px; border-radius: 10px; z-index: 10001; box-shadow: 0 4px 16px rgba(236, 72, 153, 0.4); font-weight: 600; font-size: 14px; animation: slideIn 0.3s ease;`;
   document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  setTimeout(() => { toast.style.animation = 'slideOut 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
