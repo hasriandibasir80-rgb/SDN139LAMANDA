@@ -5,12 +5,18 @@
 // TANPA TIMER, FULL USER GESTURE
 // =========================================
 
-// Konfigurasi URL Audio (Sesuaikan jika path berbeda)
+// ⭐ URL Audio - Bisa pakai file lokal ATAU URL online
+// Opsi 1: File lokal di repo (upload MP3 ke assets/audio/)
+const BASE_AUDIO_URL = 'https://hasriandibasir80-rgb.github.io/SDN139LAMANDA/assets/audio/';
+
+// Opsi 2: URL online (uncomment baris di bawah jika belum upload MP3)
+// const BASE_AUDIO_URL = '';
+
 const DAFTAR_BEL = [
-  { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav', warna: '#3b82f6' },
-  { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-04.wav', warna: '#f59e0b' },
-  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '📚', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-03.wav', warna: '#10b981' },
-  { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'https://www.soundjay.com/misc/sounds/bell-ringing-02.wav', warna: '#ef4444' }
+  { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'bel-masuk.mp3', warna: '#3b82f6' },
+  { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'bel-istirahat.mp3', warna: '#f59e0b' },
+  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '📚', file: 'bel-lanjut.mp3', warna: '#10b981' },
+  { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'bel-pulang.mp3', warna: '#ef4444' }
 ];
 
 // State Audio
@@ -53,7 +59,7 @@ function renderUI(container) {
       <div class="kontrol-bel-footer">
         <button class="btn-stop" id="btnStop">⏹️ Stop / Matikan Suara</button>
         <div class="volume-control">
-          <label>🔊 Volume:</label>
+          <label> Volume:</label>
           <input type="range" id="inpVolume" min="0" max="100" value="100">
           <span id="valVolume">100%</span>
         </div>
@@ -70,7 +76,6 @@ function renderUI(container) {
  * Attach Event Listeners
  */
 function attachEvents() {
-  // Event untuk setiap tombol bel
   document.querySelectorAll('.btn-bel').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const belId = btn.getAttribute('data-id');
@@ -78,10 +83,8 @@ function attachEvents() {
     });
   });
 
-  // Event tombol Stop
   document.getElementById('btnStop').addEventListener('click', stopAudio);
 
-  // Event Volume
   const volSlider = document.getElementById('inpVolume');
   const volVal = document.getElementById('valVolume');
   
@@ -91,7 +94,6 @@ function attachEvents() {
     audioPlayer.volume = val / 100;
   });
 
-  // Set volume awal
   audioPlayer.volume = 1;
 }
 
@@ -102,46 +104,46 @@ function mainkanBel(belId) {
   const belData = DAFTAR_BEL.find(b => b.id === belId);
   if (!belData) return;
 
-  // 1. Stop audio yang sedang berjalan (jika ada)
   stopAudio();
 
-  // 2. Set sumber audio
+  // ⭐ Gabungkan BASE_AUDIO_URL + nama file
   audioPlayer.src = BASE_AUDIO_URL + belData.file;
   
-  // 3. Update UI Status
   updateUIStatus(belId, 'Memutar...');
   document.getElementById('player-indicator').style.display = 'block';
   document.getElementById('nama-bel-aktif').textContent = belData.nama;
 
-  // 4. Play Audio
-  // Kita bungkus dalam promise untuk handle error mobile browser
   const playPromise = audioPlayer.play();
 
   if (playPromise !== undefined) {
     playPromise.then(() => {
-      // Berhasil diputar
       sedangBerputar = belId;
-      console.log(`✅ Bel ${belData.nama} sedang diputar`);
+      console.log(`✅ Bel ${belData.nama} sedang diputar dari: ${audioPlayer.src}`);
     }).catch(error => {
-      // Gagal diputar (biasanya karena browser block)
       console.error('❌ Gagal memutar audio:', error);
       updateUIStatus(belId, 'Gagal!');
-      alert('⚠️ Gagal memutar suara. Pastikan Anda sudah mengizinkan audio di browser ini, atau volume HP tidak sedang mute.');
+      
+      // Tampilkan pesan error yang lebih jelas
+      const errorMsg = `⚠️ Gagal memutar suara!\n\nFile: ${belData.file}\nURL: ${audioPlayer.src}\n\nPastikan:\n1. File MP3 sudah diupload ke folder assets/audio/\n2. Nama file sesuai\n3. Volume HP tidak mute`;
+      alert(errorMsg);
+      
       document.getElementById('player-indicator').style.display = 'none';
     });
   }
 
-  // 5. Event saat audio selesai
   audioPlayer.onended = () => {
     updateUIStatus(belId, 'Selesai');
     document.getElementById('player-indicator').style.display = 'none';
     sedangBerputar = null;
   };
+  
+  audioPlayer.onerror = (e) => {
+    console.error('❌ Audio error:', e);
+    updateUIStatus(belId, 'File tidak ditemukan!');
+    document.getElementById('player-indicator').style.display = 'none';
+  };
 }
 
-/**
- * Fungsi Stop Audio
- */
 function stopAudio() {
   if (audioPlayer) {
     audioPlayer.pause();
@@ -157,29 +159,21 @@ function stopAudio() {
   document.getElementById('player-indicator').style.display = 'none';
 }
 
-/**
- * Update UI Status Tombol
- */
 function updateUIStatus(belId, status) {
-  // Reset semua tombol
   document.querySelectorAll('.btn-bel-status').forEach(el => {
     el.textContent = 'Siap';
     el.style.color = '#64748b';
   });
   
-  // Update tombol yang aktif
   const statusEl = document.getElementById(`status-${belId}`);
   if (statusEl) {
     statusEl.textContent = status;
     if (status === 'Memutar...') statusEl.style.color = '#10b981';
-    else if (status === 'Gagal!') statusEl.style.color = '#ef4444';
+    else if (status === 'Gagal!' || status === 'File tidak ditemukan!') statusEl.style.color = '#ef4444';
     else if (status === 'Dihentikan') statusEl.style.color = '#f59e0b';
   }
 }
 
-/**
- * Inline CSS (Tema Pink, Tombol Besar)
- */
 const style = document.createElement('style');
 style.textContent = `
   .kontrol-bel-container {
