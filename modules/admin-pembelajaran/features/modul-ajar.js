@@ -555,7 +555,7 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ API Key tidak tersedia.');
+    alert('⚠️ Anda berhak merevis penuh.');
     return;
   }
 
