@@ -1,9 +1,8 @@
 // modules/admin-pembelajaran/features/modul-ajar.js
 // =========================================
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
-// TEMA: PINK ELEGANT
-// API: Groq (LLaMA 3.3)
-// DENGAN DOWNLOAD WORD FORMAT (FINAL)
+// STRUKTUR: A. Informasi Umum, B. Komponen Inti, C. Penutup, D. Lampiran
+// DOWNLOAD WORD: Tanpa angka "1." di awal
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -313,9 +312,9 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2>🤖 Generator Modul Ajar AI</h2>
+        <h2> Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
-          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
+          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">️ API Key Belum Aktif</span>'}
         </p>
       </div>
 
@@ -323,11 +322,11 @@ function renderUI(container) {
         <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Nama Guru / Penyusun</label>
+            <label>👤 Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
-            <label>🏫 Satuan Pendidikan</label>
+            <label> Satuan Pendidikan</label>
             <input type="text" id="inpSekolah" class="form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
           </div>
         </div>
@@ -366,10 +365,10 @@ function renderUI(container) {
           <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">️ 2. Tanda Tangan</div>
+        <div class="form-section-title">✍️ 2. Tanda Tangan</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👨‍💼 Nama Kepala Sekolah</label>
+            <label>‍💼 Nama Kepala Sekolah</label>
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
@@ -379,16 +378,16 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩‍ Nama Guru Pengampu</label>
+            <label>👩🏫 Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu" value="${currentUser.namaLengkap || currentUser.nama || ''}">
           </div>
           <div class="form-group">
-            <label>🔢 NIP Guru Pengampu</label>
+            <label> NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
 
-        <div class="form-section-title">📚 3. Komponen Inti</div>
+        <div class="form-section-title"> 3. Komponen Inti</div>
         <div class="form-group">
           <label>📖 Capaian Pembelajaran (CP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -426,7 +425,7 @@ function renderUI(container) {
 
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3>📄 Hasil Generate</h3>
+          <h3> Hasil Generate</h3>
           <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
@@ -523,6 +522,7 @@ async function handleGenerate() {
   document.getElementById('outputArea').style.display = 'none';
   document.getElementById('btnGenerate').disabled = true;
 
+  // ✅ PROMPT DENGAN STRUKTUR A, B, C, D
   const prompt = `
     Bertindaklah sebagai Guru Ahli Kurikulum Merdeka di Indonesia. 
     Buatkan draf MODUL AJAR lengkap dan profesional berdasarkan data berikut:
@@ -540,53 +540,59 @@ async function handleGenerate() {
     - Karakteristik Siswa: ${data.karakteristik}
 
     INSTRUKSI OUTPUT:
-    Buatkan modul ajar dengan struktur berikut (gunakan format Markdown dengan heading yang jelas):
+    WAJIB gunakan struktur berikut dengan heading yang JELAS (tanpa nomor urut 1, 2, 3 di awal):
 
-    # MODUL AJAR: ${data.topik.toUpperCase()}
+    # MODUL AJAR
 
     ## A. INFORMASI UMUM
-    1. **Nama Sekolah**: ${data.sekolah}
-    2. **Penyusun**: ${data.guru}
-    3. **Mata Pelajaran**: ${data.mapel}
-    4. **Topik/Materi**: ${data.topik}
-    5. **Semester**: ${data.semester}
-    6. **Kelas/Fase**: ${data.kelas}
-    7. **Alokasi Waktu**: ${data.waktu}
-    8. **Kompetensi Awal**: (jelaskan kompetensi yang harus dimiliki siswa sebelum mempelajari topik ini)
-    9. **Profil Pelajar Pancasila**: (PILIH 2-3 dimensi yang PALING RELEVAN dengan topik ini, jelaskan alasannya)
-    10. **Sarana dan Prasarana**: (sebutkan sarana prasarana yang dibutuhkan)
-    11. **Target Peserta Didik**: (sesuaikan dengan karakteristik: ${data.karakteristik})
-    12. **Model Pembelajaran**: ${data.model}
+    - Nama Sekolah: ${data.sekolah}
+    - Penyusun: ${data.guru}
+    - Mata Pelajaran: ${data.mapel}
+    - Topik/Materi: ${data.topik}
+    - Semester: ${data.semester}
+    - Kelas/Fase: ${data.kelas}
+    - Alokasi Waktu: ${data.waktu}
+    - Kompetensi Awal: (jelaskan kompetensi yang harus dimiliki siswa)
+    - Profil Pelajar Pancasila: (PILIH 2-3 dimensi yang PALING RELEVAN)
+    - Sarana dan Prasarana: (sebutkan yang dibutuhkan)
+    - Target Peserta Didik: (sesuaikan dengan: ${data.karakteristik})
+    - Model Pembelajaran: ${data.model}
 
     ## B. KOMPONEN INTI
-    1. **Tujuan Pembelajaran** (3-5 tujuan spesifik, terukur, dan operasional)
-    2. **Pemahaman Bermakna** (manfaat yang akan diperoleh siswa dalam kehidupan sehari-hari)
-    3. **Pertanyaan Pemantik** (3-5 pertanyaan esensial untuk memancing rasa ingin tahu)
-    4. **Kegiatan Pembelajaran**:
-       - **Pertemuan 1**: 
-         * Pendahuluan (10 menit)
-         * Inti (50 menit) - JELaskan detail aktivitas guru dan siswa sesuai model ${data.model}
-         * Penutup (10 menit)
-       - **Pertemuan 2**: (jika alokasi waktu > 1x pertemuan)
-    5. **Asesmen**:
-       - Asesmen Diagnostik (sebelum pembelajaran)
-       - Asesmen Formatif (selama pembelajaran)
-       - Asesmen Sumatif (akhir pembelajaran)
-    6. **Pengayaan dan Remedial**: (program untuk siswa yang sudah/tbelum mencapai tujuan)
+    - Tujuan Pembelajaran: (3-5 tujuan spesifik, terukur)
+    - Pemahaman Bermakna: (manfaat dalam kehidupan sehari-hari)
+    - Pertanyaan Pemantik: (3-5 pertanyaan esensial)
+    - Kegiatan Pembelajaran:
+      * Pertemuan 1:
+        · Pendahuluan (10 menit)
+        · Inti (50 menit) - JELaskan detail aktivitas sesuai model ${data.model}
+        · Penutup (10 menit)
+      * Pertemuan 2: (jika alokasi waktu > 1x pertemuan)
+    - Asesmen:
+      · Asesmen Diagnostik
+      · Asesmen Formatif
+      · Asesmen Sumatif
+    - Pengayaan dan Remedial
 
-    ## C. LAMPIRAN
-    1. **Lembar Kerja Peserta Didik (LKPD)** - Buatkan 1 contoh LKPD sederhana yang relevan dengan topik
-    2. **Bahan Bacaan Guru dan Peserta Didik** (materi pendukung)
-    3. **Glosarium** (5-10 istilah penting beserta definisinya)
-    4. **Daftar Pustaka** (referensi yang digunakan)
+    ## C. PENUTUP
+    - Kesimpulan pembelajaran
+    - Refleksi guru dan siswa
+    - Tindak lanjut
+    - Catatan khusus untuk guru
+
+    ## D. LAMPIRAN
+    - Lembar Kerja Peserta Didik (LKPD) - 1 contoh sederhana
+    - Bahan Bacaan Guru dan Peserta Didik
+    - Glosarium (5-10 istilah penting)
+    - Daftar Pustaka
 
     CATATAN PENTING:
     - Gunakan bahasa Indonesia formal dan edukatif
     - Sesuaikan dengan fase perkembangan siswa (${data.kelas})
-    - Kegiatan pembelajaran harus AKTIF, kreatif, inovatif, dan berpusat pada siswa
-    - Asesmen harus autentik dan beragam (observasi, tes, portofolio, dll)
+    - Kegiatan pembelajaran harus AKTIF, kreatif, dan berpusat pada siswa
+    - Asesmen harus autentik dan beragam
     - Pastikan alur kegiatan logis dan terukur waktunya
-    - Integrasi nilai-nilai Profil Pelajar Pancasila dalam kegiatan
+    - JANGAN gunakan nomor urut (1., 2., 3.) di awal heading utama
   `;
 
   try {
@@ -672,6 +678,7 @@ function exitEditMode() {
 
 /**
  * Download sebagai Word Document (.doc) - FINAL VERSION
+ * TANPA angka "1." di awal dokumen
  */
 function handleDownloadWord() {
   const content = document.getElementById('outputContent').innerText;
@@ -717,24 +724,28 @@ function handleDownloadWord() {
           line-height: 1.6;
           text-align: justify;
         }
-        h1 { 
-          text-align: center; 
-          font-size: 16pt; 
-          font-weight: bold; 
-          margin: 0 0 5px 0; 
-          text-transform: uppercase;
-          line-height: 1.3;
-        }
         .header-info {
           text-align: center;
           margin-bottom: 30px;
           padding-bottom: 15px;
           border-bottom: 2px solid #000;
         }
+        .header-info h1 {
+          font-size: 16pt;
+          font-weight: bold;
+          margin: 0 0 5px 0;
+          text-transform: uppercase;
+        }
+        .header-info h2 {
+          font-size: 14pt;
+          font-weight: bold;
+          margin: 5px 0 15px 0;
+          text-transform: uppercase;
+        }
         .header-info table { 
           border: none; 
           width: 80%; 
-          margin: 15px auto; 
+          margin: 10px auto; 
           font-size: 11pt;
         }
         .header-info td { 
@@ -758,16 +769,11 @@ function handleDownloadWord() {
           font-weight: bold; 
           margin: 15px 0 8px 0;
         }
-        h4 { 
-          font-size: 11pt; 
-          font-weight: bold; 
-          margin: 12px 0 5px 0;
-        }
         p { 
           margin: 5px 0; 
           text-indent: 0;
         }
-        ul, ol { 
+        ul { 
           margin: 8px 0; 
           padding-left: 30px; 
         }
@@ -827,7 +833,7 @@ function handleDownloadWord() {
       <!-- Header Info -->
       <div class="header-info">
         <h1>MODUL AJAR</h1>
-        <h1>${topik.toUpperCase()}</h1>
+        <h2>${topik.toUpperCase()}</h2>
         <table>
           <tr><td>Sekolah</td><td>: ${sekolah}</td></tr>
           <tr><td>Mata Pelajaran</td><td>: ${mapel}</td></tr>
@@ -838,16 +844,19 @@ function handleDownloadWord() {
       </div>
   `;
 
-  // Convert markdown ke HTML sederhana
+  // ✅ Convert markdown ke HTML - TANPA regex numbered list
+  // Hanya handle: bold, italic, line break, dan bullet points
   let formattedContent = content
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
-    .replace(/^\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/^\d\. (.*$)/gim, '<ol><li>$1</li></ol>')
-    .replace(/\n/gim, '<br>');
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')              // Italic
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')            // Heading 2
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')           // Heading 3
+    .replace(/^# (.*$)/gim, '')                        // Hapus heading 1 (sudah ada di header)
+    .replace(/^[-•] (.*$)/gim, '<ul><li>$1</li></ul>') // Bullet points
+    .replace(/\n/gim, '<br>');                         // Line break
+
+  // Bersihkan duplikasi <ul> yang berdekatan
+  formattedContent = formattedContent.replace(/<\/ul>\s*<ul>/gim, '');
 
   htmlContent += formattedContent;
 
