@@ -1,27 +1,22 @@
 // modules/kontrol-bel/kontrol-bel.js
 // =========================================
-// FITUR: PANEL KONTROL BEL MANUAL (MP3)
-// BERDIRI SENDIRI (STANDALONE)
+// PANEL KONTROL BEL SEKOLAH - FINAL VERSION
 // =========================================
 
-// ⭐ VARIABEL URL AUDIO - JANGAN DIHAPUS!
+// URL Base Audio
 const BASE_AUDIO_URL = 'https://hasriandibasir80-rgb.github.io/SDN139LAMANDA/assets/audio/';
 
-// Daftar Bel Sekolah
+// Daftar Bel - Sesuaikan dengan nama file MP3 yang ada
 const DAFTAR_BEL = [
   { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'bel-masuk.mp3', warna: '#3b82f6' },
   { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'bel-istirahat.mp3', warna: '#f59e0b' },
-  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '📚', file: 'bel-lanjut.mp3', warna: '#10b981' },
+  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '', file: 'bel-lanjut.mp3', warna: '#10b981' },
   { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'bel-pulang.mp3', warna: '#ef4444' }
 ];
 
-// State Audio
 let audioPlayer = new Audio();
 let sedangBerputar = null;
 
-/**
- * Fungsi Utama Init
- */
 export async function init(container) {
   renderUI(container);
   attachEvents();
@@ -31,17 +26,13 @@ export function cleanup() {
   stopAudio();
 }
 
-/**
- * Render UI
- */
 function renderUI(container) {
   container.innerHTML = `
     <div class="kontrol-bel-container">
       <div class="kontrol-bel-header">
         <h2>🎛️ Panel Kontrol Bel Sekolah</h2>
-        <p>Klik tombol di bawah untuk membunyikan bel secara manual. Suara akan keluar dari speaker HP/Komputer.</p>
+        <p>Klik tombol untuk membunyikan bel. Suara keluar dari speaker HP/Komputer.</p>
       </div>
-
       <div class="kontrol-bel-grid">
         ${DAFTAR_BEL.map(bel => `
           <button class="btn-bel" data-id="${bel.id}" style="border-left: 5px solid ${bel.warna};">
@@ -51,16 +42,14 @@ function renderUI(container) {
           </button>
         `).join('')}
       </div>
-
       <div class="kontrol-bel-footer">
-        <button class="btn-stop" id="btnStop">️ Stop / Matikan Suara</button>
+        <button class="btn-stop" id="btnStop">⏹️ Stop / Matikan Suara</button>
         <div class="volume-control">
-          <label> Volume:</label>
+          <label>🔊 Volume:</label>
           <input type="range" id="inpVolume" min="0" max="100" value="100">
           <span id="valVolume">100%</span>
         </div>
       </div>
-      
       <div id="player-indicator" class="player-indicator" style="display: none;">
         🔊 Sedang Memutar: <span id="nama-bel-aktif">-</span>
       </div>
@@ -68,42 +57,34 @@ function renderUI(container) {
   `;
 }
 
-/**
- * Attach Event Listeners
- */
 function attachEvents() {
   document.querySelectorAll('.btn-bel').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const belId = btn.getAttribute('data-id');
-      mainkanBel(belId);
-    });
+    btn.addEventListener('click', () => mainkanBel(btn.getAttribute('data-id')));
   });
-
-  document.getElementById('btnStop').addEventListener('click', stopAudio);
-
-  const volSlider = document.getElementById('inpVolume');
-  const volVal = document.getElementById('valVolume');
   
+  document.getElementById('btnStop').addEventListener('click', stopAudio);
+  
+  const volSlider = document.getElementById('inpVolume');
   volSlider.addEventListener('input', (e) => {
     const val = e.target.value;
-    volVal.textContent = val + '%';
+    document.getElementById('valVolume').textContent = val + '%';
     audioPlayer.volume = val / 100;
   });
-
+  
   audioPlayer.volume = 1;
 }
 
-/**
- * Fungsi Memainkan Bel
- */
 function mainkanBel(belId) {
   const belData = DAFTAR_BEL.find(b => b.id === belId);
   if (!belData) return;
 
   stopAudio();
-
-  // Gabungkan BASE_AUDIO_URL + nama file
-  audioPlayer.src = BASE_AUDIO_URL + belData.file;
+  
+  const fullUrl = BASE_AUDIO_URL + belData.file;
+  audioPlayer.src = fullUrl;
+  
+  console.log(` Memutar: ${belData.nama}`);
+  console.log(`📍 URL: ${fullUrl}`);
   
   updateUIStatus(belId, 'Memutar...');
   document.getElementById('player-indicator').style.display = 'block';
@@ -114,14 +95,23 @@ function mainkanBel(belId) {
   if (playPromise !== undefined) {
     playPromise.then(() => {
       sedangBerputar = belId;
-      console.log(`✅ Bel ${belData.nama} sedang diputar`);
-      console.log(`URL: ${audioPlayer.src}`);
+      console.log('✅ Audio berhasil diputar');
+      updateUIStatus(belId, 'Berhasil!');
+      setTimeout(() => updateUIStatus(belId, 'Siap'), 2000);
     }).catch(error => {
-      console.error('❌ Gagal memutar audio:', error);
+      console.error('❌ Gagal memutar:', error);
       updateUIStatus(belId, 'Gagal!');
       
-      alert(`⚠️ Gagal memutar suara!\n\nFile: ${belData.file}\nURL: ${audioPlayer.src}\n\nPastikan file MP3 sudah diupload ke folder assets/audio/`);
+      let errorMsg = `⚠️ Gagal memutar: ${belData.nama}\n\n`;
+      errorMsg += `File: ${belData.file}\n`;
+      errorMsg += `URL: ${fullUrl}\n\n`;
+      errorMsg += `Kemungkinan penyebab:\n`;
+      errorMsg += `1. File belum ter-upload\n`;
+      errorMsg += `2. Nama file salah (case sensitive!)\n`;
+      errorMsg += `3. File corrupt\n\n`;
+      errorMsg += `Cek di GitHub: assets/audio/${belData.file}`;
       
+      alert(errorMsg);
       document.getElementById('player-indicator').style.display = 'none';
     });
   }
@@ -133,15 +123,12 @@ function mainkanBel(belId) {
   };
   
   audioPlayer.onerror = (e) => {
-    console.error(' Audio error:', e);
+    console.error(' Audio error event:', e);
     updateUIStatus(belId, 'File tidak ditemukan!');
     document.getElementById('player-indicator').style.display = 'none';
   };
 }
 
-/**
- * Fungsi Stop Audio
- */
 function stopAudio() {
   if (audioPlayer) {
     audioPlayer.pause();
@@ -157,9 +144,6 @@ function stopAudio() {
   document.getElementById('player-indicator').style.display = 'none';
 }
 
-/**
- * Update UI Status Tombol
- */
 function updateUIStatus(belId, status) {
   document.querySelectorAll('.btn-bel-status').forEach(el => {
     el.textContent = 'Siap';
@@ -170,14 +154,15 @@ function updateUIStatus(belId, status) {
   if (statusEl) {
     statusEl.textContent = status;
     if (status === 'Memutar...') statusEl.style.color = '#10b981';
-    else if (status === 'Gagal!' || status === 'File tidak ditemukan!') statusEl.style.color = '#ef4444';
+    else if (status === 'Berhasil!') statusEl.style.color = '#10b981';
+    else if (status.includes('Gagal') || status.includes('tidak ditemukan')) {
+      statusEl.style.color = '#ef4444';
+    }
     else if (status === 'Dihentikan') statusEl.style.color = '#f59e0b';
   }
 }
 
-/**
- * CSS Inline
- */
+// CSS Inline
 const style = document.createElement('style');
 style.textContent = `
   .kontrol-bel-container {
@@ -199,14 +184,12 @@ style.textContent = `
   }
   .kontrol-bel-header h2 { margin: 0 0 8px 0; font-size: 24px; }
   .kontrol-bel-header p { margin: 0; opacity: 0.95; font-size: 14px; }
-  
   .kontrol-bel-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 15px;
     margin-bottom: 25px;
   }
-  
   .btn-bel {
     background: white;
     border: none;
@@ -220,17 +203,11 @@ style.textContent = `
     align-items: center;
     gap: 8px;
   }
-  .btn-bel:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-  }
-  .btn-bel:active {
-    transform: scale(0.97);
-  }
+  .btn-bel:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+  .btn-bel:active { transform: scale(0.97); }
   .btn-bel-icon { font-size: 40px; }
   .btn-bel-nama { font-size: 15px; font-weight: 700; color: #1e293b; text-align: center; }
   .btn-bel-status { font-size: 12px; color: #64748b; font-weight: 600; }
-  
   .kontrol-bel-footer {
     background: white;
     padding: 20px;
@@ -240,7 +217,6 @@ style.textContent = `
     flex-direction: column;
     gap: 15px;
   }
-  
   .btn-stop {
     background: #6b7280;
     color: white;
@@ -253,7 +229,6 @@ style.textContent = `
     width: 100%;
   }
   .btn-stop:hover { background: #4b5563; }
-  
   .volume-control {
     display: flex;
     align-items: center;
@@ -262,11 +237,7 @@ style.textContent = `
     font-size: 14px;
     color: #475569;
   }
-  .volume-control input {
-    flex: 1;
-    max-width: 200px;
-  }
-  
+  .volume-control input { flex: 1; max-width: 200px; }
   .player-indicator {
     margin-top: 15px;
     text-align: center;
@@ -278,13 +249,11 @@ style.textContent = `
     font-size: 14px;
     animation: pulse 1.5s infinite;
   }
-  
   @keyframes pulse {
     0% { opacity: 1; }
     50% { opacity: 0.6; }
     100% { opacity: 1; }
   }
-
   @media (max-width: 600px) {
     .kontrol-bel-grid { grid-template-columns: 1fr; }
     .btn-bel { flex-direction: row; justify-content: flex-start; padding: 15px 20px; }
