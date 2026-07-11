@@ -2,9 +2,7 @@
 // =========================================
 // FITUR: ANALISIS KKTP (Kurikulum Merdeka)
 // Format: Standar Kemendikbudristek
-// - Interval Capaian: 0-40%, 41-65%, 66-85%, 86-100%
-// - Kategori: Belum mencapai / Sudah mencapai
-// - Tindak Lanjut: Remedial / Tuntas + Pengayaan
+// Kop Sekolah: Editable & tersimpan di localStorage
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -20,10 +18,19 @@ const CSS_ID = 'analisis-kktp-css';
 let dataSiswa = [];
 let analisisResult = null;
 
+// Default Kop Settings
+const DEFAULT_KOP = {
+  kabupaten: 'BULUKUMBA',
+  dinas: 'DINAS PENDIDIKAN DAN KEBUDAYAAN',
+  sekolah: 'SDN 139 LAMANDA',
+  alamat: 'Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba'
+};
+
 export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
+  loadKopSettings();
 }
 
 export function cleanup() {
@@ -68,6 +75,12 @@ function getInlineCSS() {
     .form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     textarea.form-control { resize: vertical; min-height: 120px; font-family: inherit; }
     select.form-control { cursor: pointer; }
+    .kop-settings { background: #f0f9ff; border: 2px dashed #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .kop-preview { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-top: 15px; text-align: center; font-family: 'Times New Roman', serif; }
+    .kop-preview .kop-line { margin: 3px 0; font-size: 14px; color: #1e293b; }
+    .kop-preview .kop-line.sekolah { font-size: 18px; font-weight: 700; margin: 8px 0; }
+    .kop-preview .kop-line.alamat { font-size: 12px; font-style: italic; color: #64748b; }
+    .kop-preview .kop-divider { border: none; border-top: 3px double #1e293b; margin: 10px 0; }
     .interval-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
     .interval-card { padding: 15px; border-radius: 8px; text-align: center; border: 2px solid; }
     .interval-card.belum-total { background: #fee2e2; border-color: #ef4444; }
@@ -87,6 +100,7 @@ function getInlineCSS() {
     .btn-save { background: #3b82f6; color: white; }
     .btn-export { background: #8b5cf6; color: white; }
     .btn-reset { background: #6b7280; color: white; }
+    .btn-kop { background: #0ea5e9; color: white; }
     .gen-action { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
     .result-section { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); margin-top: 25px; display: none; }
     .result-section.show { display: block; animation: fadeIn 0.5s ease; }
@@ -139,6 +153,39 @@ function renderUI(container) {
       </div>
 
       <div class="kktp-form">
+        <div class="form-section-title">🏫 Pengaturan Kop Surat (Editable)</div>
+        <div class="kop-settings">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>🏛️ Nama Kabupaten</label>
+              <input type="text" id="kopKabupaten" class="form-control" placeholder="Contoh: BULUKUMBA">
+            </div>
+            <div class="form-group">
+              <label> Dinas</label>
+              <input type="text" id="kopDinas" class="form-control" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>🏫 Nama Sekolah</label>
+              <input type="text" id="kopSekolah" class="form-control" placeholder="Contoh: SDN 139 LAMANDA">
+            </div>
+            <div class="form-group">
+              <label>📍 Alamat Lengkap</label>
+              <input type="text" id="kopAlamat" class="form-control" placeholder="Contoh: Dusun Batu Assung, Desa Lamanda">
+            </div>
+          </div>
+          <button class="btn-action btn-kop" onclick="saveKopSettings()" style="width: 100%;">💾 Simpan Pengaturan Kop</button>
+          
+          <div class="kop-preview" id="kopPreview">
+            <div class="kop-line">PEMERINTAH KABUPATEN <span id="previewKabupaten">BULUKUMBA</span></div>
+            <div class="kop-line"><span id="previewDinas">DINAS PENDIDIKAN DAN KEBUDAYAAN</span></div>
+            <div class="kop-line sekolah"><span id="previewSekolah">SDN 139 LAMANDA</span></div>
+            <div class="kop-line alamat"><span id="previewAlamat">Dusun Batu Assung, Desa Lamanda</span></div>
+            <hr class="kop-divider">
+          </div>
+        </div>
+
         <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
@@ -184,6 +231,10 @@ function renderUI(container) {
             </select>
           </div>
         </div>
+        <div class="form-group">
+          <label>📅 Tanggal Asesmen</label>
+          <input type="date" id="inpTanggal" class="form-control">
+        </div>
 
         <div class="form-section-title">🎯 2. Interval Capaian (Standar Kemendikbudristek)</div>
         <div class="interval-grid">
@@ -209,7 +260,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title"> 3. Data Nilai Siswa</div>
+        <div class="form-section-title">👥 3. Data Nilai Siswa</div>
         <div class="form-group">
           <label>📝 Input Nilai (satu siswa per baris: Nama, Nilai)</label>
           <textarea id="inpDataSiswa" class="form-control" placeholder="Contoh:
@@ -224,7 +275,7 @@ Citra, 92"></textarea>
         </div>
 
         <div class="gen-action">
-          <button class="btn-action btn-analyze" onclick="analyzeKKTP()"> Analisis KKTP</button>
+          <button class="btn-action btn-analyze" onclick="analyzeKKTP()">📊 Analisis KKTP</button>
           <button class="btn-action btn-save" onclick="saveToDatabase()">💾 Simpan ke Database</button>
           <button class="btn-action btn-export" onclick="exportToWord()">📥 Export Word</button>
           <button class="btn-action btn-reset" onclick="resetForm()">🔄 Reset</button>
@@ -232,7 +283,7 @@ Citra, 92"></textarea>
       </div>
 
       <div class="result-section" id="resultSection">
-        <div class="form-section-title">📈 4. Hasil Analisis</div>
+        <div class="form-section-title"> 4. Hasil Analisis</div>
         
         <div class="summary-grid" id="summaryGrid"></div>
         
@@ -248,6 +299,7 @@ Citra, 92"></textarea>
               <tr>
                 <th style="width: 50px;">No</th>
                 <th>Nama Siswa</th>
+                <th>Topik / TP</th>
                 <th style="width: 100px;">Nilai Asesmen</th>
                 <th style="width: 120px;">Interval Capaian</th>
                 <th>Hasil Tindak Lanjut</th>
@@ -264,7 +316,66 @@ Citra, 92"></textarea>
 }
 
 function attachEvents() {
-  // Event listeners bisa ditambahkan di sini
+  // Live preview kop
+  ['kopKabupaten', 'kopDinas', 'kopSekolah', 'kopAlamat'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', updateKopPreview);
+    }
+  });
+}
+
+function loadKopSettings() {
+  const saved = localStorage.getItem('kktp_kop_settings');
+  let kop = DEFAULT_KOP;
+  
+  if (saved) {
+    try {
+      kop = { ...DEFAULT_KOP, ...JSON.parse(saved) };
+    } catch (e) {}
+  }
+  
+  setTimeout(() => {
+    document.getElementById('kopKabupaten').value = kop.kabupaten;
+    document.getElementById('kopDinas').value = kop.dinas;
+    document.getElementById('kopSekolah').value = kop.sekolah;
+    document.getElementById('kopAlamat').value = kop.alamat;
+    updateKopPreview();
+  }, 100);
+}
+
+function updateKopPreview() {
+  const kabupaten = document.getElementById('kopKabupaten')?.value || 'BULUKUMBA';
+  const dinas = document.getElementById('kopDinas')?.value || 'DINAS PENDIDIKAN DAN KEBUDAYAAN';
+  const sekolah = document.getElementById('kopSekolah')?.value || 'SDN 139 LAMANDA';
+  const alamat = document.getElementById('kopAlamat')?.value || 'Dusun Batu Assung, Desa Lamanda';
+  
+  document.getElementById('previewKabupaten').textContent = kabupaten.toUpperCase();
+  document.getElementById('previewDinas').textContent = dinas.toUpperCase();
+  document.getElementById('previewSekolah').textContent = sekolah.toUpperCase();
+  document.getElementById('previewAlamat').textContent = alamat;
+}
+
+window.saveKopSettings = function() {
+  const kop = {
+    kabupaten: document.getElementById('kopKabupaten').value,
+    dinas: document.getElementById('kopDinas').value,
+    sekolah: document.getElementById('kopSekolah').value,
+    alamat: document.getElementById('kopAlamat').value
+  };
+  
+  localStorage.setItem('kktp_kop_settings', JSON.stringify(kop));
+  showToast('✅ Pengaturan kop berhasil disimpan!');
+};
+
+function getKopSettings() {
+  const saved = localStorage.getItem('kktp_kop_settings');
+  if (saved) {
+    try {
+      return { ...DEFAULT_KOP, ...JSON.parse(saved) };
+    } catch (e) {}
+  }
+  return DEFAULT_KOP;
 }
 
 /**
@@ -277,7 +388,7 @@ window.analyzeKKTP = function() {
   const dataInput = document.getElementById('inpDataSiswa').value;
   
   if (!kelas || !mapel || !topik) {
-    alert('️ Lengkapi informasi umum terlebih dahulu!');
+    alert('⚠️ Lengkapi informasi umum terlebih dahulu!');
     return;
   }
   
@@ -324,14 +435,18 @@ function hitungAnalisis(data) {
   
   // Kategorisasi berdasarkan Interval Capaian
   const kategori = {
-    belumTotal: data.filter(s => s.nilai <= 40),        // 0-40%
-    belumSebagian: data.filter(s => s.nilai > 40 && s.nilai <= 65),  // 41-65%
-    sudah: data.filter(s => s.nilai > 65 && s.nilai <= 85),          // 66-85%
-    pengayaan: data.filter(s => s.nilai > 85)                        // 86-100%
+    belumTotal: data.filter(s => s.nilai <= 40),
+    belumSebagian: data.filter(s => s.nilai > 40 && s.nilai <= 65),
+    sudah: data.filter(s => s.nilai > 65 && s.nilai <= 85),
+    pengayaan: data.filter(s => s.nilai > 85)
   };
   
   // Tambah kategori, interval, dan tindak lanjut ke setiap siswa
+  const topik = document.getElementById('inpTopik').value;
+  
   data.forEach(siswa => {
+    siswa.topik = topik; // Tambah topik ke setiap siswa (Opsi A)
+    
     if (siswa.nilai <= 40) {
       siswa.kategori = 'Belum Mencapai';
       siswa.interval = '0 - 40%';
@@ -440,12 +555,13 @@ function tampilkanHasil(analisis) {
     </div>
   `;
   
-  // Result Table - Format Baru
+  // Result Table - 6 Kolom (dengan Topik/TP)
   const resultTableBody = document.getElementById('resultTableBody');
   resultTableBody.innerHTML = analisis.data.map((siswa, index) => `
     <tr>
       <td>${index + 1}</td>
       <td class="nama-cell">${siswa.nama}</td>
+      <td style="text-align: left; padding: 8px 15px; font-size: 13px;">${siswa.topik}</td>
       <td><strong>${siswa.nilai}</strong></td>
       <td><span class="badge-interval badge-${siswa.badge}">${siswa.interval}</span></td>
       <td class="tindak-lanjut-cell">${siswa.tindakLanjut}</td>
@@ -484,7 +600,7 @@ function tampilkanHasil(analisis) {
     recHTML += `<li><strong>🎉 Apresiasi:</strong> Rata-rata kelas sangat baik! Pertahankan metode pembelajaran yang sudah efektif</li>`;
   }
   
-  recHTML += `<li><strong> Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya untuk memantau perkembangan setiap siswa</li>`;
+  recHTML += `<li><strong>📝 Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya untuk memantau perkembangan setiap siswa</li>`;
   recHTML += '</ul>';
   
   recommendation.innerHTML = recHTML;
@@ -499,9 +615,10 @@ window.saveToDatabase = async function() {
   const mapel = document.getElementById('inpMapel').value;
   const topik = document.getElementById('inpTopik').value;
   const periode = document.getElementById('inpPeriode').value;
+  const tanggal = document.getElementById('inpTanggal').value;
   
   if (!kelas || !mapel || !topik || dataSiswa.length === 0) {
-    alert('️ Lakukan analisis terlebih dahulu!');
+    alert('⚠️ Lakukan analisis terlebih dahulu!');
     return;
   }
   
@@ -517,12 +634,14 @@ window.saveToDatabase = async function() {
       mapel,
       topik,
       periode,
+      tanggalAsesmen: tanggal,
       totalSiswa: analisisResult.totalSiswa,
       rataRata: parseFloat(analisisResult.rataRata),
       nilaiTertinggi: analisisResult.nilaiTertinggi,
       nilaiTerendah: analisisResult.nilaiTerendah,
       persentase: analisisResult.persentase,
       data: dataSiswa,
+      kop: getKopSettings(),
       createdAt: Date.now(),
       createdBy: currentUser.uid || 'unknown'
     });
@@ -539,6 +658,7 @@ window.exportToWord = function() {
   const mapel = document.getElementById('inpMapel').value;
   const topik = document.getElementById('inpTopik').value;
   const periode = document.getElementById('inpPeriode').value;
+  const tanggal = document.getElementById('inpTanggal').value;
   
   if (!kelas || !mapel || !topik || dataSiswa.length === 0) {
     alert('⚠️ Lakukan analisis terlebih dahulu!');
@@ -549,13 +669,24 @@ window.exportToWord = function() {
     analisisResult = hitungAnalisis(dataSiswa);
   }
   
+  const kop = getKopSettings();
+  
+  // Format tanggal
+  let tanggalFormatted = '-';
+  if (tanggal) {
+    const dateObj = new Date(tanggal);
+    const bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    tanggalFormatted = `${dateObj.getDate()} ${bulan[dateObj.getMonth()]} ${dateObj.getFullYear()}`;
+  }
+  
   let tableHTML = `<table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">
     <thead>
       <tr style="background: #ec4899; color: white;">
-        <th>No</th>
+        <th style="width: 50px;">No</th>
         <th>Nama Siswa</th>
-        <th>Nilai Asesmen</th>
-        <th>Interval Capaian</th>
+        <th>Topik / TP</th>
+        <th style="width: 100px;">Nilai Asesmen</th>
+        <th style="width: 120px;">Interval Capaian</th>
         <th>Hasil Tindak Lanjut</th>
       </tr>
     </thead>
@@ -565,9 +696,10 @@ window.exportToWord = function() {
     tableHTML += `<tr>
       <td style="text-align: center;">${index + 1}</td>
       <td>${siswa.nama}</td>
+      <td style="text-align: left; padding: 8px;">${siswa.topik}</td>
       <td style="text-align: center; font-weight: bold;">${siswa.nilai}</td>
       <td style="text-align: center;">${siswa.interval}</td>
-      <td>${siswa.tindakLanjut.replace(/<[^>]*>/g, '')}</td>
+      <td style="text-align: left; padding: 8px;">${siswa.tindakLanjut.replace(/<[^>]*>/g, '')}</td>
     </tr>`;
   });
   
@@ -575,36 +707,57 @@ window.exportToWord = function() {
   
   const htmlContent = `<html><head><meta charset="utf-8"></head>
     <body style="font-family: 'Times New Roman', serif; margin: 2cm;">
-      <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px double #000; padding-bottom: 15px;">
-        <h1 style="margin: 0; font-size: 18pt;">ANALISIS KKTP</h1>
-        <h2 style="margin: 10px 0; font-size: 14pt;">${topik}</h2>
-        <p style="margin: 5px 0;"><strong>Kelas:</strong> ${kelas} | <strong>Mapel:</strong> ${mapel}</p>
-        <p style="margin: 5px 0;"><strong>Periode:</strong> ${periode} | <strong>Tahun Ajaran:</strong> 2026/2027</p>
+      <!-- KOP SURAT -->
+      <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 20px;">
+        <div style="font-size: 14pt; font-weight: bold; margin: 3px 0;">PEMERINTAH KABUPATEN ${kop.kabupaten.toUpperCase()}</div>
+        <div style="font-size: 13pt; font-weight: bold; margin: 3px 0;">${kop.dinas.toUpperCase()}</div>
+        <div style="font-size: 16pt; font-weight: bold; margin: 8px 0;">${kop.sekolah.toUpperCase()}</div>
+        <div style="font-size: 11pt; font-style: italic; margin: 3px 0;">${kop.alamat}</div>
       </div>
       
+      <!-- JUDUL -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <h1 style="margin: 0; font-size: 16pt; text-decoration: underline;">ANALISIS KKTP</h1>
+        <h2 style="margin: 5px 0; font-size: 12pt;">Kriteria Ketercapaian Tujuan Pembelajaran</h2>
+        <p style="margin: 5px 0; font-size: 11pt;">Kurikulum Merdeka - Tahun Ajaran 2026/2027</p>
+      </div>
+      
+      <!-- INFO -->
       <div style="margin-bottom: 20px;">
-        <h3 style="color: #be185d;"> Ringkasan Hasil</h3>
-        <table style="width: 60%; border: none;">
-          <tr><td style="width: 50%;"><strong>Total Siswa:</strong></td><td>${analisisResult.totalSiswa} peserta didik</td></tr>
-          <tr><td><strong>Rata-rata Kelas:</strong></td><td>${analisisResult.rataRata}</td></tr>
-          <tr><td><strong>Sudah Mencapai TP:</strong></td><td>${analisisResult.kategori.sudah.length + analisisResult.kategori.pengayaan.length} siswa</td></tr>
-          <tr><td><strong>Perlu Remedial:</strong></td><td>${analisisResult.kategori.belumTotal.length + analisisResult.kategori.belumSebagian.length} siswa</td></tr>
+        <table style="width: 100%; border: none;">
+          <tr><td style="width: 30%;"><strong>Kelas</strong></td><td>: ${kelas}</td></tr>
+          <tr><td><strong>Mata Pelajaran</strong></td><td>: ${mapel}</td></tr>
+          <tr><td><strong>Periode Asesmen</strong></td><td>: ${periode}</td></tr>
+          <tr><td><strong>Topik / Tujuan Pembelajaran</strong></td><td>: ${topik}</td></tr>
+          <tr><td><strong>Tanggal Asesmen</strong></td><td>: ${tanggalFormatted}</td></tr>
         </table>
       </div>
       
-      <h3 style="color: #be185d;">📈 Distribusi Interval Capaian</h3>
-      <ul>
+      <!-- RINGKASAN -->
+      <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📊 Ringkasan Hasil</h3>
+      <table style="width: 60%; border: none; margin-bottom: 20px;">
+        <tr><td style="width: 50%;"><strong>Total Siswa:</strong></td><td>${analisisResult.totalSiswa} peserta didik</td></tr>
+        <tr><td><strong>Rata-rata Kelas:</strong></td><td>${analisisResult.rataRata}</td></tr>
+        <tr><td><strong>Sudah Mencapai TP:</strong></td><td>${analisisResult.kategori.sudah.length + analisisResult.kategori.pengayaan.length} siswa (${(parseFloat(analisisResult.persentase.sudah) + parseFloat(analisisResult.persentase.pengayaan)).toFixed(1)}%)</td></tr>
+        <tr><td><strong>Perlu Remedial:</strong></td><td>${analisisResult.kategori.belumTotal.length + analisisResult.kategori.belumSebagian.length} siswa (${(parseFloat(analisisResult.persentase.belumTotal) + parseFloat(analisisResult.persentase.belumSebagian)).toFixed(1)}%)</td></tr>
+      </table>
+      
+      <!-- DISTRIBUSI -->
+      <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📈 Distribusi Interval Capaian</h3>
+      <ul style="margin-bottom: 20px;">
         <li><strong>0-40% (Belum Mencapai):</strong> ${analisisResult.kategori.belumTotal.length} siswa (${analisisResult.persentase.belumTotal}%)</li>
         <li><strong>41-65% (Belum Mencapai):</strong> ${analisisResult.kategori.belumSebagian.length} siswa (${analisisResult.persentase.belumSebagian}%)</li>
         <li><strong>66-85% (Sudah Mencapai):</strong> ${analisisResult.kategori.sudah.length} siswa (${analisisResult.persentase.sudah}%)</li>
         <li><strong>86-100% (Perlu Pengayaan):</strong> ${analisisResult.kategori.pengayaan.length} siswa (${analisisResult.persentase.pengayaan}%)</li>
       </ul>
       
-      <h3 style="color: #be185d;">📋 Tabel Analisis KKTP Siswa</h3>
+      <!-- TABEL -->
+      <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📋 Tabel Analisis KKTP Siswa</h3>
       ${tableHTML}
       
+      <!-- REKOMENDASI -->
       <div style="margin-top: 30px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px;">
-        <h4 style="margin: 0 0 10px 0; color: #92400e;">💡 Rekomendasi Tindak Lanjut</h4>
+        <h4 style="margin: 0 0 10px 0; color: #92400e;">💡 Rekomendasi Tindak Lanjut Pembelajaran</h4>
         <ul style="margin: 0; padding-left: 20px;">
           ${analisisResult.kategori.belumTotal.length > 0 ? `<li><strong>Remedial Menyeluruh:</strong> ${analisisResult.kategori.belumTotal.length} siswa perlu remedial di seluruh bagian</li>` : ''}
           ${analisisResult.kategori.belumSebagian.length > 0 ? `<li><strong>Remedial Sebagian:</strong> ${analisisResult.kategori.belumSebagian.length} siswa perlu remedial di bagian yang diperlukan</li>` : ''}
@@ -613,8 +766,13 @@ window.exportToWord = function() {
         </ul>
       </div>
       
-      <div style="margin-top: 40px; text-align: right; font-size: 9pt; font-style: italic; color: #666;">
-        SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+      <!-- TANDA TANGAN -->
+      <div style="margin-top: 50px; text-align: right;">
+        <p style="margin: 5px 0;">Lamanda, ${tanggalFormatted}</p>
+        <p style="margin: 5px 0;">Guru Kelas</p>
+        <br><br><br>
+        <p style="margin: 5px 0; border-bottom: 1px solid #000; display: inline-block; min-width: 200px;">(_____________________________)</p>
+        <p style="margin: 5px 0;">NIP. _________________________</p>
       </div>
     </body></html>`;
   
@@ -636,6 +794,8 @@ window.resetForm = function() {
     document.getElementById('inpKelas').value = '';
     document.getElementById('inpMapel').value = '';
     document.getElementById('inpTopik').value = '';
+    document.getElementById('inpPeriode').value = 'Formatif 1';
+    document.getElementById('inpTanggal').value = '';
     document.getElementById('inpDataSiswa').value = '';
     document.getElementById('resultSection').classList.remove('show');
     dataSiswa = [];
