@@ -19,7 +19,7 @@ const DAFTAR_BEL = [
     id: 'masuk', 
     nama: 'Bel Masuk Kelas', 
     icon: '', 
-    text: 'Selamat pagi, ayo masuk kelas dan belajar yang rajin ya!',
+    text: 'assalamu alaikum , ayo semua silahkan masuk ke kelas masing masing. waktunya belajar, yang  rajin ya!',
     pattern: [{freq: 880, duration: 2000}], 
     warna: '#3b82f6' 
   },
