@@ -1,6 +1,7 @@
 /* =========================================
    ANALISIS KKTP - STYLING
    Format: Standar Kemendikbudristek Kurmer
+   Dengan Kop Editable
    ========================================= */
 
 .kktp-container { 
@@ -109,6 +110,53 @@ textarea.form-control {
 
 select.form-control { cursor: pointer; }
 
+/* Kop Settings */
+.kop-settings {
+  background: #f0f9ff;
+  border: 2px dashed #3b82f6;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.kop-settings .form-grid {
+  margin-bottom: 10px;
+}
+
+.kop-preview {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 15px;
+  text-align: center;
+  font-family: 'Times New Roman', serif;
+}
+
+.kop-preview .kop-line {
+  margin: 3px 0;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.kop-preview .kop-line.sekolah {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.kop-preview .kop-line.alamat {
+  font-size: 12px;
+  font-style: italic;
+  color: #64748b;
+}
+
+.kop-preview .kop-divider {
+  border: none;
+  border-top: 3px double #1e293b;
+  margin: 10px 0;
+}
+
 /* Interval Capaian Cards */
 .interval-grid {
   display: grid;
@@ -204,6 +252,9 @@ select.form-control { cursor: pointer; }
 
 .btn-reset { background: #6b7280; color: white; }
 .btn-reset:hover { background: #4b5563; }
+
+.btn-kop { background: #0ea5e9; color: white; }
+.btn-kop:hover { background: #0284c7; }
 
 .gen-action { 
   margin-top: 30px; 
@@ -323,7 +374,7 @@ select.form-control { cursor: pointer; }
 .chart-bar-fill.sudah { background: linear-gradient(90deg, #10b981, #34d399); }
 .chart-bar-fill.pengayaan { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
 
-/* Table - Format Baru */
+/* Table */
 .siswa-table { 
   width: 100%; 
   border-collapse: collapse; 
@@ -358,11 +409,6 @@ select.form-control { cursor: pointer; }
   font-weight: 600;
 }
 
-.siswa-table .interval-cell {
-  font-weight: 700;
-  font-size: 13px;
-}
-
 .siswa-table .tindak-lanjut-cell {
   text-align: left;
   padding: 8px 15px;
@@ -370,7 +416,7 @@ select.form-control { cursor: pointer; }
   line-height: 1.5;
 }
 
-/* Badges untuk Interval */
+/* Badges */
 .badge-interval {
   display: inline-block;
   padding: 4px 10px;
@@ -435,7 +481,7 @@ select.form-control { cursor: pointer; }
     border: none; 
     background: white !important; 
   }
-  .gen-action, .info-box { display: none !important; }
+  .gen-action, .info-box, .kop-settings { display: none !important; }
   .result-section { display: block !important; }
 }
 
