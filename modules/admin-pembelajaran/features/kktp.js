@@ -1,8 +1,10 @@
-// modules/admin-pembelajaran/features/analisis-kktp.js
+// modules/admin-pembelajaran/features/kktp.js
 // =========================================
 // FITUR: ANALISIS KKTP (Kurikulum Merdeka)
-// Filosofi: Mendampingi, bukan menghakimi
-// CSS: Terpisah di /css/modules/analisis-kktp.css
+// Format: Standar Kemendikbudristek
+// - Interval Capaian: 0-40%, 41-65%, 66-85%, 86-100%
+// - Kategori: Belum mencapai / Sudah mencapai
+// - Tindak Lanjut: Remedial / Tuntas + Pengayaan
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -12,22 +14,16 @@ import { getDatabase, ref, get, set, push }
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const database = getDatabase();
 
-// Konstanta CSS
 const CSS_PATH = '../../../css/modules/analisis-kktp.css';
 const CSS_ID = 'analisis-kktp-css';
 
-// State
 let dataSiswa = [];
 let analisisResult = null;
 
-/**
- * Init
- */
 export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  loadSavedData();
 }
 
 export function cleanup() {
@@ -35,9 +31,6 @@ export function cleanup() {
   if (css) css.remove();
 }
 
-/**
- * Load CSS - Eksternal dengan fallback inline
- */
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
   
@@ -46,9 +39,8 @@ function loadCSS() {
   link.href = CSS_PATH;
   link.id = CSS_ID;
   
-  // Fallback: jika CSS eksternal gagal, inject inline
   link.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
+    console.warn('⚠️ CSS eksternal gagal');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
@@ -58,9 +50,6 @@ function loadCSS() {
   document.head.appendChild(link);
 }
 
-/**
- * Fallback CSS inline (jika file eksternal gagal)
- */
 function getInlineCSS() {
   return `
     .kktp-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); }
@@ -79,11 +68,19 @@ function getInlineCSS() {
     .form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     textarea.form-control { resize: vertical; min-height: 120px; font-family: inherit; }
     select.form-control { cursor: pointer; }
-    .threshold-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-    .threshold-card { background: #fff1f2; padding: 15px; border-radius: 8px; text-align: center; border: 2px solid #fce7f3; }
-    .threshold-card label { font-size: 12px; font-weight: 700; color: #831843; margin-bottom: 8px; display: block; }
-    .threshold-card input { width: 60px; padding: 8px; border: 2px solid #fbcfe8; border-radius: 6px; text-align: center; font-size: 16px; font-weight: 700; color: #be185d; }
-    .threshold-card .desc { font-size: 11px; color: #64748b; margin-top: 5px; }
+    .interval-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+    .interval-card { padding: 15px; border-radius: 8px; text-align: center; border: 2px solid; }
+    .interval-card.belum-total { background: #fee2e2; border-color: #ef4444; }
+    .interval-card.belum-sebagian { background: #fef3c7; border-color: #f59e0b; }
+    .interval-card.sudah { background: #d1fae5; border-color: #10b981; }
+    .interval-card.pengayaan { background: #dbeafe; border-color: #3b82f6; }
+    .interval-card .range { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .interval-card.belum-total .range { color: #991b1b; }
+    .interval-card.belum-sebagian .range { color: #92400e; }
+    .interval-card.sudah .range { color: #065f46; }
+    .interval-card.pengayaan .range { color: #1e40af; }
+    .interval-card .label { font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
+    .interval-card .desc { font-size: 11px; color: #64748b; }
     .btn-action { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); transition: all 0.2s; }
     .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     .btn-analyze { background: #10b981; color: white; }
@@ -101,28 +98,30 @@ function getInlineCSS() {
     .summary-card .label { font-size: 12px; color: #64748b; margin-top: 5px; }
     .chart-container { background: #fff1f2; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
     .chart-bar { display: flex; align-items: center; margin-bottom: 12px; }
-    .chart-label { width: 150px; font-weight: 600; color: #831843; font-size: 14px; }
+    .chart-label { width: 180px; font-weight: 600; color: #831843; font-size: 13px; }
     .chart-bar-bg { flex: 1; background: #e2e8f0; border-radius: 8px; overflow: hidden; height: 35px; }
-    .chart-bar-fill { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; transition: width 0.8s ease; font-size: 14px; min-width: 40px; }
-    .chart-bar-fill.perlu { background: linear-gradient(90deg, #ef4444, #f87171); }
-    .chart-bar-fill.cukup { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
-    .chart-bar-fill.baik { background: linear-gradient(90deg, #10b981, #34d399); }
-    .chart-bar-fill.sangat { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
-    .siswa-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .siswa-table th { background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 12px 8px; text-align: center; font-weight: 700; }
-    .siswa-table td { padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center; }
+    .chart-bar-fill { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; transition: width 0.8s ease; font-size: 13px; min-width: 40px; }
+    .chart-bar-fill.belum-total { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .chart-bar-fill.belum-sebagian { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .chart-bar-fill.sudah { background: linear-gradient(90deg, #10b981, #34d399); }
+    .chart-bar-fill.pengayaan { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+    .siswa-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .siswa-table th { background: linear-gradient(135deg, #ec4899 0%, #f472b6 100%); color: white; padding: 12px 8px; text-align: center; font-weight: 700; font-size: 14px; }
+    .siswa-table td { padding: 12px 8px; border: 1px solid #e2e8f0; text-align: center; font-size: 14px; }
     .siswa-table tr:nth-child(even) { background: #fff1f2; }
-    .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; }
-    .badge-perlu { background: #fee2e2; color: #991b1b; }
-    .badge-cukup { background: #fef3c7; color: #92400e; }
-    .badge-baik { background: #d1fae5; color: #065f46; }
-    .badge-sangat { background: #dbeafe; color: #1e40af; }
+    .siswa-table .nama-cell { text-align: left; padding-left: 15px; font-weight: 600; }
+    .siswa-table .tindak-lanjut-cell { text-align: left; padding: 8px 15px; font-size: 13px; line-height: 1.5; }
+    .badge-interval { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+    .badge-belum-total { background: #fee2e2; color: #991b1b; }
+    .badge-belum-sebagian { background: #fef3c7; color: #92400e; }
+    .badge-sudah { background: #d1fae5; color: #065f46; }
+    .badge-pengayaan { background: #dbeafe; color: #1e40af; }
     .recommendation { background: #fffbeb; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 8px; margin-top: 20px; }
     .recommendation h4 { margin: 0 0 15px 0; color: #92400e; font-size: 16px; }
     .recommendation ul { margin: 0; padding-left: 20px; color: #78350f; }
     .recommendation li { margin-bottom: 10px; line-height: 1.6; }
     .student-list { background: #fef3c7; padding: 10px 15px; border-radius: 6px; margin: 10px 0; font-size: 13px; color: #78350f; }
-    @media (max-width: 768px) { .kktp-container { padding: 15px; } .kktp-header { padding: 20px; } .kktp-header h2 { font-size: 22px; } .kktp-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .threshold-grid { grid-template-columns: 1fr 1fr; } .btn-action { width: 100%; justify-content: center; } .summary-grid { grid-template-columns: 1fr 1fr; } .chart-label { width: 100px; font-size: 12px; } }
+    @media (max-width: 768px) { .kktp-container { padding: 15px; } .kktp-header { padding: 20px; } .kktp-header h2 { font-size: 22px; } .kktp-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .interval-grid { grid-template-columns: 1fr 1fr; } .btn-action { width: 100%; justify-content: center; } .summary-grid { grid-template-columns: 1fr 1fr; } .chart-label { width: 120px; font-size: 11px; } }
   `;
 }
 
@@ -131,17 +130,16 @@ function renderUI(container) {
     <div class="kktp-container">
       <div class="kktp-header">
         <h2>📊 Analisis KKTP</h2>
-        <p>Kriteria Ketercapaian Tujuan Pembelajaran - Kurikulum Merdeka</p>
+        <p>Kriteria Ketercapaian Tujuan Pembelajaran - Format Standar Kemendikbudristek</p>
       </div>
 
       <div class="info-box">
-        <strong>💡 Tentang KKTP:</strong> KKTP digunakan untuk memetakan ketercapaian tujuan pembelajaran siswa. 
-        Hasil analisis ini membantu guru memberikan tindak lanjut yang tepat untuk setiap siswa. 
-        Tidak ada siswa yang "gagal" - setiap siswa memiliki kecepatan belajar yang berbeda.
+        <strong>📋 Format Analisis KKTP:</strong> Analisis ini menggunakan interval capaian persentase sesuai standar Kurikulum Merdeka. 
+        Setiap siswa akan dipetakan ke dalam 4 interval: 0-40%, 41-65%, 66-85%, 86-100% dengan tindak lanjut yang sesuai.
       </div>
 
       <div class="kktp-form">
-        <div class="form-section-title"> 1. Informasi Umum</div>
+        <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label>🎓 Kelas / Fase</label>
@@ -173,11 +171,11 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Topik / Tujuan Pembelajaran</label>
+            <label>📝 Topik / Tujuan Pembelajaran</label>
             <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Memahami pecahan sederhana">
           </div>
           <div class="form-group">
-            <label> Periode Asesmen</label>
+            <label>📅 Periode Asesmen</label>
             <select id="inpPeriode" class="form-control">
               <option value="Formatif 1">Asesmen Formatif 1</option>
               <option value="Formatif 2">Asesmen Formatif 2</option>
@@ -187,46 +185,46 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title"> 2. Kriteria KKTP (Bisa Disesuaikan)</div>
-        <div class="threshold-grid">
-          <div class="threshold-card">
-            <label>Perlu Bimbingan</label>
-            <input type="number" id="thrPerlu" value="70" min="0" max="100">
-            <div class="desc">Di bawah nilai ini</div>
+        <div class="form-section-title">🎯 2. Interval Capaian (Standar Kemendikbudristek)</div>
+        <div class="interval-grid">
+          <div class="interval-card belum-total">
+            <div class="range">0 - 40%</div>
+            <div class="label">Belum Mencapai</div>
+            <div class="desc">Remedial di seluruh bagian</div>
           </div>
-          <div class="threshold-card">
-            <label>Cukup</label>
-            <input type="number" id="thrCukup" value="80" min="0" max="100">
-            <div class="desc">S.d. nilai ini</div>
+          <div class="interval-card belum-sebagian">
+            <div class="range">41 - 65%</div>
+            <div class="label">Belum Mencapai</div>
+            <div class="desc">Remedial di bagian yang diperlukan</div>
           </div>
-          <div class="threshold-card">
-            <label>Baik</label>
-            <input type="number" id="thrBaik" value="90" min="0" max="100">
-            <div class="desc">S.d. nilai ini</div>
+          <div class="interval-card sudah">
+            <div class="range">66 - 85%</div>
+            <div class="label">Sudah Mencapai</div>
+            <div class="desc">Tidak perlu remedial</div>
           </div>
-          <div class="threshold-card">
-            <label>Sangat Baik</label>
-            <input type="number" id="thrSangat" value="100" min="0" max="100" disabled>
-            <div class="desc">Di atas 90</div>
+          <div class="interval-card pengayaan">
+            <div class="range">86 - 100%</div>
+            <div class="label">Sudah Mencapai</div>
+            <div class="desc">Perlu pengayaan</div>
           </div>
         </div>
 
-        <div class="form-section-title">👥 3. Data Nilai Siswa</div>
+        <div class="form-section-title"> 3. Data Nilai Siswa</div>
         <div class="form-group">
           <label>📝 Input Nilai (satu siswa per baris: Nama, Nilai)</label>
           <textarea id="inpDataSiswa" class="form-control" placeholder="Contoh:
-Andi Pratama, 85
-Budi Santoso, 72
-Citra Lestari, 90
-Diana Putri, 68
-Eka Wijaya, 78"></textarea>
+Eka, 55
+Fani, 88
+Andi, 72
+Budi, 45
+Citra, 92"></textarea>
           <p style="font-size: 12px; color: #64748b; margin-top: 5px;">
             Format: <strong>Nama, Nilai</strong> (pisahkan dengan koma). Nilai 0-100.
           </p>
         </div>
 
         <div class="gen-action">
-          <button class="btn-action btn-analyze" onclick="analyzeKKTP()">📊 Analisis KKTP</button>
+          <button class="btn-action btn-analyze" onclick="analyzeKKTP()"> Analisis KKTP</button>
           <button class="btn-action btn-save" onclick="saveToDatabase()">💾 Simpan ke Database</button>
           <button class="btn-action btn-export" onclick="exportToWord()">📥 Export Word</button>
           <button class="btn-action btn-reset" onclick="resetForm()">🔄 Reset</button>
@@ -239,20 +237,20 @@ Eka Wijaya, 78"></textarea>
         <div class="summary-grid" id="summaryGrid"></div>
         
         <div class="chart-container">
-          <h4>📊 Distribusi Ketercapaian KKTP</h4>
+          <h4>📊 Distribusi Interval Capaian</h4>
           <div id="chartBars"></div>
         </div>
         
-        <div class="form-section-title">📋 Detail Hasil Per Siswa</div>
+        <div class="form-section-title"> Tabel Analisis KKTP Siswa</div>
         <div style="overflow-x: auto;">
           <table class="siswa-table" id="resultTable">
             <thead>
               <tr>
-                <th>No</th>
+                <th style="width: 50px;">No</th>
                 <th>Nama Siswa</th>
-                <th>Nilai</th>
-                <th>Kategori KKTP</th>
-                <th>Tindak Lanjut</th>
+                <th style="width: 100px;">Nilai Asesmen</th>
+                <th style="width: 120px;">Interval Capaian</th>
+                <th>Hasil Tindak Lanjut</th>
               </tr>
             </thead>
             <tbody id="resultTableBody"></tbody>
@@ -266,38 +264,11 @@ Eka Wijaya, 78"></textarea>
 }
 
 function attachEvents() {
-  // Auto-save threshold ke localStorage
-  ['thrPerlu', 'thrCukup', 'thrBaik'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', () => {
-        const thresholds = {
-          perluBimbingan: parseInt(document.getElementById('thrPerlu').value),
-          cukup: parseInt(document.getElementById('thrCukup').value),
-          baik: parseInt(document.getElementById('thrBaik').value)
-        };
-        localStorage.setItem('kktp_thresholds', JSON.stringify(thresholds));
-      });
-    }
-  });
-}
-
-function loadSavedData() {
-  const savedThresholds = localStorage.getItem('kktp_thresholds');
-  if (savedThresholds) {
-    try {
-      const t = JSON.parse(savedThresholds);
-      setTimeout(() => {
-        if (t.perluBimbingan) document.getElementById('thrPerlu').value = t.perluBimbingan;
-        if (t.cukup) document.getElementById('thrCukup').value = t.cukup;
-        if (t.baik) document.getElementById('thrBaik').value = t.baik;
-      }, 100);
-    } catch (e) {}
-  }
+  // Event listeners bisa ditambahkan di sini
 }
 
 /**
- * Analisis KKTP
+ * Analisis KKTP - Format Standar
  */
 window.analyzeKKTP = function() {
   const kelas = document.getElementById('inpKelas').value;
@@ -306,12 +277,12 @@ window.analyzeKKTP = function() {
   const dataInput = document.getElementById('inpDataSiswa').value;
   
   if (!kelas || !mapel || !topik) {
-    alert('⚠️ Lengkapi informasi umum terlebih dahulu!');
+    alert('️ Lengkapi informasi umum terlebih dahulu!');
     return;
   }
   
   if (!dataInput.trim()) {
-    alert('️ Input data nilai siswa terlebih dahulu!');
+    alert('⚠️ Input data nilai siswa terlebih dahulu!');
     return;
   }
   
@@ -341,43 +312,46 @@ window.analyzeKKTP = function() {
   showToast('✅ Analisis KKTP selesai!');
 };
 
+/**
+ * Hitung Analisis KKTP - Format Standar
+ */
 function hitungAnalisis(data) {
-  const thresholds = {
-    perluBimbingan: parseInt(document.getElementById('thrPerlu').value) || 70,
-    cukup: parseInt(document.getElementById('thrCukup').value) || 80,
-    baik: parseInt(document.getElementById('thrBaik').value) || 90
-  };
-  
   const totalSiswa = data.length;
   const totalNilai = data.reduce((sum, s) => sum + s.nilai, 0);
   const rataRata = totalNilai / totalSiswa;
   const nilaiTertinggi = Math.max(...data.map(s => s.nilai));
   const nilaiTerendah = Math.min(...data.map(s => s.nilai));
   
+  // Kategorisasi berdasarkan Interval Capaian
   const kategori = {
-    perlu: data.filter(s => s.nilai < thresholds.perluBimbingan),
-    cukup: data.filter(s => s.nilai >= thresholds.perluBimbingan && s.nilai < thresholds.cukup),
-    baik: data.filter(s => s.nilai >= thresholds.cukup && s.nilai < thresholds.baik),
-    sangat: data.filter(s => s.nilai >= thresholds.baik)
+    belumTotal: data.filter(s => s.nilai <= 40),        // 0-40%
+    belumSebagian: data.filter(s => s.nilai > 40 && s.nilai <= 65),  // 41-65%
+    sudah: data.filter(s => s.nilai > 65 && s.nilai <= 85),          // 66-85%
+    pengayaan: data.filter(s => s.nilai > 85)                        // 86-100%
   };
   
+  // Tambah kategori, interval, dan tindak lanjut ke setiap siswa
   data.forEach(siswa => {
-    if (siswa.nilai < thresholds.perluBimbingan) {
-      siswa.kategori = 'Perlu Bimbingan';
-      siswa.badge = 'perlu';
-      siswa.tindakLanjut = 'Bimbingan khusus';
-    } else if (siswa.nilai < thresholds.cukup) {
-      siswa.kategori = 'Cukup';
-      siswa.badge = 'cukup';
-      siswa.tindakLanjut = 'Pendampingan';
-    } else if (siswa.nilai < thresholds.baik) {
-      siswa.kategori = 'Baik';
-      siswa.badge = 'baik';
-      siswa.tindakLanjut = 'Pengayaan';
+    if (siswa.nilai <= 40) {
+      siswa.kategori = 'Belum Mencapai';
+      siswa.interval = '0 - 40%';
+      siswa.badge = 'belum-total';
+      siswa.tindakLanjut = '<strong>Remedial</strong> khusus materi-materi yang salah';
+    } else if (siswa.nilai <= 65) {
+      siswa.kategori = 'Belum Mencapai';
+      siswa.interval = '41 - 65%';
+      siswa.badge = 'belum-sebagian';
+      siswa.tindakLanjut = '<strong>Remedial</strong> di bagian yang diperlukan';
+    } else if (siswa.nilai <= 85) {
+      siswa.kategori = 'Sudah Mencapai';
+      siswa.interval = '66 - 85%';
+      siswa.badge = 'sudah';
+      siswa.tindakLanjut = '<strong>Tuntas</strong>, tidak perlu remedial';
     } else {
-      siswa.kategori = 'Sangat Baik';
-      siswa.badge = 'sangat';
-      siswa.tindakLanjut = 'Pengayaan lanjut';
+      siswa.kategori = 'Sudah Mencapai';
+      siswa.interval = '86 - 100%';
+      siswa.badge = 'pengayaan';
+      siswa.tindakLanjut = '<strong>Tuntas</strong>, diberikan tugas pengayaan';
     }
   });
   
@@ -386,18 +360,20 @@ function hitungAnalisis(data) {
     rataRata: rataRata.toFixed(2),
     nilaiTertinggi,
     nilaiTerendah,
-    thresholds,
     kategori,
     data,
     persentase: {
-      perlu: ((kategori.perlu.length / totalSiswa) * 100).toFixed(1),
-      cukup: ((kategori.cukup.length / totalSiswa) * 100).toFixed(1),
-      baik: ((kategori.baik.length / totalSiswa) * 100).toFixed(1),
-      sangat: ((kategori.sangat.length / totalSiswa) * 100).toFixed(1)
+      belumTotal: ((kategori.belumTotal.length / totalSiswa) * 100).toFixed(1),
+      belumSebagian: ((kategori.belumSebagian.length / totalSiswa) * 100).toFixed(1),
+      sudah: ((kategori.sudah.length / totalSiswa) * 100).toFixed(1),
+      pengayaan: ((kategori.pengayaan.length / totalSiswa) * 100).toFixed(1)
     }
   };
 }
 
+/**
+ * Tampilkan Hasil Analisis
+ */
 function tampilkanHasil(analisis) {
   const resultSection = document.getElementById('resultSection');
   resultSection.classList.add('show');
@@ -416,14 +392,14 @@ function tampilkanHasil(analisis) {
       <div class="label">dari 100</div>
     </div>
     <div class="summary-card">
-      <h3>Nilai Tertinggi</h3>
-      <div class="value">${analisis.nilaiTertinggi}</div>
-      <div class="label">poin</div>
+      <h3>Sudah Mencapai TP</h3>
+      <div class="value">${analisis.kategori.sudah.length + analisis.kategori.pengayaan.length}</div>
+      <div class="label">siswa (${(parseFloat(analisis.persentase.sudah) + parseFloat(analisis.persentase.pengayaan)).toFixed(1)}%)</div>
     </div>
     <div class="summary-card">
-      <h3>Nilai Terendah</h3>
-      <div class="value">${analisis.nilaiTerendah}</div>
-      <div class="label">poin</div>
+      <h3>Perlu Remedial</h3>
+      <div class="value">${analisis.kategori.belumTotal.length + analisis.kategori.belumSebagian.length}</div>
+      <div class="label">siswa (${(parseFloat(analisis.persentase.belumTotal) + parseFloat(analisis.persentase.belumSebagian)).toFixed(1)}%)</div>
     </div>
   `;
   
@@ -431,48 +407,48 @@ function tampilkanHasil(analisis) {
   const chartBars = document.getElementById('chartBars');
   chartBars.innerHTML = `
     <div class="chart-bar">
-      <div class="chart-label">Perlu Bimbingan</div>
+      <div class="chart-label">0-40% (Belum Mencapai)</div>
       <div class="chart-bar-bg">
-        <div class="chart-bar-fill perlu" style="width: ${Math.max(analisis.persentase.perlu, 5)}%">
-          ${analisis.kategori.perlu.length} siswa (${analisis.persentase.perlu}%)
+        <div class="chart-bar-fill belum-total" style="width: ${Math.max(analisis.persentase.belumTotal, 5)}%">
+          ${analisis.kategori.belumTotal.length} siswa (${analisis.persentase.belumTotal}%)
         </div>
       </div>
     </div>
     <div class="chart-bar">
-      <div class="chart-label">Cukup</div>
+      <div class="chart-label">41-65% (Belum Mencapai)</div>
       <div class="chart-bar-bg">
-        <div class="chart-bar-fill cukup" style="width: ${Math.max(analisis.persentase.cukup, 5)}%">
-          ${analisis.kategori.cukup.length} siswa (${analisis.persentase.cukup}%)
+        <div class="chart-bar-fill belum-sebagian" style="width: ${Math.max(analisis.persentase.belumSebagian, 5)}%">
+          ${analisis.kategori.belumSebagian.length} siswa (${analisis.persentase.belumSebagian}%)
         </div>
       </div>
     </div>
     <div class="chart-bar">
-      <div class="chart-label">Baik</div>
+      <div class="chart-label">66-85% (Sudah Mencapai)</div>
       <div class="chart-bar-bg">
-        <div class="chart-bar-fill baik" style="width: ${Math.max(analisis.persentase.baik, 5)}%">
-          ${analisis.kategori.baik.length} siswa (${analisis.persentase.baik}%)
+        <div class="chart-bar-fill sudah" style="width: ${Math.max(analisis.persentase.sudah, 5)}%">
+          ${analisis.kategori.sudah.length} siswa (${analisis.persentase.sudah}%)
         </div>
       </div>
     </div>
     <div class="chart-bar">
-      <div class="chart-label">Sangat Baik</div>
+      <div class="chart-label">86-100% (Perlu Pengayaan)</div>
       <div class="chart-bar-bg">
-        <div class="chart-bar-fill sangat" style="width: ${Math.max(analisis.persentase.sangat, 5)}%">
-          ${analisis.kategori.sangat.length} siswa (${analisis.persentase.sangat}%)
+        <div class="chart-bar-fill pengayaan" style="width: ${Math.max(analisis.persentase.pengayaan, 5)}%">
+          ${analisis.kategori.pengayaan.length} siswa (${analisis.persentase.pengayaan}%)
         </div>
       </div>
     </div>
   `;
   
-  // Result Table
+  // Result Table - Format Baru
   const resultTableBody = document.getElementById('resultTableBody');
   resultTableBody.innerHTML = analisis.data.map((siswa, index) => `
     <tr>
       <td>${index + 1}</td>
-      <td style="text-align: left; padding-left: 15px;"><strong>${siswa.nama}</strong></td>
+      <td class="nama-cell">${siswa.nama}</td>
       <td><strong>${siswa.nilai}</strong></td>
-      <td><span class="badge badge-${siswa.badge}">${siswa.kategori}</span></td>
-      <td style="font-size: 13px;">${siswa.tindakLanjut}</td>
+      <td><span class="badge-interval badge-${siswa.badge}">${siswa.interval}</span></td>
+      <td class="tindak-lanjut-cell">${siswa.tindakLanjut}</td>
     </tr>
   `).join('');
   
@@ -480,30 +456,35 @@ function tampilkanHasil(analisis) {
   const recommendation = document.getElementById('recommendation');
   let recHTML = '<h4>💡 Rekomendasi Tindak Lanjut Pembelajaran</h4><ul>';
   
-  if (analisis.kategori.perlu.length > 0) {
-    recHTML += `<li><strong>🤝 Bimbingan Khusus:</strong> ${analisis.kategori.perlu.length} siswa perlu pendampingan tambahan untuk mencapai tujuan pembelajaran: 
-      <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.perlu.map(s => s.nama).join(', ')}</div>
+  if (analisis.kategori.belumTotal.length > 0) {
+    recHTML += `<li><strong>🔴 Remedial Menyeluruh:</strong> ${analisis.kategori.belumTotal.length} siswa perlu remedial di seluruh bagian materi: 
+      <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.belumTotal.map(s => s.nama).join(', ')}</div>
     </li>`;
   }
   
-  if (analisis.kategori.cukup.length > 0) {
-    recHTML += `<li><strong>📚 Pendampingan:</strong> ${analisis.kategori.cukup.length} siswa sudah mencapai tujuan dengan bimbingan, perlu latihan lebih mandiri: 
-      <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.cukup.map(s => s.nama).join(', ')}</div>
+  if (analisis.kategori.belumSebagian.length > 0) {
+    recHTML += `<li><strong>🟡 Remedial Sebagian:</strong> ${analisis.kategori.belumSebagian.length} siswa perlu remedial di bagian yang diperlukan: 
+      <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.belumSebagian.map(s => s.nama).join(', ')}</div>
     </li>`;
   }
   
-  if (analisis.kategori.baik.length > 0 || analisis.kategori.sangat.length > 0) {
-    recHTML += `<li><strong>⭐ Pengayaan:</strong> Berikan tantangan lebih untuk ${analisis.kategori.baik.length + analisis.kategori.sangat.length} siswa yang sudah mencapai/melampaui tujuan pembelajaran</li>`;
+  if (analisis.kategori.sudah.length > 0) {
+    recHTML += `<li><strong>🟢 Tuntas:</strong> ${analisis.kategori.sudah.length} siswa sudah mencapai tujuan pembelajaran, tidak perlu remedial</li>`;
   }
   
-  if (parseFloat(analisis.rataRata) < 75) {
-    recHTML += `<li><strong> Refleksi Metode:</strong> Rata-rata kelas di bawah 75, pertimbangkan untuk mengevaluasi strategi pembelajaran dan memberikan asesmen diagnostik</li>`;
+  if (analisis.kategori.pengayaan.length > 0) {
+    recHTML += `<li><strong>🔵 Pengayaan:</strong> ${analisis.kategori.pengayaan.length} siswa perlu diberikan tugas pengayaan: 
+      <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.pengayaan.map(s => s.nama).join(', ')}</div>
+    </li>`;
+  }
+  
+  if (parseFloat(analisis.rataRata) < 65) {
+    recHTML += `<li><strong>🔄 Refleksi Metode:</strong> Rata-rata kelas di bawah 65%, pertimbangkan untuk mengevaluasi strategi pembelajaran</li>`;
   } else if (parseFloat(analisis.rataRata) >= 85) {
     recHTML += `<li><strong>🎉 Apresiasi:</strong> Rata-rata kelas sangat baik! Pertahankan metode pembelajaran yang sudah efektif</li>`;
   }
   
-  recHTML += `<li><strong>📝 Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya untuk memantau perkembangan setiap siswa</li>`;
-  recHTML += `<li><strong>🤝 Kolaborasi:</strong> Diskusikan hasil ini dengan rekan sejawat untuk berbagi strategi pembelajaran</li>`;
+  recHTML += `<li><strong> Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya untuk memantau perkembangan setiap siswa</li>`;
   recHTML += '</ul>';
   
   recommendation.innerHTML = recHTML;
@@ -520,7 +501,7 @@ window.saveToDatabase = async function() {
   const periode = document.getElementById('inpPeriode').value;
   
   if (!kelas || !mapel || !topik || dataSiswa.length === 0) {
-    alert('⚠️ Lakukan analisis terlebih dahulu!');
+    alert('️ Lakukan analisis terlebih dahulu!');
     return;
   }
   
@@ -540,7 +521,6 @@ window.saveToDatabase = async function() {
       rataRata: parseFloat(analisisResult.rataRata),
       nilaiTertinggi: analisisResult.nilaiTertinggi,
       nilaiTerendah: analisisResult.nilaiTerendah,
-      thresholds: analisisResult.thresholds,
       persentase: analisisResult.persentase,
       data: dataSiswa,
       createdAt: Date.now(),
@@ -561,7 +541,7 @@ window.exportToWord = function() {
   const periode = document.getElementById('inpPeriode').value;
   
   if (!kelas || !mapel || !topik || dataSiswa.length === 0) {
-    alert('️ Lakukan analisis terlebih dahulu!');
+    alert('⚠️ Lakukan analisis terlebih dahulu!');
     return;
   }
   
@@ -574,9 +554,9 @@ window.exportToWord = function() {
       <tr style="background: #ec4899; color: white;">
         <th>No</th>
         <th>Nama Siswa</th>
-        <th>Nilai</th>
-        <th>Kategori KKTP</th>
-        <th>Tindak Lanjut</th>
+        <th>Nilai Asesmen</th>
+        <th>Interval Capaian</th>
+        <th>Hasil Tindak Lanjut</th>
       </tr>
     </thead>
     <tbody>`;
@@ -586,8 +566,8 @@ window.exportToWord = function() {
       <td style="text-align: center;">${index + 1}</td>
       <td>${siswa.nama}</td>
       <td style="text-align: center; font-weight: bold;">${siswa.nilai}</td>
-      <td style="text-align: center;">${siswa.kategori}</td>
-      <td style="text-align: center;">${siswa.tindakLanjut}</td>
+      <td style="text-align: center;">${siswa.interval}</td>
+      <td>${siswa.tindakLanjut.replace(/<[^>]*>/g, '')}</td>
     </tr>`;
   });
   
@@ -603,32 +583,32 @@ window.exportToWord = function() {
       </div>
       
       <div style="margin-bottom: 20px;">
-        <h3 style="color: #be185d;">📊 Ringkasan Hasil</h3>
+        <h3 style="color: #be185d;"> Ringkasan Hasil</h3>
         <table style="width: 60%; border: none;">
           <tr><td style="width: 50%;"><strong>Total Siswa:</strong></td><td>${analisisResult.totalSiswa} peserta didik</td></tr>
           <tr><td><strong>Rata-rata Kelas:</strong></td><td>${analisisResult.rataRata}</td></tr>
-          <tr><td><strong>Nilai Tertinggi:</strong></td><td>${analisisResult.nilaiTertinggi}</td></tr>
-          <tr><td><strong>Nilai Terendah:</strong></td><td>${analisisResult.nilaiTerendah}</td></tr>
+          <tr><td><strong>Sudah Mencapai TP:</strong></td><td>${analisisResult.kategori.sudah.length + analisisResult.kategori.pengayaan.length} siswa</td></tr>
+          <tr><td><strong>Perlu Remedial:</strong></td><td>${analisisResult.kategori.belumTotal.length + analisisResult.kategori.belumSebagian.length} siswa</td></tr>
         </table>
       </div>
       
-      <h3 style="color: #be185d;">📈 Distribusi Ketercapaian KKTP</h3>
+      <h3 style="color: #be185d;">📈 Distribusi Interval Capaian</h3>
       <ul>
-        <li><strong>Perlu Bimbingan:</strong> ${analisisResult.kategori.perlu.length} siswa (${analisisResult.persentase.perlu}%)</li>
-        <li><strong>Cukup:</strong> ${analisisResult.kategori.cukup.length} siswa (${analisisResult.persentase.cukup}%)</li>
-        <li><strong>Baik:</strong> ${analisisResult.kategori.baik.length} siswa (${analisisResult.persentase.baik}%)</li>
-        <li><strong>Sangat Baik:</strong> ${analisisResult.kategori.sangat.length} siswa (${analisisResult.persentase.sangat}%)</li>
+        <li><strong>0-40% (Belum Mencapai):</strong> ${analisisResult.kategori.belumTotal.length} siswa (${analisisResult.persentase.belumTotal}%)</li>
+        <li><strong>41-65% (Belum Mencapai):</strong> ${analisisResult.kategori.belumSebagian.length} siswa (${analisisResult.persentase.belumSebagian}%)</li>
+        <li><strong>66-85% (Sudah Mencapai):</strong> ${analisisResult.kategori.sudah.length} siswa (${analisisResult.persentase.sudah}%)</li>
+        <li><strong>86-100% (Perlu Pengayaan):</strong> ${analisisResult.kategori.pengayaan.length} siswa (${analisisResult.persentase.pengayaan}%)</li>
       </ul>
       
-      <h3 style="color: #be185d;">📋 Detail Nilai Siswa</h3>
+      <h3 style="color: #be185d;">📋 Tabel Analisis KKTP Siswa</h3>
       ${tableHTML}
       
       <div style="margin-top: 30px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px;">
         <h4 style="margin: 0 0 10px 0; color: #92400e;">💡 Rekomendasi Tindak Lanjut</h4>
         <ul style="margin: 0; padding-left: 20px;">
-          ${analisisResult.kategori.perlu.length > 0 ? `<li><strong>Bimbingan Khusus:</strong> ${analisisResult.kategori.perlu.length} siswa perlu pendampingan tambahan</li>` : ''}
-          ${analisisResult.kategori.cukup.length > 0 ? `<li><strong>Pendampingan:</strong> ${analisisResult.kategori.cukup.length} siswa perlu latihan lebih mandiri</li>` : ''}
-          <li><strong>Pengayaan:</strong> Berikan tantangan lebih untuk siswa yang sudah mencapai/melampaui TP</li>
+          ${analisisResult.kategori.belumTotal.length > 0 ? `<li><strong>Remedial Menyeluruh:</strong> ${analisisResult.kategori.belumTotal.length} siswa perlu remedial di seluruh bagian</li>` : ''}
+          ${analisisResult.kategori.belumSebagian.length > 0 ? `<li><strong>Remedial Sebagian:</strong> ${analisisResult.kategori.belumSebagian.length} siswa perlu remedial di bagian yang diperlukan</li>` : ''}
+          <li><strong>Pengayaan:</strong> Berikan tugas pengayaan untuk siswa yang sudah mencapai TP</li>
           <li><strong>Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya</li>
         </ul>
       </div>
@@ -648,7 +628,7 @@ window.exportToWord = function() {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   
-  showToast(' File Word berhasil diunduh!');
+  showToast('📥 File Word berhasil diunduh!');
 };
 
 window.resetForm = function() {
