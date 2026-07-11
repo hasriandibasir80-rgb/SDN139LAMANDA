@@ -3,6 +3,7 @@
 // FITUR: ANALISIS KKTP (Kurikulum Merdeka)
 // Format: Standar Kemendikbudristek
 // Kop Sekolah: Editable & tersimpan di localStorage
+// Data Mapel: Load dari assets/data-mapel.json
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -26,16 +27,87 @@ const DEFAULT_KOP = {
   alamat: 'Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba'
 };
 
+// ⭐ Data Mapel Fallback (jika JSON gagal dimuat)
+const FALLBACK_MAPEL = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+];
+
 export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
   loadKopSettings();
+  
+  // ⭐ Load data mapel dari JSON
+  await loadMataPelajaran();
 }
 
 export function cleanup() {
   const css = document.getElementById(CSS_ID);
   if (css) css.remove();
+}
+
+/**
+ * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
+ * Mengambil data dari assets/data-mapel.json
+ */
+async function loadMataPelajaran() {
+  try {
+    const response = await fetch('../../../assets/data-mapel.json');
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    const selectMapel = document.getElementById('inpMapel');
+    if (!selectMapel) return;
+    
+    selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
+    
+    data.mataPelajaran.forEach(mapel => {
+      const option = document.createElement('option');
+      option.value = mapel.nama;
+      option.textContent = `${mapel.icon} ${mapel.singkatan || mapel.nama}`;
+      selectMapel.appendChild(option);
+    });
+    
+    console.log(`✅ Data mapel berhasil dimuat: ${data.mataPelajaran.length} mapel`);
+  } catch (error) {
+    console.error('❌ Gagal memuat data mapel dari JSON:', error);
+    console.log('🔄 Menggunakan data mapel fallback');
+    loadFallbackMapel();
+  }
+}
+
+/**
+ * ⭐ FALLBACK: Jika JSON gagal dimuat, pakai data hardcoded
+ */
+function loadFallbackMapel() {
+  const selectMapel = document.getElementById('inpMapel');
+  if (!selectMapel) return;
+  
+  selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
+  
+  FALLBACK_MAPEL.forEach(mapel => {
+    const option = document.createElement('option');
+    option.value = mapel.nama;
+    option.textContent = `${mapel.icon} ${mapel.singkatan}`;
+    selectMapel.appendChild(option);
+  });
+  
+  console.log(`✅ Data mapel fallback dimuat: ${FALLBACK_MAPEL.length} mapel`);
 }
 
 function loadCSS() {
@@ -161,7 +233,7 @@ function renderUI(container) {
               <input type="text" id="kopKabupaten" class="form-control" placeholder="Contoh: BULUKUMBA">
             </div>
             <div class="form-group">
-              <label> Dinas</label>
+              <label>🏢 Dinas</label>
               <input type="text" id="kopDinas" class="form-control" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN">
             </div>
           </div>
@@ -204,15 +276,7 @@ function renderUI(container) {
             <label>📚 Mata Pelajaran</label>
             <select id="inpMapel" class="form-control">
               <option value="">-- Pilih Mapel --</option>
-              <option value="Matematika">Matematika</option>
-              <option value="Bahasa Indonesia">Bahasa Indonesia</option>
-              <option value="IPA">IPA</option>
-              <option value="IPS">IPS</option>
-              <option value="PJOK">PJOK</option>
-              <option value="Seni Budaya">Seni Budaya</option>
-              <option value="Bahasa Inggris">Bahasa Inggris</option>
-              <option value="Pendidikan Agama">Pendidikan Agama</option>
-              <option value="PPKn">PPKn</option>
+              <!-- ⭐ Opsi akan di-generate dari assets/data-mapel.json -->
             </select>
           </div>
         </div>
@@ -283,7 +347,7 @@ Citra, 92"></textarea>
       </div>
 
       <div class="result-section" id="resultSection">
-        <div class="form-section-title"> 4. Hasil Analisis</div>
+        <div class="form-section-title">📈 4. Hasil Analisis</div>
         
         <div class="summary-grid" id="summaryGrid"></div>
         
@@ -292,7 +356,7 @@ Citra, 92"></textarea>
           <div id="chartBars"></div>
         </div>
         
-        <div class="form-section-title"> Tabel Analisis KKTP Siswa</div>
+        <div class="form-section-title">📋 Tabel Analisis KKTP Siswa</div>
         <div style="overflow-x: auto;">
           <table class="siswa-table" id="resultTable">
             <thead>
@@ -378,9 +442,6 @@ function getKopSettings() {
   return DEFAULT_KOP;
 }
 
-/**
- * Analisis KKTP - Format Standar
- */
 window.analyzeKKTP = function() {
   const kelas = document.getElementById('inpKelas').value;
   const mapel = document.getElementById('inpMapel').value;
@@ -397,7 +458,6 @@ window.analyzeKKTP = function() {
     return;
   }
   
-  // Parse data siswa
   dataSiswa = [];
   const lines = dataInput.trim().split('\n');
   
@@ -423,9 +483,6 @@ window.analyzeKKTP = function() {
   showToast('✅ Analisis KKTP selesai!');
 };
 
-/**
- * Hitung Analisis KKTP - Format Standar
- */
 function hitungAnalisis(data) {
   const totalSiswa = data.length;
   const totalNilai = data.reduce((sum, s) => sum + s.nilai, 0);
@@ -433,7 +490,6 @@ function hitungAnalisis(data) {
   const nilaiTertinggi = Math.max(...data.map(s => s.nilai));
   const nilaiTerendah = Math.min(...data.map(s => s.nilai));
   
-  // Kategorisasi berdasarkan Interval Capaian
   const kategori = {
     belumTotal: data.filter(s => s.nilai <= 40),
     belumSebagian: data.filter(s => s.nilai > 40 && s.nilai <= 65),
@@ -441,11 +497,10 @@ function hitungAnalisis(data) {
     pengayaan: data.filter(s => s.nilai > 85)
   };
   
-  // Tambah kategori, interval, dan tindak lanjut ke setiap siswa
   const topik = document.getElementById('inpTopik').value;
   
   data.forEach(siswa => {
-    siswa.topik = topik; // Tambah topik ke setiap siswa (Opsi A)
+    siswa.topik = topik;
     
     if (siswa.nilai <= 40) {
       siswa.kategori = 'Belum Mencapai';
@@ -486,14 +541,10 @@ function hitungAnalisis(data) {
   };
 }
 
-/**
- * Tampilkan Hasil Analisis
- */
 function tampilkanHasil(analisis) {
   const resultSection = document.getElementById('resultSection');
   resultSection.classList.add('show');
   
-  // Summary Cards
   const summaryGrid = document.getElementById('summaryGrid');
   summaryGrid.innerHTML = `
     <div class="summary-card">
@@ -518,7 +569,6 @@ function tampilkanHasil(analisis) {
     </div>
   `;
   
-  // Chart Bars
   const chartBars = document.getElementById('chartBars');
   chartBars.innerHTML = `
     <div class="chart-bar">
@@ -555,7 +605,6 @@ function tampilkanHasil(analisis) {
     </div>
   `;
   
-  // Result Table - 6 Kolom (dengan Topik/TP)
   const resultTableBody = document.getElementById('resultTableBody');
   resultTableBody.innerHTML = analisis.data.map((siswa, index) => `
     <tr>
@@ -568,7 +617,6 @@ function tampilkanHasil(analisis) {
     </tr>
   `).join('');
   
-  // Recommendation
   const recommendation = document.getElementById('recommendation');
   let recHTML = '<h4>💡 Rekomendasi Tindak Lanjut Pembelajaran</h4><ul>';
   
@@ -671,7 +719,6 @@ window.exportToWord = function() {
   
   const kop = getKopSettings();
   
-  // Format tanggal
   let tanggalFormatted = '-';
   if (tanggal) {
     const dateObj = new Date(tanggal);
@@ -707,7 +754,6 @@ window.exportToWord = function() {
   
   const htmlContent = `<html><head><meta charset="utf-8"></head>
     <body style="font-family: 'Times New Roman', serif; margin: 2cm;">
-      <!-- KOP SURAT -->
       <div style="text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 20px;">
         <div style="font-size: 14pt; font-weight: bold; margin: 3px 0;">PEMERINTAH KABUPATEN ${kop.kabupaten.toUpperCase()}</div>
         <div style="font-size: 13pt; font-weight: bold; margin: 3px 0;">${kop.dinas.toUpperCase()}</div>
@@ -715,14 +761,12 @@ window.exportToWord = function() {
         <div style="font-size: 11pt; font-style: italic; margin: 3px 0;">${kop.alamat}</div>
       </div>
       
-      <!-- JUDUL -->
       <div style="text-align: center; margin-bottom: 25px;">
         <h1 style="margin: 0; font-size: 16pt; text-decoration: underline;">ANALISIS KKTP</h1>
         <h2 style="margin: 5px 0; font-size: 12pt;">Kriteria Ketercapaian Tujuan Pembelajaran</h2>
         <p style="margin: 5px 0; font-size: 11pt;">Kurikulum Merdeka - Tahun Ajaran 2026/2027</p>
       </div>
       
-      <!-- INFO -->
       <div style="margin-bottom: 20px;">
         <table style="width: 100%; border: none;">
           <tr><td style="width: 30%;"><strong>Kelas</strong></td><td>: ${kelas}</td></tr>
@@ -733,7 +777,6 @@ window.exportToWord = function() {
         </table>
       </div>
       
-      <!-- RINGKASAN -->
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📊 Ringkasan Hasil</h3>
       <table style="width: 60%; border: none; margin-bottom: 20px;">
         <tr><td style="width: 50%;"><strong>Total Siswa:</strong></td><td>${analisisResult.totalSiswa} peserta didik</td></tr>
@@ -742,7 +785,6 @@ window.exportToWord = function() {
         <tr><td><strong>Perlu Remedial:</strong></td><td>${analisisResult.kategori.belumTotal.length + analisisResult.kategori.belumSebagian.length} siswa (${(parseFloat(analisisResult.persentase.belumTotal) + parseFloat(analisisResult.persentase.belumSebagian)).toFixed(1)}%)</td></tr>
       </table>
       
-      <!-- DISTRIBUSI -->
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📈 Distribusi Interval Capaian</h3>
       <ul style="margin-bottom: 20px;">
         <li><strong>0-40% (Belum Mencapai):</strong> ${analisisResult.kategori.belumTotal.length} siswa (${analisisResult.persentase.belumTotal}%)</li>
@@ -751,11 +793,9 @@ window.exportToWord = function() {
         <li><strong>86-100% (Perlu Pengayaan):</strong> ${analisisResult.kategori.pengayaan.length} siswa (${analisisResult.persentase.pengayaan}%)</li>
       </ul>
       
-      <!-- TABEL -->
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📋 Tabel Analisis KKTP Siswa</h3>
       ${tableHTML}
       
-      <!-- REKOMENDASI -->
       <div style="margin-top: 30px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px;">
         <h4 style="margin: 0 0 10px 0; color: #92400e;">💡 Rekomendasi Tindak Lanjut Pembelajaran</h4>
         <ul style="margin: 0; padding-left: 20px;">
@@ -766,7 +806,6 @@ window.exportToWord = function() {
         </ul>
       </div>
       
-      <!-- TANDA TANGAN -->
       <div style="margin-top: 50px; text-align: right;">
         <p style="margin: 5px 0;">Lamanda, ${tanggalFormatted}</p>
         <p style="margin: 5px 0;">Guru Kelas</p>
