@@ -27,7 +27,7 @@ const DAFTAR_BEL = [
     id: 'istirahat', 
     nama: 'Bel Istirahat', 
     icon: '☕', 
-    text: 'Assalamu alaikum Waktunya istirahat, silakan pergi ke kantin. ingat jangan dilarang membuli siapa pun ',
+    text: 'Assalamu alaikum, Waktunya istirahat, silakan pergi ke kantin, ingat jangan dilarang membuli siapa pun ',
     pattern: [
       {freq: 880, duration: 300},
       {freq: 0, duration: 200},
@@ -41,7 +41,7 @@ const DAFTAR_BEL = [
     id: 'lanjut', 
     nama: 'Bel Lanjut Belajar', 
     icon: '', 
-    text: 'Assalamu alaikum Waktunya masuk kelas kembali, ayo lanjut belajar!',
+    text: 'Assalamu alaikum, Waktunya masuk kelas kembali, ayo lanjut belajar!',
     pattern: [
       {freq: 880, duration: 500},
       {freq: 0, duration: 200},
