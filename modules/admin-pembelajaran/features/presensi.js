@@ -1,6 +1,7 @@
 // modules/admin-pembelajaran/features/presensi.js
 // =========================================
 // FITUR: ABSENSI SISWA (PROFESSIONAL RTDB)
+// SINKRON DENGAN DATA SISWA
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -149,7 +150,7 @@ function renderAbsensiUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label> Tahun</label>
+            <label>📆 Tahun</label>
             <input type="text" id="pilihTahun" class="form-control" placeholder="2026">
           </div>
         </div>
@@ -217,11 +218,21 @@ function generateTanggalHeaders() {
   return headers;
 }
 
-function tambahBarisSiswa(nama = '', lp = 'L', absensiData = {}) {
+/**
+ * ⭐ FUNGSI 1 YANG DI-UPDATE: TAMBAH BARIS SISWA
+ * Tambah parameter siswaId untuk sinkronisasi
+ */
+function tambahBarisSiswa(nama = '', lp = 'L', absensiData = {}, siswaId = null) {
   const tabelBody = document.getElementById('tabelBody');
   if (!tabelBody) return;
 
   const row = document.createElement('tr');
+  
+  // ⭐ Simpan siswaId di data attribute untuk sinkronisasi
+  if (siswaId) {
+    row.dataset.siswaId = siswaId;
+  }
+  
   const rowCount = tabelBody.querySelectorAll('tr').length + 1;
 
   let tanggalInputs = '';
@@ -335,7 +346,8 @@ function attachEventListeners(container) {
 }
 
 /**
- * LOAD DATA DARI RTDB (PROFESSIONAL)
+ * ⭐ FUNGSI 2 YANG DI-UPDATE: LOAD DATA ABSENSI
+ * Kirim siswaId ke tambahBarisSiswa untuk sinkronisasi
  */
 async function loadDataAbsensi() {
   const tahunPelajaran = document.getElementById('tahunPelajaran').value;
@@ -355,7 +367,7 @@ async function loadDataAbsensi() {
   try {
     const bulanTahun = `${bulan}-${tahun}`;
     
-    // 1. Load Data Siswa dari RTDB
+    // 1. Load Data Siswa dari RTDB (SINKRON dengan Data Siswa)
     const siswaSnapshot = await get(ref(database, `siswa/${kelas}`));
     
     // 2. Load Data Absensi dari RTDB
@@ -381,10 +393,13 @@ async function loadDataAbsensi() {
       });
     }
     
-    // Render baris berdasarkan data siswa dari RTDB
+    // ⭐ Render baris berdasarkan data siswa dari RTDB
     if (siswaSnapshot.exists()) {
       const siswaData = siswaSnapshot.val();
-      const siswaList = Object.keys(siswaData).map(id => ({ id, ...siswaData[id] }));
+      const siswaList = Object.keys(siswaData).map(id => ({ 
+        id,  // ⭐ Simpan ID asli dari database
+        ...siswaData[id] 
+      }));
       siswaList.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
       
       siswaList.forEach(siswa => {
@@ -395,7 +410,13 @@ async function loadDataAbsensi() {
           }
         });
         
-        tambahBarisSiswa(siswa.nama, siswa.jenisKelamin || 'L', absensiSiswa);
+        // ⭐ Kirim siswa.id ke tambahBarisSiswa
+        tambahBarisSiswa(
+          siswa.nama, 
+          siswa.jenisKelamin || 'L', 
+          absensiSiswa,
+          siswa.id  // ⭐ BARIS BARU: kirim ID asli
+        );
         jumlahSiswa++;
       });
     } else {
@@ -429,7 +450,8 @@ async function loadDataAbsensi() {
 }
 
 /**
- * SIMPAN DATA KE RTDB (PROFESSIONAL)
+ * ⭐ FUNGSI 3 YANG DI-UPDATE: SIMPAN ABSENSI
+ * Gunakan ID yang sudah ada, tidak buat duplikat
  */
 async function simpanAbsensi() {
   const tahunPelajaran = document.getElementById('tahunPelajaran').value;
@@ -461,6 +483,7 @@ async function simpanAbsensi() {
     };
 
     let jumlahSiswaTersimpan = 0;
+    let siswaBaruDitambahkan = 0;
 
     rows.forEach((row, index) => {
       const namaInput = row.querySelector('.input-nama');
@@ -471,16 +494,24 @@ async function simpanAbsensi() {
       const lp = lpSelect.value;
 
       if (nama) {
-        // Gunakan ID yang konsisten jika memungkinkan, atau generate baru
-        // Untuk simplicity, kita generate ID baru setiap save (bisa diimprove nanti dengan ID tetap)
-        const siswaId = `siswa_${kelas}_${Date.now()}_${index}`;
+        // ⭐ PERBAIKAN: Gunakan ID yang sudah ada dari data attribute
+        let siswaId = row.dataset.siswaId;
+        
+        // Jika baris ini siswa baru (belum punya ID), buat ID baru
+        if (!siswaId) {
+          siswaId = `siswa_${kelas}_${Date.now()}_${index}`;
+          
+          // ⭐ HANYA simpan siswa baru ke database (tidak duplikasi)
+          updates[`siswa/${kelas}/${siswaId}`] = {
+            nama: nama,
+            jenisKelamin: lp,
+            updatedAt: Date.now(),
+            createdAt: Date.now()
+          };
+          siswaBaruDitambahkan++;
+        }
 
-        updates[`siswa/${kelas}/${siswaId}`] = {
-          nama: nama,
-          jenisKelamin: lp,
-          updatedAt: Date.now()
-        };
-
+        // Simpan absensi untuk setiap tanggal
         absensiInputs.forEach(input => {
           const tanggal = input.dataset.tanggal;
           const status = input.value;
@@ -488,6 +519,7 @@ async function simpanAbsensi() {
           if (status) {
             updates[`absensi/${tahunPelajaran}/${kelas}/${bulanTahun}/${tanggal}/${siswaId}`] = {
               status: status,
+              namaSiswa: nama,
               timestamp: Date.now()
             };
           }
@@ -497,7 +529,12 @@ async function simpanAbsensi() {
     });
 
     await update(ref(database), updates);
-    showToast(`✅ Data berhasil disimpan ke RTDB! (${jumlahSiswaTersimpan} siswa)`);
+    
+    let pesan = `✅ Data absensi berhasil disimpan! (${jumlahSiswaTersimpan} siswa)`;
+    if (siswaBaruDitambahkan > 0) {
+      pesan += ` | ${siswaBaruDitambahkan} siswa baru ditambahkan`;
+    }
+    showToast(pesan);
 
   } catch (error) {
     showError('Gagal menyimpan data ke database: ' + error.message);
