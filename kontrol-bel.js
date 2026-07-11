@@ -1,21 +1,66 @@
 // modules/kontrol-bel/kontrol-bel.js
 // =========================================
-// PANEL KONTROL BEL SEKOLAH - FINAL VERSION
+// PANEL KONTROL BEL SEKOLAH - WEB AUDIO API
+// TIDAK PERLU UPLOAD MP3!
+// Suara dihasilkan oleh browser (oscillator)
 // =========================================
 
-// URL Base Audio
-const BASE_AUDIO_URL = 'https://hasriandibasir80-rgb.github.io/SDN139LAMANDA/assets/audio/';
-
-// Daftar Bel - Sesuaikan dengan nama file MP3 yang ada
-const DAFTAR_BEL = [
-  { id: 'masuk', nama: 'Bel Masuk Kelas', icon: '', file: 'bel-masuk.mp3', warna: '#3b82f6' },
-  { id: 'istirahat', nama: 'Bel Istirahat', icon: '☕', file: 'bel-istirahat.mp3', warna: '#f59e0b' },
-  { id: 'lanjut', nama: 'Bel Lanjut Belajar', icon: '', file: 'bel-lanjut.mp3', warna: '#10b981' },
-  { id: 'pulang', nama: 'Bel Pulang Sekolah', icon: '🏠', file: 'bel-pulang.mp3', warna: '#ef4444' }
-];
-
-let audioPlayer = new Audio();
+let audioContext = null;
 let sedangBerputar = null;
+
+// Daftar Bel dengan konfigurasi nada
+const DAFTAR_BEL = [
+  { 
+    id: 'masuk', 
+    nama: 'Bel Masuk Kelas', 
+    icon: '', 
+    // Nada panjang: 880Hz selama 2 detik
+    pattern: [{freq: 880, duration: 2000}], 
+    warna: '#3b82f6' 
+  },
+  { 
+    id: 'istirahat', 
+    nama: 'Bel Istirahat', 
+    icon: '☕', 
+    // Nada pendek 3x: beep-beep-beep
+    pattern: [
+      {freq: 880, duration: 300},
+      {freq: 0, duration: 200},
+      {freq: 880, duration: 300},
+      {freq: 0, duration: 200},
+      {freq: 880, duration: 300}
+    ], 
+    warna: '#f59e0b' 
+  },
+  { 
+    id: 'lanjut', 
+    nama: 'Bel Lanjut Belajar', 
+    icon: '', 
+    // Nada sedang 2x: beep-beep
+    pattern: [
+      {freq: 880, duration: 500},
+      {freq: 0, duration: 200},
+      {freq: 880, duration: 500}
+    ], 
+    warna: '#10b981' 
+  },
+  { 
+    id: 'pulang', 
+    nama: 'Bel Pulang Sekolah', 
+    icon: '', 
+    // Nada panjang 4x: beep-beep-beep-beep
+    pattern: [
+      {freq: 880, duration: 400},
+      {freq: 0, duration: 150},
+      {freq: 880, duration: 400},
+      {freq: 0, duration: 150},
+      {freq: 880, duration: 400},
+      {freq: 0, duration: 150},
+      {freq: 880, duration: 400}
+    ], 
+    warna: '#ef4444' 
+  }
+];
 
 export async function init(container) {
   renderUI(container);
@@ -31,7 +76,7 @@ function renderUI(container) {
     <div class="kontrol-bel-container">
       <div class="kontrol-bel-header">
         <h2>🎛️ Panel Kontrol Bel Sekolah</h2>
-        <p>Klik tombol untuk membunyikan bel. Suara keluar dari speaker HP/Komputer.</p>
+        <p>Klik tombol untuk membunyikan bel. Suara dihasilkan oleh browser (tanpa file MP3).</p>
       </div>
       <div class="kontrol-bel-grid">
         ${DAFTAR_BEL.map(bel => `
@@ -44,11 +89,6 @@ function renderUI(container) {
       </div>
       <div class="kontrol-bel-footer">
         <button class="btn-stop" id="btnStop">⏹️ Stop / Matikan Suara</button>
-        <div class="volume-control">
-          <label>🔊 Volume:</label>
-          <input type="range" id="inpVolume" min="0" max="100" value="100">
-          <span id="valVolume">100%</span>
-        </div>
       </div>
       <div id="player-indicator" class="player-indicator" style="display: none;">
         🔊 Sedang Memutar: <span id="nama-bel-aktif">-</span>
@@ -63,76 +103,98 @@ function attachEvents() {
   });
   
   document.getElementById('btnStop').addEventListener('click', stopAudio);
-  
-  const volSlider = document.getElementById('inpVolume');
-  volSlider.addEventListener('input', (e) => {
-    const val = e.target.value;
-    document.getElementById('valVolume').textContent = val + '%';
-    audioPlayer.volume = val / 100;
-  });
-  
-  audioPlayer.volume = 1;
 }
 
+/**
+ * Fungsi Utama: Mainkan Bel dengan Web Audio API
+ */
 function mainkanBel(belId) {
   const belData = DAFTAR_BEL.find(b => b.id === belId);
   if (!belData) return;
 
-  stopAudio();
+  console.log(`🔔 Memutar: ${belData.nama}`);
   
-  const fullUrl = BASE_AUDIO_URL + belData.file;
-  audioPlayer.src = fullUrl;
-  
-  console.log(` Memutar: ${belData.nama}`);
-  console.log(`📍 URL: ${fullUrl}`);
+  // Unlock audio context jika belum
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
   
   updateUIStatus(belId, 'Memutar...');
   document.getElementById('player-indicator').style.display = 'block';
   document.getElementById('nama-bel-aktif').textContent = belData.nama;
+  sedangBerputar = belId;
 
-  const playPromise = audioPlayer.play();
-
-  if (playPromise !== undefined) {
-    playPromise.then(() => {
-      sedangBerputar = belId;
-      console.log('✅ Audio berhasil diputar');
-      updateUIStatus(belId, 'Berhasil!');
-      setTimeout(() => updateUIStatus(belId, 'Siap'), 2000);
-    }).catch(error => {
-      console.error('❌ Gagal memutar:', error);
-      updateUIStatus(belId, 'Gagal!');
-      
-      let errorMsg = `⚠️ Gagal memutar: ${belData.nama}\n\n`;
-      errorMsg += `File: ${belData.file}\n`;
-      errorMsg += `URL: ${fullUrl}\n\n`;
-      errorMsg += `Kemungkinan penyebab:\n`;
-      errorMsg += `1. File belum ter-upload\n`;
-      errorMsg += `2. Nama file salah (case sensitive!)\n`;
-      errorMsg += `3. File corrupt\n\n`;
-      errorMsg += `Cek di GitHub: assets/audio/${belData.file}`;
-      
-      alert(errorMsg);
-      document.getElementById('player-indicator').style.display = 'none';
-    });
-  }
-
-  audioPlayer.onended = () => {
+  // Mainkan pattern nada
+  playPattern(belData.pattern, () => {
+    // Callback saat selesai
     updateUIStatus(belId, 'Selesai');
     document.getElementById('player-indicator').style.display = 'none';
     sedangBerputar = null;
-  };
-  
-  audioPlayer.onerror = (e) => {
-    console.error(' Audio error event:', e);
-    updateUIStatus(belId, 'File tidak ditemukan!');
-    document.getElementById('player-indicator').style.display = 'none';
-  };
+    console.log('✅ Bel selesai diputar');
+  });
 }
 
+/**
+ * Mainkan pattern nada (array frekuensi & durasi)
+ */
+function playPattern(pattern, onComplete) {
+  let currentTime = 0;
+  
+  pattern.forEach((note, index) => {
+    setTimeout(() => {
+      if (note.freq > 0) {
+        playTone(note.freq, note.duration / 1000);
+      }
+      
+      // Jika ini note terakhir, panggil callback
+      if (index === pattern.length - 1 && onComplete) {
+        setTimeout(onComplete, note.duration);
+      }
+    }, currentTime);
+    
+    currentTime += note.duration;
+  });
+}
+
+/**
+ * Mainkan satu nada dengan frekuensi tertentu
+ */
+function playTone(frequency, duration) {
+  try {
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+    
+    // Volume
+    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration);
+    
+  } catch (error) {
+    console.error('❌ Error play tone:', error);
+  }
+}
+
+/**
+ * Stop audio
+ */
 function stopAudio() {
-  if (audioPlayer) {
-    audioPlayer.pause();
-    audioPlayer.currentTime = 0;
+  if (audioContext) {
+    // Suspend context untuk stop semua suara
+    if (audioContext.state === 'running') {
+      audioContext.suspend();
+      setTimeout(() => audioContext.resume(), 100);
+    }
   }
   
   if (sedangBerputar) {
@@ -154,10 +216,7 @@ function updateUIStatus(belId, status) {
   if (statusEl) {
     statusEl.textContent = status;
     if (status === 'Memutar...') statusEl.style.color = '#10b981';
-    else if (status === 'Berhasil!') statusEl.style.color = '#10b981';
-    else if (status.includes('Gagal') || status.includes('tidak ditemukan')) {
-      statusEl.style.color = '#ef4444';
-    }
+    else if (status === 'Selesai') statusEl.style.color = '#10b981';
     else if (status === 'Dihentikan') statusEl.style.color = '#f59e0b';
   }
 }
@@ -213,9 +272,6 @@ style.textContent = `
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
   }
   .btn-stop {
     background: #6b7280;
@@ -229,15 +285,6 @@ style.textContent = `
     width: 100%;
   }
   .btn-stop:hover { background: #4b5563; }
-  .volume-control {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    justify-content: center;
-    font-size: 14px;
-    color: #475569;
-  }
-  .volume-control input { flex: 1; max-width: 200px; }
   .player-indicator {
     margin-top: 15px;
     text-align: center;
