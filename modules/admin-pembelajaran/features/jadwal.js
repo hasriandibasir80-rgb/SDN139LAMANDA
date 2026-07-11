@@ -6,6 +6,7 @@
 // ✅ Beep berfungsi
 // ✅ Notifikasi muncul
 // ✅ Bel otomatis berjalan
+// ✅ Edit jadwal dengan dropdown mapel (load dari JSON)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -42,7 +43,8 @@ let keepAliveInterval = null;
 let lastBelMinute = '';
 let speechSynth = window.speechSynthesis;
 let audioUnlocked = false;
-let indonesianVoice = null; // ← Voice Indonesia yang sudah di-cache
+let indonesianVoice = null;
+let dataMapel = []; // ⭐ State untuk data mapel dari JSON
 
 export async function init(container, db) {
   loadCSS();
@@ -50,6 +52,9 @@ export async function init(container, db) {
   attachEvents();
   loadTTDDefaults();
   requestNotificationPermission();
+  
+  // ⭐ Load data mapel dari JSON
+  await loadMataPelajaran();
   
   // Unlock audio on ANY user interaction
   const unlockHandler = () => {
@@ -62,11 +67,10 @@ export async function init(container, db) {
   document.addEventListener('touchstart', unlockHandler);
   document.addEventListener('keydown', unlockHandler);
   
-  // ⭐ PRELOAD VOICES - KUNCI AGAR TTS BEKERJA DI MOBILE
+  // PRELOAD VOICES - KUNCI AGAR TTS BEKERJA DI MOBILE
   if (speechSynth) {
     const loadVoices = () => {
       const voices = speechSynth.getVoices();
-      // Cari voice Indonesia
       indonesianVoice = voices.find(v => v.lang === 'id-ID') || 
                        voices.find(v => v.lang.includes('id')) ||
                        voices.find(v => v.name.toLowerCase().includes('indonesia'));
@@ -95,8 +99,36 @@ function requestNotificationPermission() {
 }
 
 /**
+ * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
+ */
+async function loadMataPelajaran() {
+  try {
+    const response = await fetch('../../../assets/data-mapel.json');
+    const data = await response.json();
+    dataMapel = data.mataPelajaran || [];
+    console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
+  } catch (error) {
+    console.error('❌ Gagal memuat data mapel:', error);
+    // Fallback: pakai data hardcoded
+    dataMapel = [
+      { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+      { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+      { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+      { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+      { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+      { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+      { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+      { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+    ];
+    console.log(`✅ Menggunakan data mapel fallback: ${dataMapel.length} mapel`);
+  }
+}
+
+/**
  * ⭐ UNLOCK AUDIO - KUNCI AGAR TTS BEKERJA DI MOBILE
- * Harus dipanggil dari user gesture (klik/tap)
  */
 function unlockAudio() {
   if (audioUnlocked) return;
@@ -109,17 +141,15 @@ function unlockAudio() {
       audioContext.resume();
     }
     
-    // Play silent audio to unlock (WAJIB di mobile!)
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    gainNode.gain.value = 0.001; // Hampir silent
+    gainNode.gain.value = 0.001;
     oscillator.frequency.value = 1;
     oscillator.start();
     setTimeout(() => oscillator.stop(), 100);
     
-    // Speak silent text to unlock TTS (WAJIB di mobile!)
     if (speechSynth) {
       const silentUtterance = new SpeechSynthesisUtterance(' ');
       silentUtterance.volume = 0.01;
@@ -129,7 +159,6 @@ function unlockAudio() {
     audioUnlocked = true;
     console.log('🔓 Audio unlocked');
     
-    // Update UI status
     const audioStatusEl = document.getElementById('audioStatus');
     if (audioStatusEl) {
       audioStatusEl.textContent = '✅ Audio: Ter-unlock';
@@ -151,7 +180,6 @@ function startKeepAlive() {
       audioContext.resume();
     }
     
-    // Silent ping setiap 30 detik
     if (audioContext && audioUnlocked) {
       try {
         const oscillator = audioContext.createOscillator();
@@ -230,6 +258,16 @@ function getInlineCSS() {
     .bell-notif-icon { font-size: 48px; margin-bottom: 15px; }
     .bell-notif-title { font-size: 24px; font-weight: 700; margin-bottom: 10px; }
     .bell-notif-time { font-size: 14px; opacity: 0.9; }
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    .modal-content h3 { margin: 0 0 20px 0; color: #be185d; }
+    .modal-content .form-group { margin-bottom: 15px; }
+    .modal-content .form-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #831843; }
+    .modal-content .form-group select, .modal-content .form-group input { width: 100%; padding: 12px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 15px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+    .modal-actions button { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    .btn-batal { background: #6b7280; color: white; }
+    .btn-simpan { background: #10b981; color: white; }
     @media print { body * { visibility: hidden; } .jadwal-container, .jadwal-container * { visibility: visible; } .jadwal-container { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; background: white !important; } .gen-action, .form-section-title { display: none !important; } }
     @media (max-width: 768px) { .jadwal-container { padding: 15px; } .jadwal-header h2 { font-size: 22px; } .form-grid { grid-template-columns: 1fr; } .btn-action { width: 100%; justify-content: center; } }
   `;
@@ -436,7 +474,6 @@ function attachEvents() {
 window.manualUnlockAudio = function() {
   unlockAudio();
   
-  // Langsung speak test untuk memastikan TTS bekerja
   const testText = "Suara berhasil diaktifkan. Bel otomatis siap digunakan.";
   speakText(testText);
   
@@ -449,9 +486,15 @@ window.selectColor = function(mapel, warna) {
   DEFAULT_JADWAL.warnaMapel[mapel] = warna;
 };
 
+/**
+ * ⭐ EDIT JADWAL - DENGAN MODAL DROPDOWN
+ */
 window.editJadwal = function(hari, jp) {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) { alert('⚠️ Pilih kelas!'); return; }
+  if (!kelas) { 
+    alert('⚠️ Pilih kelas terlebih dahulu!'); 
+    return; 
+  }
   
   if (jp === 4 || jp === 5) {
     if (confirm(`Jam ${jp} adalah istirahat. Kosongkan?`)) {
@@ -464,14 +507,69 @@ window.editJadwal = function(hari, jp) {
   const currentMapel = cell.querySelector('.mapel-name').textContent;
   const currentGuru = cell.querySelector('.mapel-guru').textContent;
   
-  const mapel = prompt('Mata Pelajaran:', currentMapel === '-' ? '' : currentMapel);
-  if (mapel === null) return;
-  
-  const guru = prompt('Nama Guru:', currentGuru === '-' ? '' : currentGuru);
-  if (guru === null) return;
-  
-  updateCell(hari, jp, mapel.trim(), guru.trim());
+  showEditModal(hari, jp, currentMapel, currentGuru);
 };
+
+/**
+ * ⭐ TAMPILKAN MODAL EDIT JADWAL
+ */
+function showEditModal(hari, jp, currentMapel, currentGuru) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  
+  const modal = document.createElement('div');
+  modal.className = 'modal-content';
+  
+  let optionsHTML = '<option value="">-- Pilih Mata Pelajaran --</option>';
+  dataMapel.forEach(mapel => {
+    const isSelected = (mapel.nama === currentMapel || mapel.singkatan === currentMapel) ? 'selected' : '';
+    optionsHTML += `<option value="${mapel.nama}" ${isSelected}>${mapel.icon} ${mapel.singkatan}</option>`;
+  });
+  
+  modal.innerHTML = `
+    <h3>✏️ Edit Jadwal</h3>
+    <div class="form-group">
+      <label>📚 Mata Pelajaran:</label>
+      <select id="modalMapel" class="form-control">
+        ${optionsHTML}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>👩‍🏫 Nama Guru:</label>
+      <input type="text" id="modalGuru" class="form-control" value="${currentGuru === '-' ? '' : currentGuru}" placeholder="Nama Guru Pengampu">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-batal" id="btnBatal">Batal</button>
+      <button class="btn-simpan" id="btnSimpan">💾 Simpan</button>
+    </div>
+  `;
+  
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  
+  document.getElementById('btnBatal').onclick = () => {
+    document.body.removeChild(overlay);
+  };
+  
+  document.getElementById('btnSimpan').onclick = () => {
+    const mapel = document.getElementById('modalMapel').value;
+    const guru = document.getElementById('modalGuru').value.trim();
+    
+    if (!mapel) {
+      alert('⚠️ Pilih mata pelajaran terlebih dahulu!');
+      return;
+    }
+    
+    updateCell(hari, jp, mapel, guru || '-');
+    document.body.removeChild(overlay);
+  };
+  
+  overlay.onclick = (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  };
+}
 
 function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
   const cell = document.querySelector(`td[data-hari="${hari}"][data-jp="${jp}"] .mapel-cell`);
@@ -643,7 +741,6 @@ window.downloadWord = function() {
 };
 
 window.testBelManual = function(belType) {
-  // Pastikan audio unlock dulu
   if (!audioUnlocked) {
     unlockAudio();
   }
@@ -670,10 +767,7 @@ window.testBelManual = function(belType) {
     return;
   }
   
-  // Play beep
   playBeep();
-  
-  // ⭐ PANGGIL speakText LANGSUNG tanpa delay (KUNCI!)
   speakText(text);
   
   showBelNotification(title, text);
@@ -701,11 +795,6 @@ function playBeep() {
   }
 }
 
-/**
- * ⭐ SPEECH SYNTHESIS - KUNCI AGAR TTS BEKERJA DI MOBILE
- * - Panggil LANGSUNG tanpa delay
- * - Pakai voice Indonesia yang sudah di-cache
- */
 function speakText(text) {
   console.log('🗣️ speakText:', text);
   
@@ -718,12 +807,10 @@ function speakText(text) {
   }
   
   try {
-    // Pastikan audio context aktif
     if (audioContext && audioContext.state === 'suspended') {
       audioContext.resume();
     }
     
-    // Cancel semua speech yang sedang berjalan
     speechSynth.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -731,7 +818,6 @@ function speakText(text) {
     utterance.rate = 0.9;
     utterance.volume = 1;
     
-    // ⭐ PAKAI VOICE INDONESIA YANG SUDAH DI-CACHE
     const gender = document.getElementById('optVoiceGender')?.value || 'female';
     
     if (indonesianVoice) {
@@ -739,7 +825,6 @@ function speakText(text) {
       console.log('🎤 Pakai voice:', indonesianVoice.name);
     }
     
-    // Set pitch berdasarkan gender
     if (gender === 'male') {
       utterance.pitch = 0.85;
     } else {
@@ -770,7 +855,6 @@ function updateDisplay() {
   const timeEl = document.getElementById('belCurrentTime');
   if (timeEl) timeEl.textContent = `Waktu sekarang: ${currentTime}`;
   
-  // Update countdown
   const belTimes = [
     { time: document.getElementById('inpBelMulai')?.value || '07:00', name: 'Mulai' },
     { time: document.getElementById('inpBelIstirahat1')?.value || '09:00', name: 'Istirahat' },
@@ -806,9 +890,6 @@ function updateDisplay() {
   if (nextEl) nextEl.textContent = `Bel berikutnya: ${nextBel ? nextBel.name + ' (' + nextBel.time + ')' : '-'}`;
 }
 
-/**
- * ⭐ CHECK BEL - PANGGIL speakText LANGSUNG TANPA DELAY
- */
 function checkBelTime() {
   const now = new Date();
   const hours = String(now.getHours()).padStart(2, '0');
@@ -818,7 +899,6 @@ function checkBelTime() {
   
   updateDisplay();
   
-  // Window 5 detik (00-04)
   if (seconds !== '00' && seconds !== '01' && seconds !== '02' && seconds !== '03' && seconds !== '04') return;
   if (lastBelMinute === currentTime) return;
   
@@ -836,22 +916,15 @@ function checkBelTime() {
     
     console.log(`🔔 BEL AKTIF: ${activeBel.title}`);
     
-    // 1. Play beep
     playBeep();
-    
-    // 2. Show notification
     showBelNotification(activeBel.title, activeBel.text);
     
-    // 3. Browser notification
     if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(activeBel.title, { body: activeBel.text });
     }
     
-    // 4. Vibrate
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
     
-    // 5. ⭐ PANGGIL speakText LANGSUNG TANPA DELAY
-    // Ini kunci agar TTS bekerja di mobile!
     speakText(activeBel.text);
   }
 }
@@ -859,7 +932,6 @@ function checkBelTime() {
 function startBelOtomatis() {
   console.log('🚀 startBelOtomatis');
   
-  // ⭐ Validasi: Pastikan audio sudah unlock
   if (!audioUnlocked) {
     alert('⚠️ Klik tombol "🔓 Izinkan Suara" terlebih dahulu agar bel bisa berbunyi otomatis!');
     document.getElementById('optBelOtomatis').value = 'no';
@@ -871,13 +943,10 @@ function startBelOtomatis() {
   
   updateDisplay();
   
-  // Check setiap 500ms
   belInterval = setInterval(checkBelTime, 500);
   
-  // Start keep alive
   startKeepAlive();
   
-  // Speak konfirmasi
   speakText("Bel otomatis telah diaktifkan");
   
   const statusEl = document.getElementById('belStatus');
