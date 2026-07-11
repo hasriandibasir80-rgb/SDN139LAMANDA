@@ -53,7 +53,7 @@ const DAFTAR_BEL = [
     id: 'pulang', 
     nama: 'Bel Pulang Sekolah', 
     icon: '', 
-    text: 'Waktunya pulang, hati-hati di jalan. Sampai jumpa besok!',
+    text: 'Alhamdulillah, waktunya pulang, hati-hati di jalan, jangan lupa shalat dan belajar di rumah, Sampai jumpa besok!',
     pattern: [
       {freq: 880, duration: 400},
       {freq: 0, duration: 150},
