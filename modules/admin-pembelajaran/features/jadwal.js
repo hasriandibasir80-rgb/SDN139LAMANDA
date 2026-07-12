@@ -535,7 +535,7 @@ function showEditModal(hari, jp, currentMapel, currentGuru) {
       </select>
     </div>
     <div class="form-group">
-      <label>👩‍🏫 Nama Guru:</label>
+      <label>👩‍🏫 waktu:</label>
       <input type="text" id="modalGuru" class="form-control" value="${currentGuru === '-' ? '' : currentGuru}" placeholder="Nama Guru Pengampu">
     </div>
     <div class="modal-actions">
