@@ -112,7 +112,7 @@ async function loadMataPelajaran() {
     { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '' },
     { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
     { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-    { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+    { id: 'pendidikan-kewarganegaraan', nama: 'Pendidikan kewarganegaraan', singkatan: 'Pendidikan kewarganegaraan', icon: '🇮🇩' },
     { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '' },
     { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇧' },
     { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
