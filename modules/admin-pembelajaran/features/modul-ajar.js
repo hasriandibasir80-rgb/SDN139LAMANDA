@@ -6,6 +6,7 @@
 // KOLOM TERPISAH: Tema/Topik dan Judul Modul
 // MATA PELAJARAN: Dropdown dari data-mapel.json
 // PROFIL LULUSAN: 8 Dimensi (AI pilih 3-4 yang relevan)
+// DOWNLOAD WORD: Konversi Markdown proper dengan paragraf & list
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -25,9 +26,9 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 // State
 const CSS_ID = 'modul-ajar-css';
 let storedApiKey = null;
-let dataMapel = []; // ⭐ State untuk data mapel dari JSON
+let dataMapel = [];
 
-// Default data tanda tangan (akan di-override oleh localStorage jika ada)
+// Default data tanda tangan
 const DEFAULT_TTD = {
   namaKepsek: 'Imam Munandar SP.d',
   nipKepsek: '198512192011011007',
@@ -35,7 +36,7 @@ const DEFAULT_TTD = {
   nipGuru: '198110182025211059'
 };
 
-// ⭐ 8 Dimensi Profil Lulusan
+// 8 Dimensi Profil Lulusan
 const DIMENSI_PROFIL_LULUSAN = [
   'Keimanan dan Ketakwaan kepada Tuhan Yang Maha Esa',
   'Kewargaan',
@@ -53,7 +54,7 @@ const DIMENSI_PROFIL_LULUSAN = [
 export async function init(container, db) {
   loadCSS();
   
-  // ⭐ Load data mapel DULU sebelum renderUI
+  // Load data mapel DULU sebelum renderUI
   await loadMataPelajaran();
   
   renderUI(container);
@@ -68,11 +69,9 @@ export function cleanup() {
 }
 
 /**
- * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
- * Dengan path yang lebih fleksibel
+ * LOAD DATA MATA PELAJARAN DARI JSON
  */
 async function loadMataPelajaran() {
-  // ⭐ Coba beberapa kemungkinan path
   const possiblePaths = [
     '../../../assets/data-mapel.json',
     '/SDN139LAMANDA/assets/data-mapel.json',
@@ -97,7 +96,7 @@ async function loadMataPelajaran() {
       
       if (dataMapel.length > 0) {
         console.log(`✅ Data mapel berhasil dimuat dari ${path}: ${dataMapel.length} mapel`);
-        return; // Keluar dari loop jika berhasil
+        return;
       }
     } catch (error) {
       console.warn(`❌ Error load dari ${path}:`, error.message);
@@ -105,20 +104,20 @@ async function loadMataPelajaran() {
     }
   }
   
-  // ⭐ FALLBACK: Gunakan data hardcoded jika semua path gagal
+  // FALLBACK: Gunakan data hardcoded jika semua path gagal
   console.warn('⚠️ Menggunakan data mapel fallback');
   dataMapel = [
-    { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
+    { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
     { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-    { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+    { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '' },
     { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
-    { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '' },
-    { id: 'pendidikan-kewarganegaraan', nama: 'Pendidikan kewarganegaraan', singkatan: 'Pendidikan kewarganegaraan', icon: '🇮🇩' },
+    { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+    { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
     { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '' },
-    { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+    { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇧' },
     { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
     { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
-    { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
+    { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
   ];
   console.log(`✅ Data mapel fallback dimuat: ${dataMapel.length} mapel`);
 }
@@ -392,7 +391,6 @@ async function loadApiKeyFromFirestore() {
 
 /**
  * Load Data Tanda Tangan Default dari localStorage
- * Jika belum ada, pakai DEFAULT_TTD
  */
 function loadTTDDefaults() {
   const saved = localStorage.getItem('modulAjar_ttd');
@@ -407,7 +405,6 @@ function loadTTDDefaults() {
     }
   }
   
-  // Isi field dengan data default
   const fields = {
     inpKepsek: ttdData.namaKepsek,
     inpNipKepsek: ttdData.nipKepsek,
@@ -420,7 +417,6 @@ function loadTTDDefaults() {
     if (el) el.value = value;
   });
   
-  // Update preview tanda tangan
   updateTTDPreview();
   
   console.log('✅ TTD defaults loaded:', ttdData);
@@ -443,7 +439,7 @@ function saveTTDDefaults() {
 function renderUI(container) {
   const aiReady = storedApiKey ? true : false;
   
-  // ⭐ Generate options untuk dropdown mapel
+  // Generate options untuk dropdown mapel
   let mapelOptions = '<option value="">-- Pilih Mata Pelajaran --</option>';
   dataMapel.forEach(mapel => {
     mapelOptions += `<option value="${mapel.nama}">${mapel.icon} ${mapel.singkatan}</option>`;
@@ -454,12 +450,12 @@ function renderUI(container) {
       <div class="gen-header">
         <h2>📚 Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
-          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
+          ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">️ API Key Belum Aktif</span>'}
         </p>
       </div>
 
       <div class="gen-form">
-        <div class="form-section-title"> 1. Informasi Umum</div>
+        <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label>👤 Nama Guru / Penyusun</label>
@@ -472,7 +468,7 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Mata Pelajaran</label>
+            <label>📚 Mata Pelajaran</label>
             <select id="inpMapel" class="form-control">
               ${mapelOptions}
             </select>
@@ -511,7 +507,7 @@ function renderUI(container) {
           <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">️ 2. Tanda Tangan (Default - Bisa Diedit)</div>
+        <div class="form-section-title">✍️ 2. Tanda Tangan (Default - Bisa Diedit)</div>
         <div class="form-grid">
           <div class="form-group">
             <label>👨‍💼 Nama Kepala Sekolah</label>
@@ -524,23 +520,23 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👩‍🏫 Nama Guru Pengampu</label>
+            <label>👩‍ Nama Guru Pengampu</label>
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label> NIP Guru Pengampu</label>
+            <label>🔢 NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
 
         <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
-          <label>📖 Tujuan Pembelajaran (TP) - <i>Opsional</i></label>
+          <label> Tujuan Pembelajaran (TP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
         </div>
         
         <div class="form-group">
-          <label>🎨 Model Pembelajaran</label>
+          <label> Model Pembelajaran</label>
           <select id="inpModel" class="form-control">
             <option value="Problem Based Learning (PBL)">Problem Based Learning (PBL)</option>
             <option value="Project Based Learning (PjBL)">Project Based Learning (PjBL)</option>
@@ -593,10 +589,10 @@ function renderUI(container) {
         </div>
         
         <div class="output-actions-bar">
-          <button class="btn-action btn-print" id="btnPrint">️ Print</button>
-          <button class="btn-action btn-save" id="btnSaveDb"> Simpan ke DB</button>
+          <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
+          <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
           <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
-          <button class="btn-action btn-download" id="btnDownload"> Download Word</button>
+          <button class="btn-action btn-download" id="btnDownload">📥 Download Word</button>
         </div>
       </div>
     </div>
@@ -617,7 +613,7 @@ function attachEvents() {
     if (el) {
       el.addEventListener('input', () => {
         updateTTDPreview();
-        saveTTDDefaults(); // Auto-save setiap kali user mengetik
+        saveTTDDefaults();
       });
     }
   });
@@ -649,7 +645,6 @@ async function handleGenerate() {
   const semester = document.getElementById('inpSemester').value;
   const labelSemester = semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
 
-  // ⭐ GABUNGKAN TEMA DAN JUDUL MODUL
   const tema = document.getElementById('inpTema').value || '';
   const judulModul = document.getElementById('inpJudulModul').value || '';
   const topikLengkap = tema && judulModul ? `${tema} - ${judulModul}` : (tema || judulModul || '[Topik]');
@@ -670,7 +665,7 @@ async function handleGenerate() {
   };
 
   if (!data.mapel || (!data.tema && !data.judulModul)) {
-    alert('⚠️ Mata Pelajaran dan Tema/Judul Modul wajib diisi!');
+    alert('️ Mata Pelajaran dan Tema/Judul Modul wajib diisi!');
     return;
   }
 
@@ -842,7 +837,8 @@ function exitEditMode() {
 }
 
 /**
- * Download sebagai Word Document (.doc)
+ * Download sebagai Word Document (.doc) - VERSI PERBAIKAN
+ * Dengan konversi Markdown yang proper
  */
 function handleDownloadWord() {
   const content = document.getElementById('outputContent').innerText;
@@ -863,10 +859,12 @@ function handleDownloadWord() {
   const nipGuruPengampu = document.getElementById('inpNipGuru').value || '-';
   const waktu = document.getElementById('inpWaktu').value || '-';
   
-  // Gabungkan tema dan judul untuk nama file
   const namaFileTopik = (tema && judulModul) ? `${tema}_${judulModul}` : (tema || judulModul || 'Modul');
   
-  let htmlContent = `
+  // ⭐ Konversi Markdown ke HTML yang proper
+  const htmlContent = convertMarkdownToHTML(content);
+  
+  let wordHTML = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' 
           xmlns:w='urn:schemas-microsoft-com:office:word' 
           xmlns='http://www.w3.org/TR/REC-html40'>
@@ -883,53 +881,66 @@ function handleDownloadWord() {
       </xml>
       <![endif]-->
       <style>
-        @page { size: A4; margin: 2.5cm 2cm 2cm 2cm; }
+        @page { 
+          size: A4; 
+          margin: 2.5cm 2cm 2cm 2cm;
+        }
         body { 
           font-family: 'Times New Roman', Times, serif; 
           font-size: 12pt; 
           margin: 0; 
-          line-height: 1.6;
+          line-height: 1.5;
           text-align: justify;
+          color: #000;
         }
         .header-info {
           text-align: center;
           margin-bottom: 30px;
           padding-bottom: 15px;
-          border-bottom: 2px solid #000;
+          border-bottom: 3px double #000;
         }
         .header-info h1 {
           font-size: 16pt;
           font-weight: bold;
           margin: 0 0 5px 0;
           text-transform: uppercase;
+          letter-spacing: 1px;
         }
         .header-info h2 {
-          font-size: 14pt;
+          font-size: 13pt;
           font-weight: bold;
           margin: 5px 0 15px 0;
           text-transform: uppercase;
         }
         .header-info table { 
           border: none; 
-          width: 80%; 
+          width: 85%; 
           margin: 10px auto; 
           font-size: 11pt;
+          text-align: left;
         }
         .header-info td { 
           border: none; 
           padding: 3px 5px; 
-          text-align: left;
         }
         .header-info td:first-child {
           width: 35%;
           font-weight: bold;
         }
+        h1 { 
+          font-size: 16pt; 
+          font-weight: bold; 
+          margin: 20px 0 10px 0;
+          text-transform: uppercase;
+          text-align: center;
+        }
         h2 { 
           font-size: 13pt; 
           font-weight: bold; 
-          margin: 20px 0 10px 0;
-          border-bottom: 1px solid #000;
+          margin: 18px 0 10px 0;
+          border-bottom: 2px solid #000;
           padding-bottom: 3px;
+          text-transform: uppercase;
         }
         h3 { 
           font-size: 12pt; 
@@ -937,19 +948,21 @@ function handleDownloadWord() {
           margin: 15px 0 8px 0;
         }
         p { 
-          margin: 5px 0; 
+          margin: 8px 0; 
           text-indent: 0;
+          line-height: 1.5;
         }
-        ul { 
+        ul, ol { 
           margin: 8px 0; 
           padding-left: 30px; 
+          line-height: 1.5;
         }
         li { 
           margin: 4px 0; 
           line-height: 1.5;
         }
         .ttd-section { 
-          margin-top: 40px; 
+          margin-top: 50px; 
           margin-bottom: 20px;
           page-break-inside: avoid;
         }
@@ -972,7 +985,7 @@ function handleDownloadWord() {
         .ttd-role {
           font-weight: bold;
           font-size: 11pt;
-          margin-bottom: 60px;
+          margin-bottom: 70px;
           line-height: 1.4;
         }
         .ttd-name {
@@ -993,7 +1006,11 @@ function handleDownloadWord() {
           color: #666;
           text-align: right;
           font-style: italic;
+          border-top: 1px solid #ccc;
+          padding-top: 10px;
         }
+        strong { font-weight: bold; }
+        em { font-style: italic; }
       </style>
     </head>
     <body>
@@ -1010,51 +1027,37 @@ function handleDownloadWord() {
           ${judulModul ? `<tr><td>Judul Modul</td><td>: ${judulModul}</td></tr>` : ''}
         </table>
       </div>
-  `;
+      
+      ${htmlContent}
+      
+      <div class="ttd-section">
+        <table class="ttd-table">
+          <tr>
+            <td>
+              <div class="ttd-label">Mengetahui,</div>
+              <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+              <div class="ttd-name">${namaKepsek}</div>
+              <div class="ttd-nip">NIP: ${nipKepsek}</div>
+            </td>
+            <td>
+              <div class="ttd-label">Guru Pengampu,</div>
+              <div class="ttd-role">Guru Mata Pelajaran</div>
+              <div class="ttd-name">${namaGuruPengampu}</div>
+              <div class="ttd-nip">NIP: ${nipGuruPengampu}</div>
+            </td>
+          </tr>
+        </table>
+      </div>
 
-  // Convert markdown ke HTML - TANPA regex numbered list
-  let formattedContent = content
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^# (.*$)/gim, '')
-    .replace(/^[-•] (.*$)/gim, '<ul><li>$1</li></ul>')
-    .replace(/\n/gim, '<br>');
-
-  formattedContent = formattedContent.replace(/<\/ul>\s*<ul>/gim, '');
-
-  htmlContent += formattedContent;
-
-  htmlContent += `
-    <div class="ttd-section">
-      <table class="ttd-table">
-        <tr>
-          <td>
-            <div class="ttd-label">Mengetahui,</div>
-            <div class="ttd-role">Kepala Sekolah<br>SDN 139 LAMANDA</div>
-            <div class="ttd-name">${namaKepsek}</div>
-            <div class="ttd-nip">NIP: ${nipKepsek}</div>
-          </td>
-          <td>
-            <div class="ttd-label">Guru Pengampu,</div>
-            <div class="ttd-role">Guru Mata Pelajaran</div>
-            <div class="ttd-name">${namaGuruPengampu}</div>
-            <div class="ttd-nip">NIP: ${nipGuruPengampu}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-
-    <div class="footer-note">
-      Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran<br>
-      SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-    </div>
+      <div class="footer-note">
+        Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran<br>
+        SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+      </div>
     </body>
     </html>
   `;
 
-  const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+  const blob = new Blob(['\ufeff', wordHTML], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -1065,6 +1068,103 @@ function handleDownloadWord() {
   URL.revokeObjectURL(url);
 
   showToast('📥 File Word berhasil diunduh!');
+}
+
+/**
+ * ⭐ FUNGSI BARU: Konversi Markdown ke HTML yang Proper untuk Word
+ */
+function convertMarkdownToHTML(markdown) {
+  const lines = markdown.split('\n');
+  let html = '';
+  let inList = false;
+  let inOrderedList = false;
+  let inParagraph = false;
+  
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    
+    // Skip empty lines - close any open tags
+    if (line.trim() === '') {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      continue;
+    }
+    
+    // Heading 1: # Title
+    if (line.match(/^# (.*$)/)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      const title = line.replace(/^# (.*$)/, '$1');
+      html += `<h1>${processInlineFormatting(title)}</h1>`;
+      continue;
+    }
+    
+    // Heading 2: ## Title
+    if (line.match(/^## (.*$)/)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      const title = line.replace(/^## (.*$)/, '$1');
+      html += `<h2>${processInlineFormatting(title)}</h2>`;
+      continue;
+    }
+    
+    // Heading 3: ### Title
+    if (line.match(/^### (.*$)/)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      const title = line.replace(/^### (.*$)/, '$1');
+      html += `<h3>${processInlineFormatting(title)}</h3>`;
+      continue;
+    }
+    
+    // Unordered list: - item atau • item
+    if (line.match(/^[-•]\s+(.*$)/)) {
+      if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      const item = line.replace(/^[-•]\s+(.*$)/, '$1');
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${processInlineFormatting(item)}</li>`;
+      continue;
+    }
+    
+    // Ordered list: 1. item, 2. item, dst
+    if (line.match(/^\d+\.\s+(.*$)/)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      if (inParagraph) { html += '</p>'; inParagraph = false; }
+      const item = line.replace(/^\d+\.\s+(.*$)/, '$1');
+      if (!inOrderedList) { html += '<ol>'; inOrderedList = true; }
+      html += `<li>${processInlineFormatting(item)}</li>`;
+      continue;
+    }
+    
+    // Regular paragraph text
+    if (inList) { html += '</ul>'; inList = false; }
+    if (inOrderedList) { html += '</ol>'; inOrderedList = false; }
+    if (!inParagraph) { html += '<p>'; inParagraph = true; }
+    else { html += '<br>'; }
+    html += processInlineFormatting(line);
+  }
+  
+  // Close any remaining open tags
+  if (inList) html += '</ul>';
+  if (inOrderedList) html += '</ol>';
+  if (inParagraph) html += '</p>';
+  
+  return html;
+}
+
+/**
+ * ⭐ Proses inline formatting: **bold**, *italic*
+ */
+function processInlineFormatting(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/_(.*?)_/g, '<em>$1</em>');
 }
 
 async function saveToDatabase() {
