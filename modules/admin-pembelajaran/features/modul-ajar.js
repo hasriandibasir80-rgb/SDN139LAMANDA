@@ -4,6 +4,7 @@
 // STRUKTUR: A. Informasi Umum, B. Komponen Inti, C. Penutup, D. Lampiran
 // TANDA TANGAN: Default persisten (localStorage), bisa diedit
 // DOWNLOAD WORD: Tanpa angka "1." di awal
+// KOLOM TERPISAH: Tema/Topik dan Judul Modul
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -371,7 +372,7 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
-        <h2> Generator Modul Ajar AI</h2>
+        <h2>📚 Generator Modul Ajar AI</h2>
         <p>Isi parameter di bawah, biarkan AI menyusun draf Modul Ajar Kurikulum Merdeka untuk Anda.
           ${aiReady ? '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">✅ AI Siap</span>' : '<span style="display:inline-block; margin-left:10px; padding:4px 12px; background:rgba(255,255,255,0.2); border-radius:20px; font-size:13px; font-weight:600;">⚠️ API Key Belum Aktif</span>'}
         </p>
@@ -381,7 +382,7 @@ function renderUI(container) {
         <div class="form-section-title">📋 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label>👤 Nama Guru / Penyusun</label>
+            <label> Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || 'Hasriandi Basir SP.d'}">
           </div>
           <div class="form-group">
@@ -415,9 +416,13 @@ function renderUI(container) {
             </select>
           </div>
           <div class="form-group">
-            <label>📝 Topik / Judul Modul</label>
-            <input type="text" id="inpTopik" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
+            <label>📝 Tema / Topik</label>
+            <input type="text" id="inpTema" class="form-control" placeholder="Contoh: Bilangan Cacah">
           </div>
+        </div>
+        <div class="form-group">
+          <label>📖 Judul Modul</label>
+          <input type="text" id="inpJudulModul" class="form-control" placeholder="Contoh: Bilangan Cacah sampai 100">
         </div>
         <div class="form-group">
           <label>⏰ Alokasi Waktu</label>
@@ -446,7 +451,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title">📚 3. Komponen Inti</div>
+        <div class="form-section-title"> 3. Komponen Inti</div>
         <div class="form-group">
           <label>📖 Tujuan Pembelajaran (TP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -485,7 +490,7 @@ function renderUI(container) {
       <div class="output-area" id="outputArea">
         <div class="output-header">
           <h3>📄 Hasil Generate</h3>
-          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">️ Mode Edit Aktif</span>
+          <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         <div class="output-content" id="outputContent"></div>
         
@@ -555,12 +560,17 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ Anda berhak merevisi sesuai keinginan .');
+    alert('⚠️ API Key belum tersedia. Hubungi administrator.');
     return;
   }
 
   const semester = document.getElementById('inpSemester').value;
   const labelSemester = semester === '1' ? '1 (Ganjil)' : '2 (Genap)';
+
+  // ⭐ GABUNGKAN TEMA DAN JUDUL MODUL
+  const tema = document.getElementById('inpTema').value || '';
+  const judulModul = document.getElementById('inpJudulModul').value || '';
+  const topikLengkap = tema && judulModul ? `${tema} - ${judulModul}` : (tema || judulModul || '[Topik]');
 
   const data = {
     guru: document.getElementById('inpGuru').value || '[Nama Guru]',
@@ -568,15 +578,17 @@ async function handleGenerate() {
     mapel: document.getElementById('inpMapel').value,
     kelas: document.getElementById('inpKelas').value,
     semester: labelSemester,
-    topik: document.getElementById('inpTopik').value,
+    tema: tema,
+    judulModul: judulModul,
+    topik: topikLengkap,
     waktu: document.getElementById('inpWaktu').value,
     cp: document.getElementById('inpCP').value || 'Sesuaikan dengan fase dan kelas yang dipilih.',
     model: document.getElementById('inpModel').value,
     karakteristik: document.getElementById('inpKarakteristik').value || 'Siswa reguler dengan kemampuan beragam.'
   };
 
-  if (!data.mapel || !data.topik) {
-    alert('⚠️ Mata Pelajaran dan Topik wajib diisi!');
+  if (!data.mapel || (!data.tema && !data.judulModul)) {
+    alert('️ Mata Pelajaran dan Tema/Judul Modul wajib diisi!');
     return;
   }
 
@@ -594,7 +606,8 @@ async function handleGenerate() {
     - Mata Pelajaran: ${data.mapel}
     - Kelas/Fase: ${data.kelas}
     - Semester: ${data.semester}
-    - Topik: ${data.topik}
+    - Tema: ${data.tema}
+    - Judul Modul: ${data.judulModul}
     - Alokasi Waktu: ${data.waktu}
     - Model Pembelajaran: ${data.model}
     - Capaian Pembelajaran (CP): ${data.cp}
@@ -609,7 +622,8 @@ async function handleGenerate() {
     - Nama Sekolah: ${data.sekolah}
     - Penyusun: ${data.guru}
     - Mata Pelajaran: ${data.mapel}
-    - Topik/Materi: ${data.topik}
+    - Tema: ${data.tema}
+    - Judul Modul: ${data.judulModul}
     - Semester: ${data.semester}
     - Kelas/Fase: ${data.kelas}
     - Alokasi Waktu: ${data.waktu}
@@ -743,7 +757,8 @@ function handleDownloadWord() {
   if (!content) { alert('Tidak ada konten untuk diunduh!'); return; }
   exitEditMode();
 
-  const topik = document.getElementById('inpTopik').value || 'Modul-Ajar';
+  const tema = document.getElementById('inpTema').value || 'Modul-Ajar';
+  const judulModul = document.getElementById('inpJudulModul').value || '';
   const mapel = document.getElementById('inpMapel').value || 'Umum';
   const kelas = document.getElementById('inpKelas').value.split(' ')[0] || 'X';
   const semester = document.getElementById('inpSemester').value;
@@ -756,13 +771,16 @@ function handleDownloadWord() {
   const nipGuruPengampu = document.getElementById('inpNipGuru').value || '-';
   const waktu = document.getElementById('inpWaktu').value || '-';
   
+  // Gabungkan tema dan judul untuk nama file
+  const namaFileTopik = (tema && judulModul) ? `${tema}_${judulModul}` : (tema || judulModul || 'Modul');
+  
   let htmlContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' 
           xmlns:w='urn:schemas-microsoft-com:office:word' 
           xmlns='http://www.w3.org/TR/REC-html40'>
     <head>
       <meta charset='utf-8'>
-      <title>Modul Ajar - ${topik}</title>
+      <title>Modul Ajar - ${namaFileTopik}</title>
       <!--[if gte mso 9]>
       <xml>
         <w:WordDocument>
@@ -889,13 +907,15 @@ function handleDownloadWord() {
     <body>
       <div class="header-info">
         <h1>MODUL AJAR</h1>
-        <h2>${topik.toUpperCase()}</h2>
+        <h2>${(tema && judulModul) ? `${tema} - ${judulModul}`.toUpperCase() : (tema || judulModul || 'MODUL AJAR').toUpperCase()}</h2>
         <table>
           <tr><td>Sekolah</td><td>: ${sekolah}</td></tr>
           <tr><td>Mata Pelajaran</td><td>: ${mapel}</td></tr>
           <tr><td>Kelas/Semester</td><td>: ${kelas} / Semester ${labelSemester}</td></tr>
           <tr><td>Alokasi Waktu</td><td>: ${waktu}</td></tr>
           <tr><td>Guru Pengampu</td><td>: ${namaGuru}</td></tr>
+          ${tema ? `<tr><td>Tema</td><td>: ${tema}</td></tr>` : ''}
+          ${judulModul ? `<tr><td>Judul Modul</td><td>: ${judulModul}</td></tr>` : ''}
         </table>
       </div>
   `;
@@ -946,7 +966,7 @@ function handleDownloadWord() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Modul_Ajar_${mapel}_Kelas${kelas}_Sem${semester}_${topik.replace(/\s+/g, '_')}.doc`;
+  link.download = `Modul_Ajar_${mapel}_Kelas${kelas}_Sem${semester}_${namaFileTopik.replace(/\s+/g, '_')}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -960,17 +980,20 @@ async function saveToDatabase() {
   if (!content) { alert('Tidak ada konten untuk disimpan!'); return; }
 
   const mapel = document.getElementById('inpMapel').value || 'Umum';
-  const topik = document.getElementById('inpTopik').value || 'Tanpa Judul';
+  const tema = document.getElementById('inpTema').value || '';
+  const judulModul = document.getElementById('inpJudulModul').value || '';
   const kelas = document.getElementById('inpKelas').value;
   const semester = document.getElementById('inpSemester').value;
   const guru = document.getElementById('inpGuru').value || currentUser.nama || 'Anonim';
 
-  if (!confirm(`Simpan modul ajar ini?\n\nMapel: ${mapel}\nTopik: ${topik}\nKelas: ${kelas}`)) return;
+  if (!confirm(`Simpan modul ajar ini?\n\nMapel: ${mapel}\nTema: ${tema}\nJudul: ${judulModul}\nKelas: ${kelas}`)) return;
 
   try {
     const newRef = push(ref(database, 'modulAjar'));
     await set(newRef, {
-      judul: topik,
+      tema: tema,
+      judulModul: judulModul,
+      judul: (tema && judulModul) ? `${tema} - ${judulModul}` : (tema || judulModul),
       mapel: mapel,
       kelas: kelas.split(' ')[0],
       semester: semester,
