@@ -5,6 +5,8 @@
 // TANDA TANGAN: Default persisten (localStorage), bisa diedit
 // DOWNLOAD WORD: Tanpa angka "1." di awal
 // KOLOM TERPISAH: Tema/Topik dan Judul Modul
+// MATA PELAJARAN: Dropdown dari data-mapel.json
+// PROFIL LULUSAN: 8 Dimensi (AI pilih 3-4 yang relevan)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -24,6 +26,7 @@ const GROQ_MODEL = 'llama-3.3-70b-versatile';
 // State
 const CSS_ID = 'modul-ajar-css';
 let storedApiKey = null;
+let dataMapel = []; // ⭐ State untuk data mapel dari JSON
 
 // Default data tanda tangan (akan di-override oleh localStorage jika ada)
 const DEFAULT_TTD = {
@@ -33,6 +36,18 @@ const DEFAULT_TTD = {
   nipGuru: '198110182025211059'
 };
 
+// ⭐ 8 Dimensi Profil Lulusan
+const DIMENSI_PROFIL_LULUSAN = [
+  'Keimanan dan Ketakwaan kepada Tuhan Yang Maha Esa',
+  'Kewargaan',
+  'Penalaran Kritis',
+  'Kreatif',
+  'Kolaborasi',
+  'Kemandirian',
+  'Kesehatan',
+  'Komunikasi'
+];
+
 /**
  * Init
  */
@@ -40,13 +55,45 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  await loadApiKeyFromFirestore();
-  loadTTDDefaults(); // Load data tanda tangan default
+  await Promise.all([
+    loadApiKeyFromFirestore(),
+    loadMataPelajaran() // ⭐ Load data mapel dari JSON
+  ]);
+  loadTTDDefaults();
 }
 
 export function cleanup() {
   const css = document.getElementById(CSS_ID);
   if (css) css.remove();
+}
+
+/**
+ * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
+ */
+async function loadMataPelajaran() {
+  try {
+    const response = await fetch('../../../assets/data-mapel.json');
+    const data = await response.json();
+    dataMapel = data.mataPelajaran || [];
+    console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
+  } catch (error) {
+    console.error('❌ Gagal memuat data mapel:', error);
+    // Fallback: pakai data hardcoded
+    dataMapel = [
+      { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
+      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+      { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '' },
+      { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+      { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+      { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
+      { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+      { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+      { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+    ];
+    console.log(`✅ Menggunakan data mapel fallback: ${dataMapel.length} mapel`);
+  }
 }
 
 /**
@@ -369,6 +416,12 @@ function saveTTDDefaults() {
 function renderUI(container) {
   const aiReady = storedApiKey ? true : false;
   
+  // ⭐ Generate options untuk dropdown mapel
+  let mapelOptions = '<option value="">-- Pilih Mata Pelajaran --</option>';
+  dataMapel.forEach(mapel => {
+    mapelOptions += `<option value="${mapel.nama}">${mapel.icon} ${mapel.singkatan}</option>`;
+  });
+  
   container.innerHTML = `
     <div class="gen-container">
       <div class="gen-header">
@@ -379,7 +432,7 @@ function renderUI(container) {
       </div>
 
       <div class="gen-form">
-        <div class="form-section-title">📋 1. Informasi Umum</div>
+        <div class="form-section-title"> 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
             <label> Nama Guru / Penyusun</label>
@@ -393,7 +446,9 @@ function renderUI(container) {
         <div class="form-grid">
           <div class="form-group">
             <label>📚 Mata Pelajaran</label>
-            <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
+            <select id="inpMapel" class="form-control">
+              ${mapelOptions}
+            </select>
           </div>
           <div class="form-group">
             <label>🎓 Semester</label>
@@ -451,7 +506,7 @@ function renderUI(container) {
           </div>
         </div>
 
-        <div class="form-section-title"> 3. Komponen Inti</div>
+        <div class="form-section-title">📚 3. Komponen Inti</div>
         <div class="form-group">
           <label>📖 Tujuan Pembelajaran (TP) - <i>Opsional</i></label>
           <textarea id="inpCP" class="form-control" rows="4" placeholder="Paste CP dari kurikulum atau biarkan kosong..."></textarea>
@@ -513,8 +568,8 @@ function renderUI(container) {
         <div class="output-actions-bar">
           <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
           <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
-          <button class="btn-action btn-edit" id="btnEdit">️ Edit</button>
-          <button class="btn-action btn-download" id="btnDownload"> Download Word</button>
+          <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
+          <button class="btn-action btn-download" id="btnDownload">📥 Download Word</button>
         </div>
       </div>
     </div>
@@ -560,7 +615,7 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('⚠️ API Key belum tersedia. Hubungi administrator.');
+    alert('️ API Key belum tersedia. Hubungi administrator.');
     return;
   }
 
@@ -628,7 +683,16 @@ async function handleGenerate() {
     - Kelas/Fase: ${data.kelas}
     - Alokasi Waktu: ${data.waktu}
     - Kompetensi Awal: (jelaskan kompetensi yang harus dimiliki siswa)
-    - Profil Pelajar Pancasila: (PILIH 2-3 dimensi yang PALING RELEVAN)
+    - Profil Lulusan: (PILIH 3-4 DIMENSI YANG PALING RELEVAN dari 8 dimensi berikut:
+      1. Keimanan dan Ketakwaan kepada Tuhan Yang Maha Esa
+      2. Kewargaan
+      3. Penalaran Kritis
+      4. Kreatif
+      5. Kolaborasi
+      6. Kemandirian
+      7. Kesehatan
+      8. Komunikasi
+      Jelaskan kompetensi yang dikembangkan untuk setiap dimensi yang dipilih)
     - Sarana dan Prasarana: (sebutkan yang dibutuhkan)
     - Target Peserta Didik: (sesuaikan dengan: ${data.karakteristik})
     - Model Pembelajaran: ${data.model}
@@ -667,6 +731,7 @@ async function handleGenerate() {
     - Kegiatan pembelajaran harus AKTIF, kreatif, dan berpusat pada siswa
     - Asesmen harus autentik dan beragam
     - Pastikan alur kegiatan logis dan terukur waktunya
+    - Untuk Profil Lulusan, PILIH 3-4 dimensi yang PALING RELEVAN dengan mata pelajaran ${data.mapel} dan topik ${data.topik}
   `;
 
   try {
