@@ -3,7 +3,6 @@
 // FITUR: GENERATOR MODUL AJAR (AI POWERED)
 // STRUKTUR: A. Informasi Umum, B. Komponen Inti, C. Penutup, D. Lampiran
 // TANDA TANGAN: Default persisten (localStorage), bisa diedit
-// DOWNLOAD WORD: Tanpa angka "1." di awal
 // KOLOM TERPISAH: Tema/Topik dan Judul Modul
 // MATA PELAJARAN: Dropdown dari data-mapel.json
 // PROFIL LULUSAN: 8 Dimensi (AI pilih 3-4 yang relevan)
@@ -53,12 +52,13 @@ const DIMENSI_PROFIL_LULUSAN = [
  */
 export async function init(container, db) {
   loadCSS();
+  
+  // ⭐ Load data mapel DULU sebelum renderUI
+  await loadMataPelajaran();
+  
   renderUI(container);
   attachEvents();
-  await Promise.all([
-    loadApiKeyFromFirestore(),
-    loadMataPelajaran() // ⭐ Load data mapel dari JSON
-  ]);
+  await loadApiKeyFromFirestore();
   loadTTDDefaults();
 }
 
@@ -69,31 +69,58 @@ export function cleanup() {
 
 /**
  * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
+ * Dengan path yang lebih fleksibel
  */
 async function loadMataPelajaran() {
-  try {
-    const response = await fetch('../../../assets/data-mapel.json');
-    const data = await response.json();
-    dataMapel = data.mataPelajaran || [];
-    console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
-  } catch (error) {
-    console.error('❌ Gagal memuat data mapel:', error);
-    // Fallback: pakai data hardcoded
-    dataMapel = [
-      { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
-      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
-      { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
-      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '' },
-      { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
-      { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-      { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
-      { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-      { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
-      { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
-    ];
-    console.log(`✅ Menggunakan data mapel fallback: ${dataMapel.length} mapel`);
+  // ⭐ Coba beberapa kemungkinan path
+  const possiblePaths = [
+    '../../../assets/data-mapel.json',
+    '/SDN139LAMANDA/assets/data-mapel.json',
+    '/assets/data-mapel.json',
+    './assets/data-mapel.json',
+    '../assets/data-mapel.json',
+    '../../assets/data-mapel.json'
+  ];
+  
+  for (const path of possiblePaths) {
+    try {
+      console.log(`🔄 Mencoba load dari: ${path}`);
+      const response = await fetch(path);
+      
+      if (!response.ok) {
+        console.warn(`❌ Path ${path} gagal: ${response.status}`);
+        continue;
+      }
+      
+      const data = await response.json();
+      dataMapel = data.mataPelajaran || [];
+      
+      if (dataMapel.length > 0) {
+        console.log(`✅ Data mapel berhasil dimuat dari ${path}: ${dataMapel.length} mapel`);
+        return; // Keluar dari loop jika berhasil
+      }
+    } catch (error) {
+      console.warn(`❌ Error load dari ${path}:`, error.message);
+      continue;
+    }
   }
+  
+  // ⭐ FALLBACK: Gunakan data hardcoded jika semua path gagal
+  console.warn('⚠️ Menggunakan data mapel fallback');
+  dataMapel = [
+    { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
+    { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+    { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+    { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+    { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '' },
+    { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+    { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '' },
+    { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+    { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+    { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+    { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
+  ];
+  console.log(`✅ Data mapel fallback dimuat: ${dataMapel.length} mapel`);
 }
 
 /**
@@ -435,7 +462,7 @@ function renderUI(container) {
         <div class="form-section-title"> 1. Informasi Umum</div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Nama Guru / Penyusun</label>
+            <label>👤 Nama Guru / Penyusun</label>
             <input type="text" id="inpGuru" class="form-control" placeholder="Nama Anda" value="${currentUser.namaLengkap || currentUser.nama || 'Hasriandi Basir SP.d'}">
           </div>
           <div class="form-group">
@@ -445,7 +472,7 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label>📚 Mata Pelajaran</label>
+            <label> Mata Pelajaran</label>
             <select id="inpMapel" class="form-control">
               ${mapelOptions}
             </select>
@@ -484,7 +511,7 @@ function renderUI(container) {
           <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 4 x 35 Menit">
         </div>
 
-        <div class="form-section-title">✍️ 2. Tanda Tangan (Default - Bisa Diedit)</div>
+        <div class="form-section-title">️ 2. Tanda Tangan (Default - Bisa Diedit)</div>
         <div class="form-grid">
           <div class="form-group">
             <label>👨‍💼 Nama Kepala Sekolah</label>
@@ -501,7 +528,7 @@ function renderUI(container) {
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label>🔢 NIP Guru Pengampu</label>
+            <label> NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
@@ -566,10 +593,10 @@ function renderUI(container) {
         </div>
         
         <div class="output-actions-bar">
-          <button class="btn-action btn-print" id="btnPrint">🖨️ Print</button>
-          <button class="btn-action btn-save" id="btnSaveDb">💾 Simpan ke DB</button>
+          <button class="btn-action btn-print" id="btnPrint">️ Print</button>
+          <button class="btn-action btn-save" id="btnSaveDb"> Simpan ke DB</button>
           <button class="btn-action btn-edit" id="btnEdit">✏️ Edit</button>
-          <button class="btn-action btn-download" id="btnDownload">📥 Download Word</button>
+          <button class="btn-action btn-download" id="btnDownload"> Download Word</button>
         </div>
       </div>
     </div>
@@ -615,7 +642,7 @@ function updateTTDPreview() {
 
 async function handleGenerate() {
   if (!storedApiKey) {
-    alert('️ API Key belum tersedia. Hubungi administrator.');
+    alert('⚠️ API Key belum tersedia. Hubungi administrator.');
     return;
   }
 
@@ -643,7 +670,7 @@ async function handleGenerate() {
   };
 
   if (!data.mapel || (!data.tema && !data.judulModul)) {
-    alert('️ Mata Pelajaran dan Tema/Judul Modul wajib diisi!');
+    alert('⚠️ Mata Pelajaran dan Tema/Judul Modul wajib diisi!');
     return;
   }
 
