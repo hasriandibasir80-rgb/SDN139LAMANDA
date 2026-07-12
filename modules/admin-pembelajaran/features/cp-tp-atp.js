@@ -487,7 +487,7 @@ function render3TabelHasil(container, data, metadata) {
 
   let html = `
     <div class="cp-hasil-header">
-      <h2>Perangkat Pembelajaran: ${metadata.mapel}</h2>
+      <h2>Perangkat Pembelajaran ( cp-tp-atp ): ${metadata.mapel}</h2>
       <p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p>
     </div>
   `;
