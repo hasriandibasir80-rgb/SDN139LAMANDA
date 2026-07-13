@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR SEMUA SUB-FITUR (13 Fitur)
+// ✅ DAFTAR SEMUA SUB-FITUR (16 Fitur)
 const MENU_ITEMS = [
   { 
     id: 'cp-tp-atp', 
@@ -64,11 +64,12 @@ const MENU_ITEMS = [
     status: 'ready'
   },
   { 
-    id: 'p5', 
-    icon: '🤝', 
-    title: 'Modul P5', 
-    path: './features/p5.js',
-    status: 'soon'
+    // ⭐ DIUBAH: Dari Modul P5 menjadi Rumus 8-3-3-4
+    id: 'rumus-8-3-3-4', 
+    icon: '🔢', 
+    title: 'Rumus 8-3-3-4', 
+    path: './features/rumus-8-3-3-4.js',
+    status: 'soon' // Ubah ke 'ready' nanti setelah file fiturnya kita buat
   },
   { 
     id: 'refleksi', 
@@ -77,7 +78,6 @@ const MENU_ITEMS = [
     path: './features/refleksi.js',
     status: 'soon'
   },
-  // ✅ 4 FITUR BARU
   { 
     id: 'kalender', 
     icon: '📆', 
@@ -105,6 +105,28 @@ const MENU_ITEMS = [
     title: 'LKPD', 
     path: './features/lkpd.js',
     status: 'ready'
+  },
+  // ⭐ 3 SUB-FITUR BARU (Card Grid Placeholder)
+  { 
+    id: 'penilaian', 
+    icon: '📈', 
+    title: 'Penilaian', 
+    path: './features/penilaian.js',
+    status: 'soon'
+  },
+  { 
+    id: 'pembuat-soal', 
+    icon: '✍️', 
+    title: 'Pembuat Soal', 
+    path: './features/pembuat-soal.js',
+    status: 'soon'
+  },
+  { 
+    id: 'kisi-kisi', 
+    icon: '📋', 
+    title: 'Pembuat Kisi-kisi', 
+    path: './features/kisi-kisi.js',
+    status: 'soon'
   }
 ];
 
@@ -134,13 +156,13 @@ async function loadFeature(feature, clickedBtn) {
   const menuContainer = document.getElementById('subMenuContainer');
   const btnBack = document.getElementById('btnBackToMenu');
 
-  // Jika fitur belum dibuat
+  // Jika fitur belum dibuat (status soon)
   if (feature.status === 'soon') {
     contentDiv.innerHTML = `
       <div class="empty-state">
         <h3>🚧 ${feature.title}</h3>
         <p>Fitur ini sedang dalam tahap pengembangan dan akan segera tersedia.</p>
-        <p style="margin-top:10px; font-size:13px; color:#9ca3af;">Silakan coba fitur <strong>Jurnal Harian</strong> yang sudah siap digunakan.</p>
+        <p style="margin-top:10px; font-size:13px; color:#9ca3af;">Silakan coba fitur lain yang sudah siap digunakan.</p>
       </div>
     `;
     return;
