@@ -1,10 +1,8 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// MANDIRI - TIDAK BERGANTUNG CSS PARENT
-// INPUT: Topik (WAJIB) + Elemen per topik (OPSIONAL)
-// OUTPUT: 3 Tabel Terpisah (CP, TP, ATP)
-// UPDATE: Robust AI Parsing & Graceful Firestore Error Handling
+// REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
+//         dan pesan error index Firestore dihilangkan.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -48,7 +46,6 @@ function loadFeatureCSS() {
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   
-  // Fallback inline CSS jika eksternal gagal (404)
   cssLink.onerror = () => {
     console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
     const style = document.createElement('style');
@@ -61,7 +58,6 @@ function loadFeatureCSS() {
 }
 
 function getInlineCSS() {
-  // Inline CSS ini sudah 100% match dengan HTML di renderCTAGenerator
   return `
     #cp-generator-root { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); min-height: 100vh; padding: 30px 20px; font-family: 'Segoe UI', sans-serif; }
     #cp-generator-root * { box-sizing: border-box; }
@@ -216,10 +212,10 @@ function renderCTAGenerator(container) {
             <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
           </div>
 
-          <div class="cp-section-title">✏️ 2. Input Topik & Elemen</div>
+          <div class="cp-section-title">✏️ 2. Input Topik & Sub Tema</div>
           <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">
-            Setiap <strong style="color: #be185d;">Topik</strong> memiliki <strong style="color: #7c3aed;">Elemen</strong> sendiri. 
-            Tambahkan topik sebanyak yang diperlukan, elemen boleh dikosongkan.
+            Setiap <strong style="color: #be185d;">Topik</strong> memiliki <strong style="color: #7c3aed;">Sub Tema</strong> sendiri. 
+            Tambahkan topik sebanyak yang diperlukan, sub tema boleh dikosongkan.
           </p>
           
           <div id="cp-topik-container" class="cp-topik-container">
@@ -288,7 +284,7 @@ function tambahTopikBaru() {
     </div>
     
     <div class="cp-elemen-group">
-      <label class="cp-elemen-label">📁 Elemen <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
+      <label class="cp-elemen-label">📁 Sub Tema <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
       <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar (boleh dikosongkan)" rows="4"></textarea>
     </div>
   `;
@@ -376,12 +372,12 @@ async function handleGenerate(container) {
 
   topikItems.forEach(item => {
     const topikNama = item.querySelector('.cp-topik-input')?.value.trim();
-    const elemenNama = item.querySelector('.cp-elemen-input')?.value.trim();
+    const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim(); // ⭐ Diubah ke subTema
     
     if (topikNama) {
       dataTopik.push({ 
         topik: topikNama,
-        elemen: elemenNama || 'Umum'
+        subTema: subTemaNama || 'Umum' // ⭐ Diubah ke subTema
       });
       totalTopikValid++;
     }
@@ -427,7 +423,6 @@ async function handleGenerate(container) {
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    // Gunakan parser yang robust
     const parsedData = parseAIResponse(aiResponse);
     
     if (!parsedData || !parsedData.cp || !parsedData.tp || !parsedData.atp) {
@@ -447,8 +442,7 @@ async function handleGenerate(container) {
         <p style="font-size:13px; margin-top:10px;">
           <strong>Tips:</strong><br>
           1. Pastikan API Key Groq masih memiliki quota.<br>
-          2. Coba gunakan topik yang lebih spesifik/sederhana.<br>
-          3. Periksa koneksi internet Anda.
+          2. Coba gunakan topik yang lebih spesifik/sederhana.
         </p>
       </div>
     `;
@@ -463,11 +457,11 @@ function buildPrompt(dataTopik, metadata) {
   prompt += `- Kelas: ${metadata.kelas}\n`;
   prompt += `- Semester: ${metadata.semester}\n\n`;
   
-  prompt += `Data Topik dan Elemen:\n`;
+  prompt += `Data Topik dan Sub Tema:\n`;
   dataTopik.forEach((item, idx) => {
     const nomorTopik = idx + 1;
     prompt += `TOPIK ${nomorTopik}: ${item.topik}\n`;
-    prompt += `  Elemen: ${item.elemen}\n`;
+    prompt += `  Sub Tema: ${item.subTema}\n`; // ⭐ Diubah ke Sub Tema
     prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst\n\n`;
   });
 
@@ -477,40 +471,30 @@ function buildPrompt(dataTopik, metadata) {
   
   prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan di luar block json):\n`;
   prompt += `{\n`;
-  prompt += `  "cp": [{"elemen": "Nama Elemen", "deskripsi": "Deskripsi CP..."}],\n`;
-  prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["1.1 TP pertama...", "1.2 TP kedua..."]}],\n`;
-  prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["1.1 ATP pertama...", "1.2 ATP kedua..."]}]}\n`;
+  prompt += `  "cp": [{"subTema": "Nama Sub Tema", "deskripsi": "Deskripsi CP..."}],\n`; // ⭐ Diubah ke subTema
+  prompt += `  "tp": [{"subTema": "Nama Sub Tema", "items": ["1.1 TP pertama...", "1.2 TP kedua..."]}],\n`;
+  prompt += `  "atp": [{"subTema": "Nama Sub Tema", "items": ["1.1 ATP pertama...", "1.2 ATP kedua..."]}]\n`;
+  prompt += `}`;
 
   return prompt;
 }
 
 /**
- * ⭐ ROBUST AI PARSER (Tahan terhadap format AI yang sedikit melenceng)
+ * ROBUST AI PARSER
  */
 function parseAIResponse(aiResponse) {
-  console.log('📥 Raw AI Response (first 200 chars):', aiResponse.substring(0, 200));
   try {
-    // 1. Coba extract dari block ```json ... ```
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
-      console.log('✅ Found JSON in code block');
       return validateAndFixData(JSON.parse(jsonMatch[1]));
     }
-    
-    // 2. Coba parse langsung
-    console.log('⚠️ Trying direct parse...');
     return validateAndFixData(JSON.parse(aiResponse));
-    
   } catch (error) {
     console.error('❌ JSON Parse Error:', error);
-    
-    // 3. Fallback: Bersihkan artifact markdown dan coba lagi
     try {
-      console.log('🔄 Trying loose regex extraction...');
       const cleaned = aiResponse.replace(/```json|```/g, '').trim();
       return validateAndFixData(JSON.parse(cleaned));
     } catch (e) {
-      console.warn('⚠️ All parse attempts failed. Using fallback default structure.');
       return getFallbackData();
     }
   }
@@ -518,11 +502,10 @@ function parseAIResponse(aiResponse) {
 
 function validateAndFixData(data) {
   if (!data || !data.cp || !data.tp || !data.atp) {
-    console.warn('⚠️ Data incomplete, applying defaults...');
     return {
-      cp: data?.cp || [{ elemen: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini sesuai kurikulum." }],
-      tp: data?.tp || [{ elemen: "Umum", items: ["1.1 Siswa mampu memahami konsep dasar", "1.2 Siswa mampu menerapkan konsep dalam kehidupan"] }],
-      atp: data?.atp || [{ elemen: "Umum", items: ["1.1 Guru menjelaskan konsep dasar", "1.2 Siswa mengerjakan latihan soal"] }]
+      cp: data?.cp || [{ subTema: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini sesuai kurikulum." }],
+      tp: data?.tp || [{ subTema: "Umum", items: ["1.1 Siswa mampu memahami konsep dasar", "1.2 Siswa mampu menerapkan konsep"] }],
+      atp: data?.atp || [{ subTema: "Umum", items: ["1.1 Guru menjelaskan konsep dasar", "1.2 Siswa mengerjakan latihan soal"] }]
     };
   }
   return data;
@@ -530,9 +513,9 @@ function validateAndFixData(data) {
 
 function getFallbackData() {
   return {
-    cp: [{ elemen: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini." }],
-    tp: [{ elemen: "Umum", items: ["1.1 Tujuan pembelajaran 1", "1.2 Tujuan pembelajaran 2"] }],
-    atp: [{ elemen: "Umum", items: ["1.1 Alur pembelajaran 1", "1.2 Alur pembelajaran 2"] }]
+    cp: [{ subTema: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini." }],
+    tp: [{ subTema: "Umum", items: ["1.1 Tujuan pembelajaran 1", "1.2 Tujuan pembelajaran 2"] }],
+    atp: [{ subTema: "Umum", items: ["1.1 Alur pembelajaran 1", "1.2 Alur pembelajaran 2"] }]
   };
 }
 
@@ -549,21 +532,21 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 1: CP
   html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Elemen</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
   data.cp.forEach(item => {
-    html += `<tr><td class="cp-col-elemen">${item.elemen}</td><td>${item.deskripsi}</td></tr>`;
+    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; // ⭐ Diubah ke subTema
   });
   html += `</tbody></table>`;
 
   // TABEL 2: TP
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Elemen</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
       html += `<tr>`;
-      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.elemen}</td>`;
+      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
       html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td>`;
       html += `<td>${tp}</td>`;
       html += `</tr>`;
@@ -574,12 +557,12 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 3: ATP
   html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Elemen</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
       html += `<tr>`;
-      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.elemen}</td>`;
+      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
       html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td>`;
       html += `<td>${atp}</td>`;
       html += `</tr>`;
@@ -597,7 +580,7 @@ async function autoSaveToFirestore(container, result, metadata) {
       userEmail: currentUser.email,
       userName: currentUser.namaLengkap || 'Guru',
       ...metadata,
-      topik: result.tp.map(e => e.elemen).join(', '),
+      topik: result.tp.map(e => e.subTema).join(', '), // ⭐ Diubah ke subTema
       cp: JSON.stringify(result.cp),
       tp: JSON.stringify(result.tp),
       atp: JSON.stringify(result.atp),
@@ -727,7 +710,7 @@ function loadCTAData(container) {
 
   const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
 
-  // ⭐ TAMBAHAN: Error handler untuk onSnapshot agar tidak crash jika index sedang building
+  // ⭐ onSnapshot sudah berfungsi real-time. Error handler dibuat silent agar tidak mengganggu.
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
       list.innerHTML = '<p class="cp-empty-state">Belum ada dokumen tersimpan</p>';
@@ -744,23 +727,14 @@ function loadCTAData(container) {
             <div><strong>${d.mapel?.toUpperCase() || '-'} - Kelas ${d.kelas}</strong><br><small>${d.userName} • ${d.sekolah || '-'}</small></div>
             <small class="cp-document-date">${date}</small>
           </div>
-          <p><strong>📋 Elemen:</strong> ${d.topik || '-'}</p>
+          <p><strong>📋 Sub Tema:</strong> ${d.topik || '-'}</p> ⭐ Diubah ke Sub Tema
         </div>
       `;
     }).join('');
   }, (error) => {
-    // Graceful error handling untuk Firestore
-    console.warn('⚠️ Firestore snapshot error:', error.message);
-    if (error.code === 'failed-precondition') {
-      list.innerHTML = `
-        <div class="cp-error" style="padding: 15px;">
-          ⚠️ <strong>Index Firestore sedang diproses.</strong><br>
-          <small>Silakan tunggu 5-10 menit, lalu refresh halaman ini.</small>
-        </div>
-      `;
-    } else {
-      list.innerHTML = '<p class="cp-error">Gagal memuat data dokumen.</p>';
-    }
+    // ⭐ Pesan error index Firestore dihilangkan dari UI, hanya dicatat di console
+    console.warn('⚠️ Gagal memuat riwayat dokumen (mungkin index belum ready):', error.message);
+    // UI tetap bersih, tidak menampilkan pesan "tunggu 5-10 menit"
   });
 }
 
