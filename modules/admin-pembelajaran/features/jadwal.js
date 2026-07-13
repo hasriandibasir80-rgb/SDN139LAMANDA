@@ -7,6 +7,7 @@
 // ✅ Notifikasi muncul
 // ✅ Bel otomatis berjalan
 // ✅ Edit jadwal dengan dropdown mapel (load dari JSON)
+// ✅ TAMBAHAN: Upacara Bendera otomatis & terkunci (Senin, JP 1)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -44,7 +45,7 @@ let lastBelMinute = '';
 let speechSynth = window.speechSynthesis;
 let audioUnlocked = false;
 let indonesianVoice = null;
-let dataMapel = []; // ⭐ State untuk data mapel dari JSON
+let dataMapel = [];
 
 export async function init(container, db) {
   loadCSS();
@@ -53,10 +54,8 @@ export async function init(container, db) {
   loadTTDDefaults();
   requestNotificationPermission();
   
-  // ⭐ Load data mapel dari JSON
   await loadMataPelajaran();
   
-  // Unlock audio on ANY user interaction
   const unlockHandler = () => {
     unlockAudio();
     document.removeEventListener('click', unlockHandler);
@@ -67,7 +66,6 @@ export async function init(container, db) {
   document.addEventListener('touchstart', unlockHandler);
   document.addEventListener('keydown', unlockHandler);
   
-  // PRELOAD VOICES - KUNCI AGAR TTS BEKERJA DI MOBILE
   if (speechSynth) {
     const loadVoices = () => {
       const voices = speechSynth.getVoices();
@@ -76,7 +74,6 @@ export async function init(container, db) {
                        voices.find(v => v.name.toLowerCase().includes('indonesia'));
       console.log('🎤 Voices loaded:', voices.length, '| Indonesian voice:', indonesianVoice?.name || 'Not found');
     };
-    
     loadVoices();
     if (speechSynth.onvoiceschanged !== undefined) {
       speechSynth.onvoiceschanged = loadVoices;
@@ -98,9 +95,6 @@ function requestNotificationPermission() {
   }
 }
 
-/**
- * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
- */
 async function loadMataPelajaran() {
   try {
     const response = await fetch('../../../assets/data-mapel.json');
@@ -109,7 +103,6 @@ async function loadMataPelajaran() {
     console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
   } catch (error) {
     console.error('❌ Gagal memuat data mapel:', error);
-    // Fallback: pakai data hardcoded
     dataMapel = [
       { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
       { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
@@ -127,19 +120,11 @@ async function loadMataPelajaran() {
   }
 }
 
-/**
- * ⭐ UNLOCK AUDIO - KUNCI AGAR TTS BEKERJA DI MOBILE
- */
 function unlockAudio() {
   if (audioUnlocked) return;
-  
   try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') audioContext.resume();
     
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -157,8 +142,6 @@ function unlockAudio() {
     }
     
     audioUnlocked = true;
-    console.log('🔓 Audio unlocked');
-    
     const audioStatusEl = document.getElementById('audioStatus');
     if (audioStatusEl) {
       audioStatusEl.textContent = '✅ Audio: Ter-unlock';
@@ -169,17 +152,10 @@ function unlockAudio() {
   }
 }
 
-/**
- * ⭐ KEEP ALIVE - Jaga audio context tetap hidup di mobile
- */
 function startKeepAlive() {
   if (keepAliveInterval) clearInterval(keepAliveInterval);
-  
   keepAliveInterval = setInterval(() => {
-    if (audioContext && audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
     if (audioContext && audioUnlocked) {
       try {
         const oscillator = audioContext.createOscillator();
@@ -197,19 +173,16 @@ function startKeepAlive() {
 
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
-  
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = CSS_PATH;
   link.id = CSS_ID;
-  
   link.onerror = () => {
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
     document.head.appendChild(style);
   };
-  
   document.head.appendChild(link);
 }
 
@@ -234,10 +207,12 @@ function getInlineCSS() {
     .jadwal-table td { padding: 10px 8px; border: 1px solid #e2e8f0; text-align: center; vertical-align: top; min-width: 120px; }
     .jadwal-table tr:nth-child(even) { background: #fff1f2; }
     .jp-cell { font-weight: 600; color: #831843; background: #fce7f3; }
-    .mapel-cell { padding: 8px; border-radius: 6px; cursor: pointer; min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; }
-    .mapel-cell.istirahat { background: #94a3b8; color: white; font-style: italic; }
+    .mapel-cell { padding: 8px; border-radius: 6px; cursor: pointer; min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 4px; transition: all 0.2s; }
+    .mapel-cell.istirahat { background: #94a3b8; color: white; font-style: italic; cursor: default; }
+    .mapel-cell.upacara { background: #ef4444; color: white; font-weight: 700; font-style: normal; cursor: not-allowed; }
     .mapel-name { font-weight: 700; font-size: 13px; }
     .mapel-guru { font-size: 11px; color: #475569; }
+    .mapel-cell.upacara .mapel-guru { color: #fecaca; }
     .mapel-cell.empty { background: #f1f5f9; color: #94a3b8; }
     .color-picker-wrapper { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
     .color-option { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; }
@@ -275,19 +250,10 @@ function getInlineCSS() {
 
 function loadTTDDefaults() {
   const saved = localStorage.getItem('jadwal_ttd');
-  let ttdData = {
-    namaKepsek: 'Imam munandar SP.d',
-    nipKepsek: '-',
-    namaGuru: 'Hasriandi basir SP.d',
-    nipGuru: '-'
-  };
-  
+  let ttdData = { namaKepsek: 'Imam munandar SP.d', nipKepsek: '-', namaGuru: 'Hasriandi basir SP.d', nipGuru: '-' };
   if (saved) {
-    try {
-      ttdData = { ...ttdData, ...JSON.parse(saved) };
-    } catch (e) {}
+    try { ttdData = { ...ttdData, ...JSON.parse(saved) }; } catch (e) {}
   }
-  
   setTimeout(() => {
     ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'].forEach(id => {
       const el = document.getElementById(id);
@@ -314,7 +280,12 @@ function renderUI(container) {
   for (let jp = 1; jp <= 8; jp++) {
     rows += `<tr><td class="jp-cell">JP ${jp}</td>`;
     HARI_LIST.forEach(hari => {
-      rows += `<td data-hari="${hari}" data-jp="${jp}"><div class="mapel-cell empty" onclick="editJadwal('${hari}', ${jp})"><span class="mapel-name">-</span><span class="mapel-guru">-</span></div></td>`;
+      // ⭐ LOGIKA UPACARA: Senin JP 1 otomatis terisi dan tidak bisa diklik
+      if (hari === 'Senin' && jp === 1) {
+        rows += `<td data-hari="${hari}" data-jp="${jp}"><div class="mapel-cell upacara"><span class="mapel-name">🇮🇩 UPACARA</span><span class="mapel-guru">-</span></div></td>`;
+      } else {
+        rows += `<td data-hari="${hari}" data-jp="${jp}"><div class="mapel-cell empty" onclick="editJadwal('${hari}', ${jp})"><span class="mapel-name">-</span><span class="mapel-guru">-</span></div></td>`;
+      }
     });
     rows += `</tr>`;
   }
@@ -428,9 +399,7 @@ function renderUI(container) {
           <button class="btn-action btn-print" onclick="printJadwal()">🖨️ Print</button>
           <button class="btn-action btn-download" onclick="downloadWord()">📥 Word</button>
           <button class="btn-action btn-reset" onclick="resetJadwal()">🔄 Reset</button>
-          
           <button class="btn-action btn-unlock" onclick="manualUnlockAudio()">🔓 Izinkan Suara</button>
-          
           <button class="btn-action btn-test" onclick="testBelManual('mulai')">🧪 Test Masuk</button>
           <button class="btn-action btn-test" onclick="testBelManual('istirahat')">🧪 Test Istirahat</button>
           <button class="btn-action btn-test" onclick="testBelManual('lanjut')">🧪 Test Lanjut</button>
@@ -459,24 +428,16 @@ function attachEvents() {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', saveTTDDefaults);
   });
-  
   document.getElementById('inpKelas').addEventListener('change', loadJadwal);
-  
   document.getElementById('optBelOtomatis')?.addEventListener('change', (e) => {
-    if (e.target.value === 'yes') {
-      startBelOtomatis();
-    } else {
-      stopBelOtomatis();
-    }
+    if (e.target.value === 'yes') startBelOtomatis();
+    else stopBelOtomatis();
   });
 }
 
 window.manualUnlockAudio = function() {
   unlockAudio();
-  
-  const testText = "Suara berhasil diaktifkan. Bel otomatis siap digunakan.";
-  speakText(testText);
-  
+  speakText("Suara berhasil diaktifkan. Bel otomatis siap digunakan.");
   showToast('✅ Audio berhasil diaktifkan! Dengarkan suara test...');
 };
 
@@ -486,14 +447,14 @@ window.selectColor = function(mapel, warna) {
   DEFAULT_JADWAL.warnaMapel[mapel] = warna;
 };
 
-/**
- * ⭐ EDIT JADWAL - DENGAN MODAL DROPDOWN
- */
 window.editJadwal = function(hari, jp) {
   const kelas = document.getElementById('inpKelas').value;
-  if (!kelas) { 
-    alert('⚠️ Pilih kelas terlebih dahulu!'); 
-    return; 
+  if (!kelas) { alert('⚠️ Pilih kelas terlebih dahulu!'); return; }
+  
+  // ⭐ CEGAH EDIT UPACARA
+  if (hari === 'Senin' && jp === 1) {
+    alert('⚠️ Jam 1 hari Senin adalah Upacara Bendera dan tidak dapat diubah.');
+    return;
   }
   
   if (jp === 4 || jp === 5) {
@@ -510,13 +471,9 @@ window.editJadwal = function(hari, jp) {
   showEditModal(hari, jp, currentMapel, currentGuru);
 };
 
-/**
- * ⭐ TAMPILKAN MODAL EDIT JADWAL
- */
 function showEditModal(hari, jp, currentMapel, currentGuru) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  
   const modal = document.createElement('div');
   modal.className = 'modal-content';
   
@@ -530,12 +487,10 @@ function showEditModal(hari, jp, currentMapel, currentGuru) {
     <h3>✏️ Edit Jadwal</h3>
     <div class="form-group">
       <label>📚 Mata Pelajaran:</label>
-      <select id="modalMapel" class="form-control">
-        ${optionsHTML}
-      </select>
+      <select id="modalMapel" class="form-control">${optionsHTML}</select>
     </div>
     <div class="form-group">
-      <label>👩‍🏫 waktu:</label>
+      <label>👩‍🏫 Nama Guru:</label>
       <input type="text" id="modalGuru" class="form-control" value="${currentGuru === '-' ? '' : currentGuru}" placeholder="Nama Guru Pengampu">
     </div>
     <div class="modal-actions">
@@ -547,32 +502,28 @@ function showEditModal(hari, jp, currentMapel, currentGuru) {
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
   
-  document.getElementById('btnBatal').onclick = () => {
-    document.body.removeChild(overlay);
-  };
-  
+  document.getElementById('btnBatal').onclick = () => document.body.removeChild(overlay);
   document.getElementById('btnSimpan').onclick = () => {
     const mapel = document.getElementById('modalMapel').value;
     const guru = document.getElementById('modalGuru').value.trim();
-    
-    if (!mapel) {
-      alert('⚠️ Pilih mata pelajaran terlebih dahulu!');
-      return;
-    }
-    
+    if (!mapel) { alert('⚠️ Pilih mata pelajaran terlebih dahulu!'); return; }
     updateCell(hari, jp, mapel, guru || '-');
     document.body.removeChild(overlay);
   };
-  
-  overlay.onclick = (e) => {
-    if (e.target === overlay) {
-      document.body.removeChild(overlay);
-    }
-  };
+  overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
 }
 
 function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
   const cell = document.querySelector(`td[data-hari="${hari}"][data-jp="${jp}"] .mapel-cell`);
+  if (!cell) return;
+
+  // ⭐ PAKSA TAMPILAN UPACARA JIKA SENIN JP 1
+  if (hari === 'Senin' && jp === 1) {
+    cell.className = 'mapel-cell upacara';
+    cell.innerHTML = `<span class="mapel-name">🇮🇩 UPACARA</span><span class="mapel-guru">-</span>`;
+    cell.onclick = null;
+    return;
+  }
   
   if (isIstirahat) {
     cell.className = 'mapel-cell istirahat';
@@ -591,7 +542,6 @@ function updateCell(hari, jp, mapel, guru, isIstirahat = false) {
     cell.style.border = `2px solid ${warna}`;
     cell.innerHTML = `<span class="mapel-name" style="color: ${warna}">${mapel}</span><span class="mapel-guru">${guru || '-'}</span>`;
   }
-  
   cell.onclick = () => editJadwal(hari, jp);
 }
 
@@ -609,10 +559,16 @@ async function loadJadwal() {
         const [hari, jp] = key.split('_');
         if (value.istirahat) {
           updateCell(hari, parseInt(jp), '', '', true);
+        } else if (value.upacara) {
+          updateCell(hari, parseInt(jp), 'UPACARA', '-', false);
         } else {
           updateCell(hari, parseInt(jp), value.mapel || '', value.guru || '');
         }
       });
+      
+      // ⭐ PASTIKAN SENIN JP 1 SELALU UPACARA SETELAH LOAD (SAFEGUARD)
+      updateCell('Senin', 1, 'UPACARA', '-', false);
+      
       showToast('✅ Jadwal dimuat!');
     } else {
       resetJadwalTable();
@@ -632,11 +588,17 @@ window.saveJadwal = async function() {
   const jadwalData = {};
   HARI_LIST.forEach(hari => {
     for (let jp = 1; jp <= 8; jp++) {
+      // ⭐ SIMPAN UPACARA SECARA EKSPPLISIT
+      if (hari === 'Senin' && jp === 1) {
+        jadwalData[`${hari}_${jp}`] = { upacara: true, mapel: 'UPACARA', guru: '-' };
+        return;
+      }
+
       const cell = document.querySelector(`td[data-hari="${hari}"][data-jp="${jp}"] .mapel-cell`);
       const mapel = cell.querySelector('.mapel-name').textContent;
       const guru = cell.querySelector('.mapel-guru').textContent;
       
-      if (mapel !== '-' && mapel !== '🕐 ISTIRAHAT') {
+      if (mapel !== '-' && mapel !== '🕐 ISTIRAHAT' && mapel !== '🇮🇩 UPACARA') {
         jadwalData[`${hari}_${jp}`] = { mapel, guru: guru === '-' ? '' : guru };
       } else if (mapel === '🕐 ISTIRAHAT') {
         jadwalData[`${hari}_${jp}`] = { istirahat: true };
@@ -660,7 +622,13 @@ window.resetJadwal = function() {
 
 function resetJadwalTable() {
   HARI_LIST.forEach(hari => {
-    for (let jp = 1; jp <= 8; jp++) updateCell(hari, jp, '', '');
+    for (let jp = 1; jp <= 8; jp++) {
+      if (hari === 'Senin' && jp === 1) {
+        updateCell('Senin', 1, 'UPACARA', '-', false);
+      } else {
+        updateCell(hari, jp, '', '');
+      }
+    }
   });
 }
 
@@ -690,7 +658,11 @@ window.downloadWord = function() {
       const cell = document.querySelector(`td[data-hari="${hari}"][data-jp="${jp}"] .mapel-cell`);
       const mapel = cell.querySelector('.mapel-name').textContent;
       const guru = cell.querySelector('.mapel-guru').textContent;
-      if (mapel === '🕐 ISTIRAHAT') {
+      
+      // ⭐ EXPORT WORD UNTUK UPACARA
+      if (hari === 'Senin' && jp === 1) {
+        tableHTML += `<td style="text-align: center; background: #ef4444; color: white; font-weight: bold;">🇮🇩 UPACARA</td>`;
+      } else if (mapel === '🕐 ISTIRAHAT') {
         tableHTML += `<td style="text-align: center; background: #94a3b8; color: white;">ISTIRAHAT</td>`;
       } else if (mapel === '-') {
         tableHTML += `<td style="text-align: center;">-</td>`;
@@ -736,51 +708,31 @@ window.downloadWord = function() {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  
   showToast('📥 Word diunduh!');
 };
 
 window.testBelManual = function(belType) {
-  if (!audioUnlocked) {
-    unlockAudio();
-  }
-  
+  if (!audioUnlocked) unlockAudio();
   const texts = {
     mulai: document.getElementById('txtBelMulai')?.value,
     istirahat: document.getElementById('txtBelIstirahat1')?.value,
     lanjut: document.getElementById('txtBelLanjut')?.value,
     pulang: document.getElementById('txtBelPulang')?.value
   };
-  
-  const titles = {
-    mulai: '🔔 Bel Masuk Kelas',
-    istirahat: '☕ Bel Istirahat',
-    lanjut: '📚 Bel Lanjut',
-    pulang: '🏠 Bel Pulang'
-  };
-  
+  const titles = { mulai: '🔔 Bel Masuk Kelas', istirahat: '☕ Bel Istirahat', lanjut: '📚 Bel Lanjut', pulang: '🏠 Bel Pulang' };
   const text = texts[belType];
   const title = titles[belType];
-  
-  if (!text) {
-    alert('⚠️ Teks bel kosong!');
-    return;
-  }
-  
+  if (!text) { alert('⚠️ Teks bel kosong!'); return; }
   playBeep();
   speakText(text);
-  
   showBelNotification(title, text);
   showToast(`🧪 Test ${title}`);
 };
 
 function playBeep() {
   try {
-    if (!audioContext) {
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    }
+    if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
     if (audioContext.state === 'suspended') audioContext.resume();
-    
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
     oscillator.connect(gainNode);
@@ -790,68 +742,32 @@ function playBeep() {
     gainNode.gain.value = 0.5;
     oscillator.start();
     setTimeout(() => oscillator.stop(), 1000);
-  } catch (e) {
-    console.error('Error beep:', e);
-  }
+  } catch (e) { console.error('Error beep:', e); }
 }
 
 function speakText(text) {
   console.log('🗣️ speakText:', text);
-  
-  if (!speechSynth) {
-    console.error('❌ TTS tidak tersedia');
-    playBeep();
-    playBeep();
-    playBeep();
-    return;
-  }
-  
+  if (!speechSynth) { console.error('❌ TTS tidak tersedia'); playBeep(); playBeep(); playBeep(); return; }
   try {
-    if (audioContext && audioContext.state === 'suspended') {
-      audioContext.resume();
-    }
-    
+    if (audioContext && audioContext.state === 'suspended') audioContext.resume();
     speechSynth.cancel();
-    
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'id-ID';
     utterance.rate = 0.9;
     utterance.volume = 1;
-    
     const gender = document.getElementById('optVoiceGender')?.value || 'female';
-    
-    if (indonesianVoice) {
-      utterance.voice = indonesianVoice;
-      console.log('🎤 Pakai voice:', indonesianVoice.name);
-    }
-    
-    if (gender === 'male') {
-      utterance.pitch = 0.85;
-    } else {
-      utterance.pitch = 1.15;
-    }
-    
+    if (indonesianVoice) { utterance.voice = indonesianVoice; console.log('🎤 Pakai voice:', indonesianVoice.name); }
+    utterance.pitch = (gender === 'male') ? 0.85 : 1.15;
     utterance.onstart = () => console.log('✅ TTS started');
     utterance.onend = () => console.log('✅ TTS ended');
-    utterance.onerror = (e) => {
-      console.error('❌ TTS error:', e);
-      playBeep();
-      setTimeout(() => playBeep(), 500);
-      setTimeout(() => playBeep(), 1000);
-    };
-    
+    utterance.onerror = (e) => { console.error('❌ TTS error:', e); playBeep(); setTimeout(() => playBeep(), 500); setTimeout(() => playBeep(), 1000); };
     speechSynth.speak(utterance);
-  } catch (e) {
-    console.error('TTS exception:', e);
-    playBeep();
-    playBeep();
-  }
+  } catch (e) { console.error('TTS exception:', e); playBeep(); playBeep(); }
 }
 
 function updateDisplay() {
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-  
   const timeEl = document.getElementById('belCurrentTime');
   if (timeEl) timeEl.textContent = `Waktu sekarang: ${currentTime}`;
   
@@ -866,40 +782,27 @@ function updateDisplay() {
   let nextBel = null;
   for (const bel of belTimes) {
     const [h, m] = bel.time.split(':').map(Number);
-    const belMinutes = h * 60 + m;
-    if (belMinutes > currentMinutes) {
-      nextBel = { ...bel, minutes: belMinutes };
-      break;
-    }
+    if ((h * 60 + m) > currentMinutes) { nextBel = { ...bel, minutes: (h * 60 + m) }; break; }
   }
   
   const countdownEl = document.getElementById('countdownDisplay');
   if (countdownEl) {
     if (nextBel) {
       const diff = nextBel.minutes - currentMinutes;
-      const hours = Math.floor(diff / 60);
-      const mins = diff % 60;
-      const secs = 60 - now.getSeconds();
-      countdownEl.textContent = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      countdownEl.textContent = `${String(Math.floor(diff / 60)).padStart(2, '0')}:${String(diff % 60).padStart(2, '0')}:${String(60 - now.getSeconds()).padStart(2, '0')}`;
     } else {
       countdownEl.textContent = '00:00:00';
     }
   }
-  
   const nextEl = document.getElementById('belNextTime');
   if (nextEl) nextEl.textContent = `Bel berikutnya: ${nextBel ? nextBel.name + ' (' + nextBel.time + ')' : '-'}`;
 }
 
 function checkBelTime() {
   const now = new Date();
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const currentTime = `${hours}:${minutes}`;
-  
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   updateDisplay();
-  
-  if (seconds !== '00' && seconds !== '01' && seconds !== '02' && seconds !== '03' && seconds !== '04') return;
+  if (!['00','01','02','03','04'].includes(String(now.getSeconds()).padStart(2, '0'))) return;
   if (lastBelMinute === currentTime) return;
   
   const belConfigs = [
@@ -910,69 +813,40 @@ function checkBelTime() {
   ];
   
   const activeBel = belConfigs.find(bel => bel.time === currentTime);
-  
   if (activeBel && activeBel.text && activeBel.text.trim()) {
     lastBelMinute = currentTime;
-    
     console.log(`🔔 BEL AKTIF: ${activeBel.title}`);
-    
     playBeep();
     showBelNotification(activeBel.title, activeBel.text);
-    
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(activeBel.title, { body: activeBel.text });
-    }
-    
+    if ('Notification' in window && Notification.permission === 'granted') new Notification(activeBel.title, { body: activeBel.text });
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-    
     speakText(activeBel.text);
   }
 }
 
 function startBelOtomatis() {
   console.log('🚀 startBelOtomatis');
-  
   if (!audioUnlocked) {
     alert('⚠️ Klik tombol "🔓 Izinkan Suara" terlebih dahulu agar bel bisa berbunyi otomatis!');
     document.getElementById('optBelOtomatis').value = 'no';
     return;
   }
-  
   if (belInterval) clearInterval(belInterval);
   lastBelMinute = '';
-  
   updateDisplay();
-  
   belInterval = setInterval(checkBelTime, 500);
-  
   startKeepAlive();
-  
   speakText("Bel otomatis telah diaktifkan");
-  
   const statusEl = document.getElementById('belStatus');
-  if (statusEl) {
-    statusEl.textContent = '✅ Aktif - Memantau waktu bel';
-    statusEl.style.color = '#10b981';
-  }
-  
+  if (statusEl) { statusEl.textContent = '✅ Aktif - Memantau waktu bel'; statusEl.style.color = '#10b981'; }
   showToast('🔔 Bel aktif!');
 }
 
 function stopBelOtomatis() {
-  if (belInterval) {
-    clearInterval(belInterval);
-    belInterval = null;
-  }
-  if (keepAliveInterval) {
-    clearInterval(keepAliveInterval);
-    keepAliveInterval = null;
-  }
-  
+  if (belInterval) { clearInterval(belInterval); belInterval = null; }
+  if (keepAliveInterval) { clearInterval(keepAliveInterval); keepAliveInterval = null; }
   const statusEl = document.getElementById('belStatus');
-  if (statusEl) {
-    statusEl.textContent = '⏸️ Non-aktif';
-    statusEl.style.color = '#be185d';
-  }
+  if (statusEl) { statusEl.textContent = '⏸️ Non-aktif'; statusEl.style.color = '#be185d'; }
 }
 
 function showBelNotification(title, message) {
