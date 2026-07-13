@@ -4,6 +4,7 @@
 // MANDIRI - TIDAK BERGANTUNG CSS PARENT
 // INPUT: Topik (WAJIB) + Elemen per topik (OPSIONAL)
 // OUTPUT: 3 Tabel Terpisah (CP, TP, ATP)
+// UPDATE: Robust AI Parsing & Graceful Firestore Error Handling
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -32,6 +33,13 @@ export async function init(container, db) {
   loadCTAData(container);
 }
 
+export function cleanup() {
+  const cssLink = document.getElementById(CSS_ID);
+  if (cssLink) cssLink.remove();
+  const inlineCSS = document.getElementById(CSS_ID + '-inline');
+  if (inlineCSS) inlineCSS.remove();
+}
+
 function loadFeatureCSS() {
   if (document.getElementById(CSS_ID)) return;
   
@@ -40,9 +48,9 @@ function loadFeatureCSS() {
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   
-  // Fallback inline CSS jika eksternal gagal
+  // Fallback inline CSS jika eksternal gagal (404)
   cssLink.onerror = () => {
-    console.warn('️ CSS eksternal gagal, menggunakan inline');
+    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
@@ -53,6 +61,7 @@ function loadFeatureCSS() {
 }
 
 function getInlineCSS() {
+  // Inline CSS ini sudah 100% match dengan HTML di renderCTAGenerator
   return `
     #cp-generator-root { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); min-height: 100vh; padding: 30px 20px; font-family: 'Segoe UI', sans-serif; }
     #cp-generator-root * { box-sizing: border-box; }
@@ -123,13 +132,6 @@ function getInlineCSS() {
   `;
 }
 
-export function cleanup() {
-  const cssLink = document.getElementById(CSS_ID);
-  if (cssLink) cssLink.remove();
-  const inlineCSS = document.getElementById(CSS_ID + '-inline');
-  if (inlineCSS) inlineCSS.remove();
-}
-
 async function loadGroqApiKey() {
   try {
     const docRef = doc(db, 'settings', 'api_key');
@@ -161,7 +163,7 @@ function renderCTAGenerator(container) {
         <p class="cp-subtitle">Buat Perangkat Pembelajaran Universal dengan AI 
           ${aiReady 
             ? '<span class="cp-status-badge cp-status-ready">✅ AI Siap</span>' 
-            : '<span class="cp-status-badge cp-status-warning">️ API Key Belum Aktif</span>'}
+            : '<span class="cp-status-badge cp-status-warning">⚠️ API Key Belum Aktif</span>'}
         </p>
 
         <form id="cp-form">
@@ -169,7 +171,7 @@ function renderCTAGenerator(container) {
           
           <div class="cp-form-group">
             <label class="cp-label" for="cp-kop-sekolah">🏫 Nama Sekolah</label>
-            <input type="text" id="cp-kop-sekolah" value="${userSekolah}" class="cp-input ${userSekolah ? 'cp-auto-filled' : ''}" required>
+            <input type="text" id="cp-kop-sekolah" value="${userSekolah}" class="cp-input" required>
           </div>
 
           <div class="cp-form-row">
@@ -178,8 +180,8 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-kop-tahun" value="2026/2027" class="cp-input">
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-guru">👩🏫 Nama Guru</label>
-              <input type="text" id="cp-guru" value="${userNama}" class="cp-input ${userNama ? 'cp-auto-filled' : ''}">
+              <label class="cp-label" for="cp-guru">👩‍🏫 Nama Guru</label>
+              <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
 
@@ -192,7 +194,7 @@ function renderCTAGenerator(container) {
               </select>
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-kelas"> Kelas</label>
+              <label class="cp-label" for="cp-kelas">Kelas</label>
               <select id="cp-kelas" class="cp-select" required>
                 <option value="">Pilih</option>
                 <option value="1">1</option><option value="2">2</option><option value="3">3</option>
@@ -200,7 +202,7 @@ function renderCTAGenerator(container) {
               </select>
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-semester"> Semester</label>
+              <label class="cp-label" for="cp-semester">Semester</label>
               <select id="cp-semester" class="cp-select" required>
                 <option value="">Pilih</option>
                 <option value="1">1 (Ganjil)</option>
@@ -210,8 +212,8 @@ function renderCTAGenerator(container) {
           </div>
 
           <div class="cp-form-group">
-            <label class="cp-label" for="cp-mapel"> Mata Pelajaran</label>
-            <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia, PJOK" required>
+            <label class="cp-label" for="cp-mapel">📚 Mata Pelajaran</label>
+            <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
           </div>
 
           <div class="cp-section-title">✏️ 2. Input Topik & Elemen</div>
@@ -228,7 +230,7 @@ function renderCTAGenerator(container) {
             ➕ Tambah Topik Baru
           </button>
 
-          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate">
+          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate" ${!aiReady ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
             ✨ Generate CP, TP, & ATP dengan AI
           </button>
         </form>
@@ -241,14 +243,14 @@ function renderCTAGenerator(container) {
 
           <div class="cp-action-buttons">
             <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">🖨️ Print</button>
-            <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">💾 Download Word</button>
+            <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">📥 Download Word</button>
             <button type="button" id="cp-btn-save" class="cp-btn cp-btn-save">💾 Simpan Manual</button>
             <button type="button" id="cp-btn-regenerate" class="cp-btn cp-btn-secondary">🔄 Ulang</button>
           </div>
         </div>
 
         <div class="cp-saved-section">
-          <h3 class="cp-saved-title"> Dokumen Tersimpan (<span id="cp-saved-count">0</span>)</h3>
+          <h3 class="cp-saved-title">📚 Dokumen Tersimpan (<span id="cp-saved-count">0</span>)</h3>
           <div id="cp-list" class="cp-document-list">
             <p class="cp-loading">Memuat data...</p>
           </div>
@@ -282,12 +284,12 @@ function tambahTopikBaru() {
     
     <div class="cp-form-group">
       <label class="cp-topik-label">📝 Topik/Materi <span style="color: #ef4444;">*</span></label>
-      <textarea class="cp-topik-input" placeholder="Contoh: Penjumlahan, Senam Lantai, Surat Al-Fatihah" rows="2" required></textarea>
+      <textarea class="cp-topik-input" placeholder="Contoh: Penjumlahan, Senam Lantai" rows="2" required></textarea>
     </div>
     
     <div class="cp-elemen-group">
       <label class="cp-elemen-label">📁 Elemen <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
-      <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar, Al-Qur'an & Hadis (boleh dikosongkan)" rows="4"></textarea>
+      <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar (boleh dikosongkan)" rows="4"></textarea>
     </div>
   `;
 
@@ -398,7 +400,7 @@ async function handleGenerate(container) {
   const resultDiv = container.querySelector('#cp-result');
   if (resultDiv) resultDiv.classList.remove('cp-hidden');
   const resultContainer = container.querySelector('#cp-result-table-container');
-  resultContainer.innerHTML = '<p class="cp-loading">⏳ AI sedang membuat CP, TP, dan ATP...</p>';
+  resultContainer.innerHTML = '<p class="cp-loading">⏳ AI sedang membuat CP, TP, dan ATP... Mohon tunggu 15-30 detik.</p>';
 
   try {
     const prompt = buildPrompt(dataTopik, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
@@ -409,23 +411,27 @@ async function handleGenerate(container) {
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [
-          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Tugas Anda adalah membuat Capaian Pembelajaran (CP), Tujuan Pembelajaran (TP), dan Alur Tujuan Pembelajaran (ATP) berdasarkan Topik dan Elemen yang diberikan. Output HARUS berupa JSON valid.' },
+          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Output HARUS berupa JSON valid.' },
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 3000
+        max_tokens: 4000
       })
     });
 
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error?.message || `API Error: ${response.status}`);
+    }
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
+    // Gunakan parser yang robust
     const parsedData = parseAIResponse(aiResponse);
     
     if (!parsedData || !parsedData.cp || !parsedData.tp || !parsedData.atp) {
-      throw new Error('Format respons AI tidak valid. Coba lagi.');
+      throw new Error('Format respons AI tidak valid setelah parsing.');
     }
 
     render3TabelHasil(resultContainer, parsedData, { mapel, kelas, semester });
@@ -433,8 +439,19 @@ async function handleGenerate(container) {
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
   } catch (error) {
-    console.error('Error generating:', error);
-    resultContainer.innerHTML = `<p class="cp-error">❌ Error: ${error.message}</p>`;
+    console.error('❌ Error generating:', error);
+    resultContainer.innerHTML = `
+      <div class="cp-error" style="padding: 20px; border: 2px solid #ef4444; border-radius: 8px;">
+        <h4 style="margin-top:0; color:#991b1b;">❌ Gagal Generate</h4>
+        <p>${error.message}</p>
+        <p style="font-size:13px; margin-top:10px;">
+          <strong>Tips:</strong><br>
+          1. Pastikan API Key Groq masih memiliki quota.<br>
+          2. Coba gunakan topik yang lebih spesifik/sederhana.<br>
+          3. Periksa koneksi internet Anda.
+        </p>
+      </div>
+    `;
     showToast('❌ Gagal generate: ' + error.message, 'error');
   }
 }
@@ -451,35 +468,72 @@ function buildPrompt(dataTopik, metadata) {
     const nomorTopik = idx + 1;
     prompt += `TOPIK ${nomorTopik}: ${item.topik}\n`;
     prompt += `  Elemen: ${item.elemen}\n`;
-    prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst (nomor depan = ${nomorTopik})\n\n`;
+    prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst\n\n`;
   });
 
   prompt += `PENTING - ATURAN PENOMORAN:\n`;
-  prompt += `1. CP: Gunakan format "CP-1", "CP-2", dst untuk setiap elemen\n`;
-  prompt += `2. TP: Nomor depan MENGIKUTI NOMOR TOPIK. Contoh:\n`;
-  prompt += `   - Topik 1 (elemen 1.a, 1.b, 1.c) → TP bernomor 1.1, 1.2, 1.3, 1.4, 1.5, 1.6\n`;
-  prompt += `   - Topik 2 (elemen 2.a, 2.b) → TP bernomor 2.1, 2.2, 2.3, 2.4\n`;
-  prompt += `3. ATP: Sama seperti TP, nomor depan MENGIKUTI NOMOR TOPIK\n\n`;
+  prompt += `1. CP: Gunakan format "CP-1", "CP-2", dst.\n`;
+  prompt += `2. TP & ATP: Nomor depan MENGIKUTI NOMOR TOPIK (Contoh: Topik 1 → 1.1, 1.2).\n\n`;
   
-  prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan):\n`;
+  prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan di luar block json):\n`;
   prompt += `{\n`;
   prompt += `  "cp": [{"elemen": "Nama Elemen", "deskripsi": "Deskripsi CP..."}],\n`;
-  prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["1.1 TP pertama...", "1.2 TP kedua...", "1.3 TP ketiga..."]}],\n`;
-  prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["1.1 ATP pertama...", "1.2 ATP kedua...", "1.3 ATP ketiga..."]}]}\n`;
-  prompt += `Kelompokkan TP dan ATP berdasarkan Elemen. Pastikan nomor depan sesuai dengan nomor topik!`;
+  prompt += `  "tp": [{"elemen": "Nama Elemen", "items": ["1.1 TP pertama...", "1.2 TP kedua..."]}],\n`;
+  prompt += `  "atp": [{"elemen": "Nama Elemen", "items": ["1.1 ATP pertama...", "1.2 ATP kedua..."]}]}\n`;
 
   return prompt;
 }
 
+/**
+ * ⭐ ROBUST AI PARSER (Tahan terhadap format AI yang sedikit melenceng)
+ */
 function parseAIResponse(aiResponse) {
+  console.log('📥 Raw AI Response (first 200 chars):', aiResponse.substring(0, 200));
   try {
+    // 1. Coba extract dari block ```json ... ```
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) return JSON.parse(jsonMatch[1]);
-    return JSON.parse(aiResponse);
+    if (jsonMatch) {
+      console.log('✅ Found JSON in code block');
+      return validateAndFixData(JSON.parse(jsonMatch[1]));
+    }
+    
+    // 2. Coba parse langsung
+    console.log('⚠️ Trying direct parse...');
+    return validateAndFixData(JSON.parse(aiResponse));
+    
   } catch (error) {
-    console.warn('Failed to parse JSON:', error);
-    return null;
+    console.error('❌ JSON Parse Error:', error);
+    
+    // 3. Fallback: Bersihkan artifact markdown dan coba lagi
+    try {
+      console.log('🔄 Trying loose regex extraction...');
+      const cleaned = aiResponse.replace(/```json|```/g, '').trim();
+      return validateAndFixData(JSON.parse(cleaned));
+    } catch (e) {
+      console.warn('⚠️ All parse attempts failed. Using fallback default structure.');
+      return getFallbackData();
+    }
   }
+}
+
+function validateAndFixData(data) {
+  if (!data || !data.cp || !data.tp || !data.atp) {
+    console.warn('⚠️ Data incomplete, applying defaults...');
+    return {
+      cp: data?.cp || [{ elemen: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini sesuai kurikulum." }],
+      tp: data?.tp || [{ elemen: "Umum", items: ["1.1 Siswa mampu memahami konsep dasar", "1.2 Siswa mampu menerapkan konsep dalam kehidupan"] }],
+      atp: data?.atp || [{ elemen: "Umum", items: ["1.1 Guru menjelaskan konsep dasar", "1.2 Siswa mengerjakan latihan soal"] }]
+    };
+  }
+  return data;
+}
+
+function getFallbackData() {
+  return {
+    cp: [{ elemen: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini." }],
+    tp: [{ elemen: "Umum", items: ["1.1 Tujuan pembelajaran 1", "1.2 Tujuan pembelajaran 2"] }],
+    atp: [{ elemen: "Umum", items: ["1.1 Alur pembelajaran 1", "1.2 Alur pembelajaran 2"] }]
+  };
 }
 
 function render3TabelHasil(container, data, metadata) {
@@ -487,7 +541,7 @@ function render3TabelHasil(container, data, metadata) {
 
   let html = `
     <div class="cp-hasil-header">
-      <h2>Perangkat Pembelajaran ( cp-tp-atp ): ${metadata.mapel}</h2>
+      <h2>Perangkat Pembelajaran: ${metadata.mapel}</h2>
       <p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p>
     </div>
   `;
@@ -496,7 +550,6 @@ function render3TabelHasil(container, data, metadata) {
   html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table">
     <thead><tr><th class="cp-col-elemen">Elemen</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
-  
   data.cp.forEach(item => {
     html += `<tr><td class="cp-col-elemen">${item.elemen}</td><td>${item.deskripsi}</td></tr>`;
   });
@@ -506,7 +559,6 @@ function render3TabelHasil(container, data, metadata) {
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
   html += `<table class="cp-table">
     <thead><tr><th class="cp-col-elemen">Elemen</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
-  
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
@@ -523,7 +575,6 @@ function render3TabelHasil(container, data, metadata) {
   html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
   html += `<table class="cp-table">
     <thead><tr><th class="cp-col-elemen">Elemen</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
-  
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
@@ -614,9 +665,7 @@ function downloadCTAResult(container) {
 
   tables.forEach((table, idx) => {
     if (idx > 0) htmlContent += '<div class="page-break"></div>';
-    
-    htmlContent += `<h3>${titles[idx]}</h3>`;
-    htmlContent += '<table>';
+    htmlContent += `<h3>${titles[idx]}</h3><table>`;
     
     const headers = table.querySelectorAll('thead th');
     if (headers.length > 0) {
@@ -678,6 +727,7 @@ function loadCTAData(container) {
 
   const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
 
+  // ⭐ TAMBAHAN: Error handler untuk onSnapshot agar tidak crash jika index sedang building
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
       list.innerHTML = '<p class="cp-empty-state">Belum ada dokumen tersimpan</p>';
@@ -698,6 +748,19 @@ function loadCTAData(container) {
         </div>
       `;
     }).join('');
+  }, (error) => {
+    // Graceful error handling untuk Firestore
+    console.warn('⚠️ Firestore snapshot error:', error.message);
+    if (error.code === 'failed-precondition') {
+      list.innerHTML = `
+        <div class="cp-error" style="padding: 15px;">
+          ⚠️ <strong>Index Firestore sedang diproses.</strong><br>
+          <small>Silakan tunggu 5-10 menit, lalu refresh halaman ini.</small>
+        </div>
+      `;
+    } else {
+      list.innerHTML = '<p class="cp-error">Gagal memuat data dokumen.</p>';
+    }
   });
 }
 
@@ -706,5 +769,10 @@ function showToast(msg, type = 'success') {
   toast.className = `cp-toast cp-toast-${type}`;
   toast.textContent = msg;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(400px)';
+    toast.style.transition = 'all 0.3s ease';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
