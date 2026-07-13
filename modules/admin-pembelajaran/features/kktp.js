@@ -4,6 +4,7 @@
 // Format: Standar Kemendikbudristek
 // Kop Sekolah: Editable & tersimpan di localStorage
 // Data Mapel: Load dari assets/data-mapel.json
+// SINKRONISASI: Auto-load data siswa dari Firebase RTDB berdasarkan Kelas
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -47,8 +48,6 @@ export async function init(container, db) {
   renderUI(container);
   attachEvents();
   loadKopSettings();
-  
-  // ⭐ Load data mapel dari JSON
   await loadMataPelajaran();
 }
 
@@ -57,75 +56,53 @@ export function cleanup() {
   if (css) css.remove();
 }
 
-/**
- * ⭐ LOAD DATA MATA PELAJARAN DARI JSON
- * Mengambil data dari assets/data-mapel.json
- */
 async function loadMataPelajaran() {
   try {
     const response = await fetch('../../../assets/data-mapel.json');
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     
     const data = await response.json();
-    
     const selectMapel = document.getElementById('inpMapel');
     if (!selectMapel) return;
     
     selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
-    
     data.mataPelajaran.forEach(mapel => {
       const option = document.createElement('option');
       option.value = mapel.nama;
       option.textContent = `${mapel.icon} ${mapel.singkatan || mapel.nama}`;
       selectMapel.appendChild(option);
     });
-    
     console.log(`✅ Data mapel berhasil dimuat: ${data.mataPelajaran.length} mapel`);
   } catch (error) {
     console.error('❌ Gagal memuat data mapel dari JSON:', error);
-    console.log('🔄 Menggunakan data mapel fallback');
     loadFallbackMapel();
   }
 }
 
-/**
- * ⭐ FALLBACK: Jika JSON gagal dimuat, pakai data hardcoded
- */
 function loadFallbackMapel() {
   const selectMapel = document.getElementById('inpMapel');
   if (!selectMapel) return;
-  
   selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
-  
   FALLBACK_MAPEL.forEach(mapel => {
     const option = document.createElement('option');
     option.value = mapel.nama;
     option.textContent = `${mapel.icon} ${mapel.singkatan}`;
     selectMapel.appendChild(option);
   });
-  
-  console.log(`✅ Data mapel fallback dimuat: ${FALLBACK_MAPEL.length} mapel`);
 }
 
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
-  
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = CSS_PATH;
   link.id = CSS_ID;
-  
   link.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
     document.head.appendChild(style);
   };
-  
   document.head.appendChild(link);
 }
 
@@ -145,7 +122,6 @@ function getInlineCSS() {
     .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #831843; }
     .form-control { width: 100%; padding: 14px 16px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 15px; box-sizing: border-box; background: white; color: #831843; }
     .form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
-    textarea.form-control { resize: vertical; min-height: 120px; font-family: inherit; }
     select.form-control { cursor: pointer; }
     .kop-settings { background: #f0f9ff; border: 2px dashed #3b82f6; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
     .kop-preview { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-top: 15px; text-align: center; font-family: 'Times New Roman', serif; }
@@ -207,6 +183,7 @@ function getInlineCSS() {
     .recommendation ul { margin: 0; padding-left: 20px; color: #78350f; }
     .recommendation li { margin-bottom: 10px; line-height: 1.6; }
     .student-list { background: #fef3c7; padding: 10px 15px; border-radius: 6px; margin: 10px 0; font-size: 13px; color: #78350f; }
+    .input-nilai { width: 80px; text-align: center; font-weight: bold; padding: 8px; margin: 0 auto; display: block; }
     @media (max-width: 768px) { .kktp-container { padding: 15px; } .kktp-header { padding: 20px; } .kktp-header h2 { font-size: 22px; } .kktp-form { padding: 20px; } .form-grid { grid-template-columns: 1fr; gap: 15px; } .interval-grid { grid-template-columns: 1fr 1fr; } .btn-action { width: 100%; justify-content: center; } .summary-grid { grid-template-columns: 1fr 1fr; } .chart-label { width: 120px; font-size: 11px; } }
   `;
 }
@@ -276,7 +253,6 @@ function renderUI(container) {
             <label>📚 Mata Pelajaran</label>
             <select id="inpMapel" class="form-control">
               <option value="">-- Pilih Mapel --</option>
-              <!-- ⭐ Opsi akan di-generate dari assets/data-mapel.json -->
             </select>
           </div>
         </div>
@@ -325,17 +301,24 @@ function renderUI(container) {
         </div>
 
         <div class="form-section-title">👥 3. Data Nilai Siswa</div>
+        <div class="info-box" id="infoSiswa" style="display:none;">
+          <strong>ℹ️ Info:</strong> Data siswa dimuat otomatis dari Database Global Monitoring. Silakan isi kolom <strong>Nilai</strong> (0-100).
+        </div>
         <div class="form-group">
-          <label>📝 Input Nilai (satu siswa per baris: Nama, Nilai)</label>
-          <textarea id="inpDataSiswa" class="form-control" placeholder="Contoh:
-Eka, 55
-Fani, 88
-Andi, 72
-Budi, 45
-Citra, 92"></textarea>
-          <p style="font-size: 12px; color: #64748b; margin-top: 5px;">
-            Format: <strong>Nama, Nilai</strong> (pisahkan dengan koma). Nilai 0-100.
-          </p>
+          <div style="overflow-x: auto;">
+            <table class="siswa-table" id="tabelInputNilai">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">No</th>
+                  <th>Nama Siswa</th>
+                  <th style="width: 150px;">Nilai (0-100)</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyInputNilai">
+                <tr><td colspan="3" style="text-align:center; padding: 20px; color: #64748b;">Pilih Kelas terlebih dahulu untuk memuat data siswa.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="gen-action">
@@ -348,14 +331,11 @@ Citra, 92"></textarea>
 
       <div class="result-section" id="resultSection">
         <div class="form-section-title">📈 4. Hasil Analisis</div>
-        
         <div class="summary-grid" id="summaryGrid"></div>
-        
         <div class="chart-container">
           <h4>📊 Distribusi Interval Capaian</h4>
           <div id="chartBars"></div>
         </div>
-        
         <div class="form-section-title">📋 Tabel Analisis KKTP Siswa</div>
         <div style="overflow-x: auto;">
           <table class="siswa-table" id="resultTable">
@@ -372,7 +352,6 @@ Citra, 92"></textarea>
             <tbody id="resultTableBody"></tbody>
           </table>
         </div>
-        
         <div class="recommendation" id="recommendation"></div>
       </div>
     </div>
@@ -380,25 +359,73 @@ Citra, 92"></textarea>
 }
 
 function attachEvents() {
-  // Live preview kop
   ['kopKabupaten', 'kopDinas', 'kopSekolah', 'kopAlamat'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('input', updateKopPreview);
+    if (el) el.addEventListener('input', updateKopPreview);
+  });
+  
+  // ⭐ EVENT LISTENER BARU: Auto-load siswa saat kelas dipilih
+  document.getElementById('inpKelas').addEventListener('change', function() {
+    const kelas = this.value;
+    if (kelas) {
+      const kelasClean = kelas.split(' ')[0]; // Ambil angka saja, misal "1" dari "1 (Fase A)"
+      loadSiswaKeTabel(kelasClean);
+    } else {
+      document.getElementById('tbodyInputNilai').innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px; color: #64748b;">Pilih Kelas terlebih dahulu.</td></tr>';
+      document.getElementById('infoSiswa').style.display = 'none';
     }
   });
+}
+
+// ⭐ FUNGSI BARU: Load data siswa dari Firebase RTDB
+async function loadSiswaKeTabel(kelas) {
+  const tbody = document.getElementById('tbodyInputNilai');
+  tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px;">⏳ Memuat data siswa...</td></tr>';
+  
+  try {
+    const snapshot = await get(ref(database, `siswa/${kelas}`));
+    tbody.innerHTML = '';
+    
+    if (snapshot.exists()) {
+      document.getElementById('infoSiswa').style.display = 'block';
+      const siswaData = snapshot.val();
+      
+      // Ubah object ke array dan urutkan berdasarkan nama
+      const siswaList = Object.keys(siswaData).map(key => ({
+        id: key,
+        ...siswaData[key]
+      })).sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+      
+      siswaList.forEach((siswa, index) => {
+        const nama = siswa.nama || 'Tanpa Nama';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${index + 1}</td>
+          <td class="nama-cell">${nama}</td>
+          <td>
+            <input type="number" class="form-control input-nilai" 
+                   data-nama="${nama}" data-id="${siswa.id}" 
+                   min="0" max="100" placeholder="0" required>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else {
+      document.getElementById('infoSiswa').style.display = 'none';
+      tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px; color: #ef4444;">⚠️ Belum ada data siswa untuk kelas ini di Database. Silakan tambahkan di fitur Data Peserta Didik terlebih dahulu.</td></tr>';
+    }
+  } catch (error) {
+    console.error('Error load siswa:', error);
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px; color: #ef4444;">❌ Gagal memuat data. Periksa koneksi internet.</td></tr>';
+  }
 }
 
 function loadKopSettings() {
   const saved = localStorage.getItem('kktp_kop_settings');
   let kop = DEFAULT_KOP;
-  
   if (saved) {
-    try {
-      kop = { ...DEFAULT_KOP, ...JSON.parse(saved) };
-    } catch (e) {}
+    try { kop = { ...DEFAULT_KOP, ...JSON.parse(saved) }; } catch (e) {}
   }
-  
   setTimeout(() => {
     document.getElementById('kopKabupaten').value = kop.kabupaten;
     document.getElementById('kopDinas').value = kop.dinas;
@@ -427,7 +454,6 @@ window.saveKopSettings = function() {
     sekolah: document.getElementById('kopSekolah').value,
     alamat: document.getElementById('kopAlamat').value
   };
-  
   localStorage.setItem('kktp_kop_settings', JSON.stringify(kop));
   showToast('✅ Pengaturan kop berhasil disimpan!');
 };
@@ -435,51 +461,50 @@ window.saveKopSettings = function() {
 function getKopSettings() {
   const saved = localStorage.getItem('kktp_kop_settings');
   if (saved) {
-    try {
-      return { ...DEFAULT_KOP, ...JSON.parse(saved) };
-    } catch (e) {}
+    try { return { ...DEFAULT_KOP, ...JSON.parse(saved) }; } catch (e) {}
   }
   return DEFAULT_KOP;
 }
 
+// ⭐ DIUPDATE: Membaca dari tabel input, bukan textarea
 window.analyzeKKTP = function() {
   const kelas = document.getElementById('inpKelas').value;
   const mapel = document.getElementById('inpMapel').value;
   const topik = document.getElementById('inpTopik').value;
-  const dataInput = document.getElementById('inpDataSiswa').value;
   
   if (!kelas || !mapel || !topik) {
     alert('⚠️ Lengkapi informasi umum terlebih dahulu!');
     return;
   }
   
-  if (!dataInput.trim()) {
-    alert('⚠️ Input data nilai siswa terlebih dahulu!');
+  dataSiswa = [];
+  const inputNilaiElements = document.querySelectorAll('.input-nilai');
+  
+  if (inputNilaiElements.length === 0) {
+    alert('⚠️ Tidak ada data siswa. Pilih kelas terlebih dahulu!');
     return;
   }
-  
-  dataSiswa = [];
-  const lines = dataInput.trim().split('\n');
-  
-  lines.forEach(line => {
-    const parts = line.split(',').map(s => s.trim());
-    if (parts.length >= 2) {
-      const nama = parts[0];
-      const nilai = parseFloat(parts[1]);
-      if (nama && !isNaN(nilai) && nilai >= 0 && nilai <= 100) {
-        dataSiswa.push({ nama, nilai });
+
+  let hasData = false;
+  inputNilaiElements.forEach(input => {
+    const nama = input.dataset.nama;
+    const nilaiStr = input.value.trim();
+    if (nilaiStr !== '') {
+      const nilai = parseFloat(nilaiStr);
+      if (!isNaN(nilai) && nilai >= 0 && nilai <= 100) {
+        dataSiswa.push({ nama, nilai, id: input.dataset.id });
+        hasData = true;
       }
     }
   });
   
-  if (dataSiswa.length === 0) {
-    alert('⚠️ Format data tidak valid! Gunakan format: Nama, Nilai');
+  if (!hasData) {
+    alert('⚠️ Silakan isi minimal 1 nilai siswa!');
     return;
   }
   
   analisisResult = hitungAnalisis(dataSiswa);
   tampilkanHasil(analisisResult);
-  
   showToast('✅ Analisis KKTP selesai!');
 };
 
@@ -501,7 +526,6 @@ function hitungAnalisis(data) {
   
   data.forEach(siswa => {
     siswa.topik = topik;
-    
     if (siswa.nilai <= 40) {
       siswa.kategori = 'Belum Mencapai';
       siswa.interval = '0 - 40%';
@@ -625,32 +649,26 @@ function tampilkanHasil(analisis) {
       <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.belumTotal.map(s => s.nama).join(', ')}</div>
     </li>`;
   }
-  
   if (analisis.kategori.belumSebagian.length > 0) {
     recHTML += `<li><strong>🟡 Remedial Sebagian:</strong> ${analisis.kategori.belumSebagian.length} siswa perlu remedial di bagian yang diperlukan: 
       <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.belumSebagian.map(s => s.nama).join(', ')}</div>
     </li>`;
   }
-  
   if (analisis.kategori.sudah.length > 0) {
     recHTML += `<li><strong>🟢 Tuntas:</strong> ${analisis.kategori.sudah.length} siswa sudah mencapai tujuan pembelajaran, tidak perlu remedial</li>`;
   }
-  
   if (analisis.kategori.pengayaan.length > 0) {
     recHTML += `<li><strong>🔵 Pengayaan:</strong> ${analisis.kategori.pengayaan.length} siswa perlu diberikan tugas pengayaan: 
       <div class="student-list"><strong>Nama:</strong> ${analisis.kategori.pengayaan.map(s => s.nama).join(', ')}</div>
     </li>`;
   }
-  
   if (parseFloat(analisis.rataRata) < 65) {
     recHTML += `<li><strong>🔄 Refleksi Metode:</strong> Rata-rata kelas di bawah 65%, pertimbangkan untuk mengevaluasi strategi pembelajaran</li>`;
   } else if (parseFloat(analisis.rataRata) >= 85) {
     recHTML += `<li><strong>🎉 Apresiasi:</strong> Rata-rata kelas sangat baik! Pertahankan metode pembelajaran yang sudah efektif</li>`;
   }
-  
   recHTML += `<li><strong>📝 Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya untuk memantau perkembangan setiap siswa</li>`;
   recHTML += '</ul>';
-  
   recommendation.innerHTML = recHTML;
   
   setTimeout(() => {
@@ -676,12 +694,8 @@ window.saveToDatabase = async function() {
   
   try {
     const newRef = push(ref(database, `analisis_kktp/${kelas.replace(/\s+/g, '_')}/${mapel.replace(/\s+/g, '_')}`));
-    
     await set(newRef, {
-      kelas,
-      mapel,
-      topik,
-      periode,
+      kelas, mapel, topik, periode,
       tanggalAsesmen: tanggal,
       totalSiswa: analisisResult.totalSiswa,
       rataRata: parseFloat(analisisResult.rataRata),
@@ -693,7 +707,6 @@ window.saveToDatabase = async function() {
       createdAt: Date.now(),
       createdBy: currentUser.uid || 'unknown'
     });
-    
     showToast('✅ Data berhasil disimpan ke database!');
   } catch (error) {
     console.error('Error save:', error);
@@ -712,13 +725,9 @@ window.exportToWord = function() {
     alert('⚠️ Lakukan analisis terlebih dahulu!');
     return;
   }
-  
-  if (!analisisResult) {
-    analisisResult = hitungAnalisis(dataSiswa);
-  }
+  if (!analisisResult) analisisResult = hitungAnalisis(dataSiswa);
   
   const kop = getKopSettings();
-  
   let tanggalFormatted = '-';
   if (tanggal) {
     const dateObj = new Date(tanggal);
@@ -749,7 +758,6 @@ window.exportToWord = function() {
       <td style="text-align: left; padding: 8px;">${siswa.tindakLanjut.replace(/<[^>]*>/g, '')}</td>
     </tr>`;
   });
-  
   tableHTML += `</tbody></table>`;
   
   const htmlContent = `<html><head><meta charset="utf-8"></head>
@@ -760,13 +768,11 @@ window.exportToWord = function() {
         <div style="font-size: 16pt; font-weight: bold; margin: 8px 0;">${kop.sekolah.toUpperCase()}</div>
         <div style="font-size: 11pt; font-style: italic; margin: 3px 0;">${kop.alamat}</div>
       </div>
-      
       <div style="text-align: center; margin-bottom: 25px;">
         <h1 style="margin: 0; font-size: 16pt; text-decoration: underline;">ANALISIS KKTP</h1>
         <h2 style="margin: 5px 0; font-size: 12pt;">Kriteria Ketercapaian Tujuan Pembelajaran</h2>
         <p style="margin: 5px 0; font-size: 11pt;">Kurikulum Merdeka - Tahun Ajaran 2026/2027</p>
       </div>
-      
       <div style="margin-bottom: 20px;">
         <table style="width: 100%; border: none;">
           <tr><td style="width: 30%;"><strong>Kelas</strong></td><td>: ${kelas}</td></tr>
@@ -776,7 +782,6 @@ window.exportToWord = function() {
           <tr><td><strong>Tanggal Asesmen</strong></td><td>: ${tanggalFormatted}</td></tr>
         </table>
       </div>
-      
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📊 Ringkasan Hasil</h3>
       <table style="width: 60%; border: none; margin-bottom: 20px;">
         <tr><td style="width: 50%;"><strong>Total Siswa:</strong></td><td>${analisisResult.totalSiswa} peserta didik</td></tr>
@@ -784,7 +789,6 @@ window.exportToWord = function() {
         <tr><td><strong>Sudah Mencapai TP:</strong></td><td>${analisisResult.kategori.sudah.length + analisisResult.kategori.pengayaan.length} siswa (${(parseFloat(analisisResult.persentase.sudah) + parseFloat(analisisResult.persentase.pengayaan)).toFixed(1)}%)</td></tr>
         <tr><td><strong>Perlu Remedial:</strong></td><td>${analisisResult.kategori.belumTotal.length + analisisResult.kategori.belumSebagian.length} siswa (${(parseFloat(analisisResult.persentase.belumTotal) + parseFloat(analisisResult.persentase.belumSebagian)).toFixed(1)}%)</td></tr>
       </table>
-      
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📈 Distribusi Interval Capaian</h3>
       <ul style="margin-bottom: 20px;">
         <li><strong>0-40% (Belum Mencapai):</strong> ${analisisResult.kategori.belumTotal.length} siswa (${analisisResult.persentase.belumTotal}%)</li>
@@ -792,10 +796,8 @@ window.exportToWord = function() {
         <li><strong>66-85% (Sudah Mencapai):</strong> ${analisisResult.kategori.sudah.length} siswa (${analisisResult.persentase.sudah}%)</li>
         <li><strong>86-100% (Perlu Pengayaan):</strong> ${analisisResult.kategori.pengayaan.length} siswa (${analisisResult.persentase.pengayaan}%)</li>
       </ul>
-      
       <h3 style="color: #be185d; border-bottom: 2px solid #ec4899; padding-bottom: 5px;">📋 Tabel Analisis KKTP Siswa</h3>
       ${tableHTML}
-      
       <div style="margin-top: 30px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px;">
         <h4 style="margin: 0 0 10px 0; color: #92400e;">💡 Rekomendasi Tindak Lanjut Pembelajaran</h4>
         <ul style="margin: 0; padding-left: 20px;">
@@ -805,7 +807,6 @@ window.exportToWord = function() {
           <li><strong>Asesmen Lanjutan:</strong> Lakukan asesmen formatif berikutnya</li>
         </ul>
       </div>
-      
       <div style="margin-top: 50px; text-align: right;">
         <p style="margin: 5px 0;">Lamanda, ${tanggalFormatted}</p>
         <p style="margin: 5px 0;">Guru Kelas</p>
@@ -824,10 +825,10 @@ window.exportToWord = function() {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  
   showToast('📥 File Word berhasil diunduh!');
 };
 
+// ⭐ DIUPDATE: Reset juga membersihkan tabel input
 window.resetForm = function() {
   if (confirm('🔄 Reset semua data?')) {
     document.getElementById('inpKelas').value = '';
@@ -835,7 +836,8 @@ window.resetForm = function() {
     document.getElementById('inpTopik').value = '';
     document.getElementById('inpPeriode').value = 'Formatif 1';
     document.getElementById('inpTanggal').value = '';
-    document.getElementById('inpDataSiswa').value = '';
+    document.getElementById('tbodyInputNilai').innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 20px; color: #64748b;">Pilih Kelas terlebih dahulu.</td></tr>';
+    document.getElementById('infoSiswa').style.display = 'none';
     document.getElementById('resultSection').classList.remove('show');
     dataSiswa = [];
     analisisResult = null;
