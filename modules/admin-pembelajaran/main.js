@@ -69,7 +69,7 @@ const MENU_ITEMS = [
     icon: '🔢', 
     title: 'Rumus 8-3-3-4', 
     path: './features/rumus-8-3-3-4.js',
-    status: 'soon' // Ubah ke 'ready' nanti setelah file fiturnya kita buat
+    status: 'ready' 
   },
   { 
     id: 'refleksi', 
