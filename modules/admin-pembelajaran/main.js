@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR SEMUA SUB-FITUR (16 Fitur)
+// ✅ DAFTAR SEMUA SUB-FITUR (18 Fitur)
 const MENU_ITEMS = [
   { 
     id: 'cp-tp-atp', 
@@ -64,7 +64,6 @@ const MENU_ITEMS = [
     status: 'ready'
   },
   { 
-    // ⭐ DIUBAH: Dari Modul P5 menjadi Rumus 8-3-3-4
     id: 'rumus-8-3-3-4', 
     icon: '🔢', 
     title: 'Rumus 8-3-3-4', 
@@ -106,7 +105,6 @@ const MENU_ITEMS = [
     path: './features/lkpd.js',
     status: 'ready'
   },
-  // ⭐ 3 SUB-FITUR BARU (Card Grid Placeholder)
   { 
     id: 'penilaian', 
     icon: '📈', 
@@ -126,6 +124,21 @@ const MENU_ITEMS = [
     icon: '📋', 
     title: 'Pembuat Kisi-kisi', 
     path: './features/kisi-kisi.js',
+    status: 'soon'
+  },
+  // ⭐ 2 SUB-FITUR BARU: RPM (Rencana Pembelajaran Mendalam)
+  { 
+    id: 'rpm-standar', 
+    icon: '📝', 
+    title: 'RPM Standar', 
+    path: './features/rpm-standar.js',
+    status: 'soon'
+  },
+  { 
+    id: 'rpm-spesifik', 
+    icon: '🎯', 
+    title: 'RPM Spesifik', 
+    path: './features/rpm-spesifik.js',
     status: 'soon'
   }
 ];
