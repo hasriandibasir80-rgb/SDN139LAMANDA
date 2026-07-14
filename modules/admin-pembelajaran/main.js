@@ -132,7 +132,7 @@ const MENU_ITEMS = [
     icon: '📝', 
     title: 'RPM Standar', 
     path: './features/rpm-standar.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'rpm-spesifik', 
