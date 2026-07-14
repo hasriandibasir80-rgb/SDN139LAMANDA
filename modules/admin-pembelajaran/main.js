@@ -139,7 +139,7 @@ const MENU_ITEMS = [
     icon: '🎯', 
     title: 'RPM Spesifik', 
     path: './features/rpm-spesifik.js',
-    status: 'soon'
+    status: 'ready'
   }
 ];
 
