@@ -124,7 +124,7 @@ const MENU_ITEMS = [
     icon: '📋', 
     title: 'Pembuat Kisi-kisi', 
     path: './features/kisi-kisi.js',
-    status: 'soon'
+    status: 'ready'
   },
   // ⭐ 2 SUB-FITUR BARU: RPM (Rencana Pembelajaran Mendalam)
   { 
