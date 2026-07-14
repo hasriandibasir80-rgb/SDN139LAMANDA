@@ -3,7 +3,7 @@
 // FITUR: RPM STANDAR (Rencana Pembelajaran Mendalam)
 // UNIVERSAL - Untuk Semua Mapel & Metode
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
-// UPDATE: Default Nama Guru, Tanda Tangan, Mapel dari JSON
+// UPDATE: Default Nama Guru, Tanda Tangan, Mapel dengan Fallback Aman
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -30,6 +30,21 @@ const DEFAULT_TTD = {
   namaGuru: 'Hasriandi Basir SP.d',
   nipGuru: '198110182025211059'
 };
+
+// ⭐ FALLBACK DATA MAPEL (jika JSON gagal dimuat)
+const FALLBACK_MAPEL = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
+];
 
 export async function init(container, db) {
   loadCSS();
@@ -64,21 +79,46 @@ async function loadGroqApiKey() {
 }
 
 /**
- * ⭐ LOAD DATA MATA PELAJARAN DARI JSON (TANPA FALLBACK)
+ * ⭐ LOAD DATA MATA PELAJARAN DENGAN FALLBACK AMAN
+ * Mencoba load dari JSON, jika gagal pakai data hardcoded
  */
 async function loadMataPelajaran() {
-  try {
-    const response = await fetch('../../../assets/data-mapel.json');
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    dataMapel = data.mataPelajaran || [];
-    console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
-  } catch (error) {
-    console.error('❌ Gagal memuat data-mapel.json:', error);
-    // Tetap kosongkan, jangan pakai fallback
-    dataMapel = [];
-    console.warn('⚠️ Dropdown mapel akan kosong. Pastikan file assets/data-mapel.json ada.');
+  const possiblePaths = [
+    '../../../assets/data-mapel.json',
+    '/SDN139LAMANDA/assets/data-mapel.json',
+    '/assets/data-mapel.json',
+    './assets/data-mapel.json',
+    '../assets/data-mapel.json',
+    '../../assets/data-mapel.json'
+  ];
+  
+  for (const path of possiblePaths) {
+    try {
+      console.log(`🔄 Mencoba load mapel dari: ${path}`);
+      const response = await fetch(path);
+      
+      if (!response.ok) {
+        console.warn(`❌ Path ${path} gagal: ${response.status}`);
+        continue;
+      }
+      
+      const data = await response.json();
+      dataMapel = data.mataPelajaran || [];
+      
+      if (dataMapel.length > 0) {
+        console.log(`✅ Data mapel berhasil dimuat dari ${path}: ${dataMapel.length} mapel`);
+        return;
+      }
+    } catch (error) {
+      console.warn(` Error load dari ${path}:`, error.message);
+      continue;
+    }
   }
+  
+  // FALLBACK: Gunakan data hardcoded jika semua path gagal
+  console.warn('⚠️ Menggunakan data mapel fallback (hardcoded)');
+  dataMapel = FALLBACK_MAPEL;
+  console.log(`✅ Data mapel fallback dimuat: ${dataMapel.length} mapel`);
 }
 
 function loadCSS() {
@@ -162,7 +202,7 @@ function renderUI(container) {
               <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
             </div>
             <div class="rpm-form-group">
-              <label>👩‍🏫 Nama Guru</label>
+              <label>‍🏫 Nama Guru</label>
               <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
           </div>
@@ -211,7 +251,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">👥 2. Analisis Kesiapan Murid</h3>
           <div class="rpm-form-group">
-            <label> Kelompok Belum Siap</label>
+            <label>🔴 Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
           </div>
           <div class="rpm-form-group">
@@ -256,13 +296,13 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 5. Asesmen Holistik</h3>
+          <h3 class="rpm-section-title">📊 5. Asesmen Holistik</h3>
           <div class="rpm-form-group">
             <label>🔍 Asesmen Diagnostik</label>
             <textarea id="rpm-diagnostik" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label> Asesmen Formatif</label>
+            <label>📈 Asesmen Formatif</label>
             <textarea id="rpm-formatif" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
@@ -270,13 +310,13 @@ function renderUI(container) {
             <textarea id="rpm-sumatif" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label> Rubrik Penilaian (skala 1-4)</label>
+            <label>📋 Rubrik Penilaian (skala 1-4)</label>
             <textarea id="rpm-rubrik" class="rpm-form-control" rows="4" placeholder="4 (Mahir): ...&#10;3 (Cakap): ...&#10;2 (Berkembang): ...&#10;1 (Belum Siap): ..."></textarea>
           </div>
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">🎨 6. Diferensiasi</h3>
+          <h3 class="rpm-section-title"> 6. Diferensiasi</h3>
           <div class="rpm-form-group">
             <label>🔴 Remedial (Belum Siap)</label>
             <textarea id="rpm-remedial" class="rpm-form-control" rows="2"></textarea>
@@ -306,11 +346,11 @@ function renderUI(container) {
             <textarea id="rpm-lkpd" class="rpm-form-control" rows="3"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label>📚 Bahan Bacaan</label>
+            <label> Bahan Bacaan</label>
             <textarea id="rpm-bahan" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label> Glosarium</label>
+            <label>📖 Glosarium</label>
             <textarea id="rpm-glosarium" class="rpm-form-control" rows="2"></textarea>
           </div>
         </div>
@@ -329,7 +369,7 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👩‍ Nama Guru Pengampu</label>
+              <label>👩‍🏫 Nama Guru Pengampu</label>
               <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
             <div class="rpm-form-group">
@@ -351,7 +391,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
           <div id="rpm-list-container">
-            <div class="rpm-loading"> Memuat data...</div>
+            <div class="rpm-loading">⏳ Memuat data...</div>
           </div>
         </div>
       </div>
@@ -391,7 +431,6 @@ function attachEvents(container) {
     if (confirm('🔄 Reset semua form?')) {
       currentEditId = null;
       container.querySelectorAll('input[type="text"], textarea').forEach(el => {
-        // Reset ke default untuk field tertentu
         if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
           el.value = DEFAULT_TTD.namaGuru;
         } else if (el.id === 'rpm-kepsek') {
@@ -574,7 +613,6 @@ PENTING:
     const data = await response.json();
     const aiText = data.choices[0].message.content;
     
-    // Parse JSON dari response
     let parsed;
     const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/) || aiText.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
@@ -583,7 +621,6 @@ PENTING:
       parsed = JSON.parse(aiText);
     }
 
-    // Isi form dengan data AI
     if (parsed.analisis_kesiapan) {
       container.querySelector('#rpm-belum-siap').value = parsed.analisis_kesiapan.belum_siap || '';
       container.querySelector('#rpm-siap').value = parsed.analisis_kesiapan.siap || '';
@@ -734,7 +771,7 @@ async function handleSimpan(container) {
     container.querySelector('#btn-reset').click();
   } catch (error) {
     console.error('Error saving:', error);
-    showToast('❌ Gagal menyimpan: ' + error.message, 'error');
+    showToast(' Gagal menyimpan: ' + error.message, 'error');
   }
 }
 
@@ -840,7 +877,6 @@ window.editRPM = async function(id) {
     document.querySelector('#rpm-bahan').value = d.lampiran?.bahan_bacaan || '';
     document.querySelector('#rpm-glosarium').value = d.lampiran?.glosarium || '';
 
-    // Load tanda tangan
     if (d.tanda_tangan) {
       document.querySelector('#rpm-kepsek').value = d.tanda_tangan.kepala_sekolah?.nama || DEFAULT_TTD.namaKepsek;
       document.querySelector('#rpm-nip-kepsek').value = d.tanda_tangan.kepala_sekolah?.nip || DEFAULT_TTD.nipKepsek;
@@ -975,7 +1011,7 @@ function handleExportWord(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('📥 Word berhasil diunduh!');
+  showToast(' Word berhasil diunduh!');
 }
 
 function gatherFormData(container) {
