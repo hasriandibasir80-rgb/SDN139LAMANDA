@@ -3,6 +3,7 @@
 // FITUR: RPM STANDAR (Rencana Pembelajaran Mendalam)
 // UNIVERSAL - Untuk Semua Mapel & Metode
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
+// UPDATE: Default Nama Guru, Tanda Tangan, Mapel dari JSON
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -22,12 +23,21 @@ const CSS_ID = 'rpm-standar-css';
 let currentEditId = null;
 let dataMapel = [];
 
+// Default Tanda Tangan
+const DEFAULT_TTD = {
+  namaKepsek: 'Imam Munandar SP.d',
+  nipKepsek: '198512192011011007',
+  namaGuru: 'Hasriandi Basir SP.d',
+  nipGuru: '198110182025211059'
+};
+
 export async function init(container, db) {
   loadCSS();
   await loadGroqApiKey();
   await loadMataPelajaran();
   renderUI(container);
   attachEvents(container);
+  loadTTDDefaults();
   loadRPMList(container);
 }
 
@@ -53,21 +63,21 @@ async function loadGroqApiKey() {
   }
 }
 
+/**
+ * ⭐ LOAD DATA MATA PELAJARAN DARI JSON (TANPA FALLBACK)
+ */
 async function loadMataPelajaran() {
   try {
     const response = await fetch('../../../assets/data-mapel.json');
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     dataMapel = data.mataPelajaran || [];
+    console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
   } catch (error) {
-    console.error('Gagal load mapel:', error);
-    dataMapel = [
-      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
-      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-      { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '' },
-      { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' }
-    ];
+    console.error('❌ Gagal memuat data-mapel.json:', error);
+    // Tetap kosongkan, jangan pakai fallback
+    dataMapel = [];
+    console.warn('⚠️ Dropdown mapel akan kosong. Pastikan file assets/data-mapel.json ada.');
   }
 }
 
@@ -139,7 +149,7 @@ function renderUI(container) {
       </div>
 
       <div class="rpm-tabs">
-        <button class="rpm-tab active" data-tab="form">️ Buat/Edit RPM</button>
+        <button class="rpm-tab active" data-tab="form">📝 Buat/Edit RPM</button>
         <button class="rpm-tab" data-tab="list">📚 RPM Tersimpan</button>
       </div>
 
@@ -153,7 +163,7 @@ function renderUI(container) {
             </div>
             <div class="rpm-form-group">
               <label>👩‍🏫 Nama Guru</label>
-              <input type="text" id="rpm-guru" class="rpm-form-control" value="${currentUser.namaLengkap || ''}">
+              <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
           </div>
           <div class="rpm-form-grid">
@@ -199,9 +209,9 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 2. Analisis Kesiapan Murid</h3>
+          <h3 class="rpm-section-title">👥 2. Analisis Kesiapan Murid</h3>
           <div class="rpm-form-group">
-            <label>🔴 Kelompok Belum Siap</label>
+            <label> Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
           </div>
           <div class="rpm-form-group">
@@ -246,21 +256,21 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">📊 5. Asesmen Holistik</h3>
+          <h3 class="rpm-section-title"> 5. Asesmen Holistik</h3>
           <div class="rpm-form-group">
             <label>🔍 Asesmen Diagnostik</label>
             <textarea id="rpm-diagnostik" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label>📈 Asesmen Formatif</label>
+            <label> Asesmen Formatif</label>
             <textarea id="rpm-formatif" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label> Asesmen Sumatif</label>
+            <label>🎯 Asesmen Sumatif</label>
             <textarea id="rpm-sumatif" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label>📋 Rubrik Penilaian (skala 1-4)</label>
+            <label> Rubrik Penilaian (skala 1-4)</label>
             <textarea id="rpm-rubrik" class="rpm-form-control" rows="4" placeholder="4 (Mahir): ...&#10;3 (Cakap): ...&#10;2 (Berkembang): ...&#10;1 (Belum Siap): ..."></textarea>
           </div>
         </div>
@@ -280,7 +290,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">🔄 7. Refleksi</h3>
           <div class="rpm-form-group">
-            <label>🧑‍ Refleksi Guru</label>
+            <label>🧑‍🏫 Refleksi Guru</label>
             <textarea id="rpm-refleksi-guru" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
@@ -290,7 +300,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 8. Lampiran</h3>
+          <h3 class="rpm-section-title">📎 8. Lampiran</h3>
           <div class="rpm-form-group">
             <label>📄 LKPD / LKM</label>
             <textarea id="rpm-lkpd" class="rpm-form-control" rows="3"></textarea>
@@ -300,8 +310,32 @@ function renderUI(container) {
             <textarea id="rpm-bahan" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
-            <label>📖 Glosarium</label>
+            <label> Glosarium</label>
             <textarea id="rpm-glosarium" class="rpm-form-control" rows="2"></textarea>
+          </div>
+        </div>
+
+        <div class="rpm-section">
+          <h3 class="rpm-section-title">✍️ 9. Tanda Tangan</h3>
+          <div class="rpm-form-grid">
+            <div class="rpm-form-group">
+              <label>👨‍💼 Nama Kepala Sekolah</label>
+              <input type="text" id="rpm-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.namaKepsek}">
+            </div>
+            <div class="rpm-form-group">
+              <label>🔢 NIP Kepala Sekolah</label>
+              <input type="text" id="rpm-nip-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.nipKepsek}">
+            </div>
+          </div>
+          <div class="rpm-form-grid">
+            <div class="rpm-form-group">
+              <label>👩‍ Nama Guru Pengampu</label>
+              <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
+            </div>
+            <div class="rpm-form-group">
+              <label>🔢 NIP Guru Pengampu</label>
+              <input type="text" id="rpm-nip-guru" class="rpm-form-control" value="${DEFAULT_TTD.nipGuru}">
+            </div>
           </div>
         </div>
 
@@ -315,9 +349,9 @@ function renderUI(container) {
 
       <div id="rpm-list-section" style="display: none;">
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> Daftar RPM Tersimpan</h3>
+          <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
           <div id="rpm-list-container">
-            <div class="rpm-loading">⏳ Memuat data...</div>
+            <div class="rpm-loading"> Memuat data...</div>
           </div>
         </div>
       </div>
@@ -356,13 +390,64 @@ function attachEvents(container) {
   container.querySelector('#btn-reset').addEventListener('click', () => {
     if (confirm('🔄 Reset semua form?')) {
       currentEditId = null;
-      container.querySelectorAll('input[type="text"], textarea').forEach(el => el.value = '');
+      container.querySelectorAll('input[type="text"], textarea').forEach(el => {
+        // Reset ke default untuk field tertentu
+        if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
+          el.value = DEFAULT_TTD.namaGuru;
+        } else if (el.id === 'rpm-kepsek') {
+          el.value = DEFAULT_TTD.namaKepsek;
+        } else if (el.id === 'rpm-nip-kepsek') {
+          el.value = DEFAULT_TTD.nipKepsek;
+        } else if (el.id === 'rpm-nip-guru') {
+          el.value = DEFAULT_TTD.nipGuru;
+        } else if (el.id === 'rpm-sekolah') {
+          el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
+        } else {
+          el.value = '';
+        }
+      });
       container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
       container.querySelector('#rpm-pertemuan-container').innerHTML = '';
       tambahPertemuan();
       showToast('✅ Form direset!');
     }
   });
+}
+
+function loadTTDDefaults() {
+  const saved = localStorage.getItem('rpm_ttd');
+  let ttdData = { ...DEFAULT_TTD };
+  
+  if (saved) {
+    try {
+      ttdData = { ...ttdData, ...JSON.parse(saved) };
+    } catch (e) {}
+  }
+  
+  setTimeout(() => {
+    const fields = {
+      'rpm-kepsek': ttdData.namaKepsek,
+      'rpm-nip-kepsek': ttdData.nipKepsek,
+      'rpm-guru-pengampu': ttdData.namaGuru,
+      'rpm-nip-guru': ttdData.nipGuru
+    };
+    
+    Object.entries(fields).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value;
+    });
+  }, 100);
+}
+
+function saveTTDDefaults() {
+  const ttdData = {
+    namaKepsek: document.getElementById('rpm-kepsek')?.value || DEFAULT_TTD.namaKepsek,
+    nipKepsek: document.getElementById('rpm-nip-kepsek')?.value || DEFAULT_TTD.nipKepsek,
+    namaGuru: document.getElementById('rpm-guru-pengampu')?.value || DEFAULT_TTD.namaGuru,
+    nipGuru: document.getElementById('rpm-nip-guru')?.value || DEFAULT_TTD.nipGuru
+  };
+  
+  localStorage.setItem('rpm_ttd', JSON.stringify(ttdData));
 }
 
 function tambahPertemuan() {
@@ -395,7 +480,7 @@ function tambahPertemuan() {
 
 async function handleGenerateAI(container) {
   if (!groqApiKey) {
-    showToast('️ API Key belum aktif!', 'error');
+    showToast('⚠️ API Key belum aktif!', 'error');
     return;
   }
 
@@ -405,7 +490,7 @@ async function handleGenerateAI(container) {
   const model = container.querySelector('#rpm-model').value;
 
   if (!mapel || !kelas || !topik) {
-    showToast('️ Isi Mapel, Kelas, dan Topik terlebih dahulu!', 'error');
+    showToast('⚠️ Isi Mapel, Kelas, dan Topik terlebih dahulu!', 'error');
     return;
   }
 
@@ -617,18 +702,26 @@ async function handleSimpan(container) {
       lkpd: container.querySelector('#rpm-lkpd').value,
       bahan_bacaan: container.querySelector('#rpm-bahan').value,
       glosarium: container.querySelector('#rpm-glosarium').value
+    },
+    tanda_tangan: {
+      kepala_sekolah: {
+        nama: container.querySelector('#rpm-kepsek').value,
+        nip: container.querySelector('#rpm-nip-kepsek').value
+      },
+      guru_pengampu: {
+        nama: container.querySelector('#rpm-guru-pengampu').value,
+        nip: container.querySelector('#rpm-nip-guru').value
+      }
     }
   };
 
   try {
     if (currentEditId) {
-      // Update existing
       const docRef = doc(db, 'rpm_data', currentEditId);
       await updateDoc(docRef, dataRPM);
       showToast('✅ RPM berhasil diupdate!');
       currentEditId = null;
     } else {
-      // Create new
       await addDoc(collection(db, 'rpm_data'), {
         ...dataRPM,
         userId: currentUser.uid,
@@ -637,7 +730,7 @@ async function handleSimpan(container) {
       showToast('✅ RPM berhasil disimpan!');
     }
     
-    // Reset form
+    saveTTDDefaults();
     container.querySelector('#btn-reset').click();
   } catch (error) {
     console.error('Error saving:', error);
@@ -673,7 +766,7 @@ function loadRPMList(container) {
             </div>
             <div class="rpm-item-actions">
               <button onclick="editRPM('${docSnap.id}')" style="background: #3b82f6;">✏️ Edit</button>
-              <button onclick="deleteRPM('${docSnap.id}')" style="background: #ef4444;">️ Hapus</button>
+              <button onclick="deleteRPM('${docSnap.id}')" style="background: #ef4444;">🗑️ Hapus</button>
             </div>
           </div>
         </div>
@@ -684,7 +777,7 @@ function loadRPMList(container) {
     if (error.code === 'failed-precondition') {
       listContainer.innerHTML = '<div class="rpm-empty">⚠️ Index Firestore sedang diproses. Silakan tunggu beberapa menit.</div>';
     } else {
-      listContainer.innerHTML = '<div class="rpm-empty"> Gagal memuat data</div>';
+      listContainer.innerHTML = '<div class="rpm-empty">❌ Gagal memuat data</div>';
     }
   });
 }
@@ -703,7 +796,6 @@ window.editRPM = async function(id) {
     const d = docSnap.data();
     currentEditId = id;
 
-    // Isi form
     document.querySelector('#rpm-sekolah').value = d.identitas?.sekolah || '';
     document.querySelector('#rpm-guru').value = d.identitas?.guru || '';
     document.querySelector('#rpm-mapel').value = d.identitas?.mapel || '';
@@ -748,7 +840,14 @@ window.editRPM = async function(id) {
     document.querySelector('#rpm-bahan').value = d.lampiran?.bahan_bacaan || '';
     document.querySelector('#rpm-glosarium').value = d.lampiran?.glosarium || '';
 
-    // Switch ke tab form
+    // Load tanda tangan
+    if (d.tanda_tangan) {
+      document.querySelector('#rpm-kepsek').value = d.tanda_tangan.kepala_sekolah?.nama || DEFAULT_TTD.namaKepsek;
+      document.querySelector('#rpm-nip-kepsek').value = d.tanda_tangan.kepala_sekolah?.nip || DEFAULT_TTD.nipKepsek;
+      document.querySelector('#rpm-guru-pengampu').value = d.tanda_tangan.guru_pengampu?.nama || DEFAULT_TTD.namaGuru;
+      document.querySelector('#rpm-nip-guru').value = d.tanda_tangan.guru_pengampu?.nip || DEFAULT_TTD.nipGuru;
+    }
+
     document.querySelector('[data-tab="form"]').click();
     showToast('✅ RPM dimuat untuk edit!');
   } catch (error) {
@@ -758,7 +857,7 @@ window.editRPM = async function(id) {
 };
 
 window.deleteRPM = async function(id) {
-  if (!confirm('️ Yakin hapus RPM ini?')) return;
+  if (!confirm('⚠️ Yakin hapus RPM ini?')) return;
   
   try {
     await deleteDoc(doc(db, 'rpm_data', id));
@@ -788,6 +887,10 @@ function handleExportWord(container) {
       th, td { border: 1px solid #000; padding: 8px; text-align: left; }
       th { background: #f0f0f0; }
       ul { margin: 5px 0; padding-left: 20px; }
+      .ttd-section { margin-top: 50px; }
+      .ttd-table { width: 100%; border: none; }
+      .ttd-table td { width: 50%; border: none; text-align: center; vertical-align: top; }
+      .ttd-name { font-weight: bold; border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
     </style></head><body>
     <h1>RENCANA PEMBELAJARAN MENDALAM (RPM)</h1>
     <h2 style="text-align: center; border: none;">${d.identitas.topik}</h2>
@@ -804,9 +907,9 @@ function handleExportWord(container) {
     </table>
 
     <h2>B. ANALISIS KESIAPAN MURID</h2>
-    <p><strong> Belum Siap:</strong> ${d.analisis_kesiapan.belum_siap}</p>
+    <p><strong>🔴 Belum Siap:</strong> ${d.analisis_kesiapan.belum_siap}</p>
     <p><strong>🟡 Siap:</strong> ${d.analisis_kesiapan.siap}</p>
-    <p><strong> Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
+    <p><strong>🟢 Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
 
     <h2>C. TUJUAN & PROFIL LULUSAN</h2>
     <p><strong>CP:</strong> ${d.tujuan_dan_profil.cp}</p>
@@ -841,6 +944,25 @@ function handleExportWord(container) {
     <p><strong>LKPD:</strong> ${d.lampiran.lkpd}</p>
     <p><strong>Bahan Bacaan:</strong> ${d.lampiran.bahan_bacaan}</p>
     <p><strong>Glosarium:</strong> ${d.lampiran.glosarium}</p>
+
+    <div class="ttd-section">
+      <table class="ttd-table">
+        <tr>
+          <td>
+            <div>Mengetahui,</div>
+            <div style="margin-bottom: 60px;">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+            <div class="ttd-name">${d.tanda_tangan.kepala_sekolah.nama}</div>
+            <div>NIP: ${d.tanda_tangan.kepala_sekolah.nip}</div>
+          </td>
+          <td>
+            <div>Guru Pengampu,</div>
+            <div style="margin-bottom: 60px;">Guru Mata Pelajaran</div>
+            <div class="ttd-name">${d.tanda_tangan.guru_pengampu.nama}</div>
+            <div>NIP: ${d.tanda_tangan.guru_pengampu.nip}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
     </body></html>
   `;
 
@@ -913,6 +1035,16 @@ function gatherFormData(container) {
       lkpd: container.querySelector('#rpm-lkpd').value,
       bahan_bacaan: container.querySelector('#rpm-bahan').value,
       glosarium: container.querySelector('#rpm-glosarium').value
+    },
+    tanda_tangan: {
+      kepala_sekolah: {
+        nama: container.querySelector('#rpm-kepsek').value,
+        nip: container.querySelector('#rpm-nip-kepsek').value
+      },
+      guru_pengampu: {
+        nama: container.querySelector('#rpm-guru-pengampu').value,
+        nip: container.querySelector('#rpm-nip-guru').value
+      }
     }
   };
 }
