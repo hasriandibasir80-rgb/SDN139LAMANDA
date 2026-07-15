@@ -3,7 +3,7 @@
 // FITUR: DATA TP (MASTER DATA TUJUAN PEMBELAJARAN)
 // FUNGSI: Single Source of Truth untuk seluruh sub-fitur aplikasi
 // TERINTEGRASI: Firestore (Collection: 'data_tp')
-// UJI COBA: Menggunakan import JS langsung dari data-mapel.js (tanpa fetch/fallback)
+// DATA MAPEL: Import langsung dari js/config/data-mapel.js (tanpa fallback)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -11,7 +11,7 @@ import {
   collection, addDoc, getDocs, query, where, 
   onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { dataMapel } from '../../../assets/data-mapel.js'; // ⭐ UJI COBA: Import langsung dari JS
+import { dataMapel } from '../../config/data-mapel.js'; // ⭐ Import dari js/config/
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'data-tp-css';
@@ -31,11 +31,9 @@ export function cleanup() {
   if (css) css.remove();
 }
 
-// ⭐ UJI COBA: Fungsi disederhanakan, tanpa fetch dan tanpa fallback
+// ⭐ Fungsi disederhanakan - data sudah di-import, tidak perlu fetch/fallback
 async function loadMataPelajaran() {
-  // Data sudah di-import langsung dari data-mapel.js
-  console.log(' [UJI COBA] Data mapel dimuat dari modul JS:', dataMapel.length, 'mata pelajaran');
-  console.log('🧪 [UJI COBA] Isi dataMapel:', dataMapel);
+  console.log('✅ Data mapel dimuat dari js/config/data-mapel.js:', dataMapel.length, 'mata pelajaran');
   return Promise.resolve();
 }
 
@@ -109,7 +107,7 @@ function renderUI(container) {
 
       <div id="dtp-form-section">
         <div class="dtp-section">
-          <h3 class="dtp-section-title"> Informasi Master TP</h3>
+          <h3 class="dtp-section-title">📋 Informasi Master TP</h3>
           <div class="dtp-form-grid">
             <div class="dtp-form-group">
               <label> Kelas</label>
@@ -137,7 +135,7 @@ function renderUI(container) {
               </select>
             </div>
             <div class="dtp-form-group">
-              <label>📝 Topik Pembelajaran</label>
+              <label> Topik Pembelajaran</label>
               <input type="text" id="dtp-topik" class="dtp-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
           </div>
@@ -150,14 +148,14 @@ function renderUI(container) {
 
         <div class="dtp-actions">
           <button class="dtp-btn dtp-btn-success" id="btn-simpan">💾 Simpan ke Master Data</button>
-          <button class="dtp-btn dtp-btn-warning" id="btn-export">📥 Export Word</button>
-          <button class="dtp-btn dtp-btn-secondary" id="btn-reset"> Reset Form</button>
+          <button class="dtp-btn dtp-btn-warning" id="btn-export"> Export Word</button>
+          <button class="dtp-btn dtp-btn-secondary" id="btn-reset">🔄 Reset Form</button>
         </div>
       </div>
 
       <div id="dtp-list-section" style="display: none;">
         <div class="dtp-section">
-          <h3 class="dtp-section-title">🔍 Filter Data</h3>
+          <h3 class="dtp-section-title"> Filter Data</h3>
           <div class="dtp-filters">
             <select id="filter-kelas" class="dtp-form-control" style="flex: 1;">
               <option value="">Semua Kelas</option>
@@ -175,7 +173,7 @@ function renderUI(container) {
             <input type="text" id="filter-topik" class="dtp-form-control" style="flex: 2;" placeholder="Cari topik...">
           </div>
 
-          <h3 class="dtp-section-title">📚 Daftar Master TP Tersimpan</h3>
+          <h3 class="dtp-section-title"> Daftar Master TP Tersimpan</h3>
           <div id="dtp-list-container">
             <div class="dtp-loading">⏳ Memuat data...</div>
           </div>
@@ -230,7 +228,7 @@ async function handleSimpan(container) {
   const tpText = container.querySelector('#dtp-list-tp').value.trim();
 
   if (!kelas || !mapel || !topik || !tpText) {
-    showToast('️ Lengkapi semua field (Kelas, Mapel, Topik, dan TP)!', 'error');
+    showToast('⚠️ Lengkapi semua field (Kelas, Mapel, Topik, dan TP)!', 'error');
     return;
   }
 
