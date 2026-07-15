@@ -1,8 +1,7 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
-//         dan pesan error index Firestore dihilangkan.
+// REVISI: Perbaikan teks yang bocor ke UI dan penambahan validasi user pada loadCTAData.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -372,12 +371,12 @@ async function handleGenerate(container) {
 
   topikItems.forEach(item => {
     const topikNama = item.querySelector('.cp-topik-input')?.value.trim();
-    const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim(); // ⭐ Diubah ke subTema
+    const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim();
     
     if (topikNama) {
       dataTopik.push({ 
         topik: topikNama,
-        subTema: subTemaNama || 'Umum' // ⭐ Diubah ke subTema
+        subTema: subTemaNama || 'Umum'
       });
       totalTopikValid++;
     }
@@ -461,7 +460,7 @@ function buildPrompt(dataTopik, metadata) {
   dataTopik.forEach((item, idx) => {
     const nomorTopik = idx + 1;
     prompt += `TOPIK ${nomorTopik}: ${item.topik}\n`;
-    prompt += `  Sub Tema: ${item.subTema}\n`; // ⭐ Diubah ke Sub Tema
+    prompt += `  Sub Tema: ${item.subTema}\n`;
     prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst\n\n`;
   });
 
@@ -471,7 +470,7 @@ function buildPrompt(dataTopik, metadata) {
   
   prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan di luar block json):\n`;
   prompt += `{\n`;
-  prompt += `  "cp": [{"subTema": "Nama Sub Tema", "deskripsi": "Deskripsi CP..."}],\n`; // ⭐ Diubah ke subTema
+  prompt += `  "cp": [{"subTema": "Nama Sub Tema", "deskripsi": "Deskripsi CP..."}],\n`;
   prompt += `  "tp": [{"subTema": "Nama Sub Tema", "items": ["1.1 TP pertama...", "1.2 TP kedua..."]}],\n`;
   prompt += `  "atp": [{"subTema": "Nama Sub Tema", "items": ["1.1 ATP pertama...", "1.2 ATP kedua..."]}]\n`;
   prompt += `}`;
@@ -532,21 +531,21 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 1: CP
   html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
   data.cp.forEach(item => {
-    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; // ⭐ Diubah ke subTema
+    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`;
   });
   html += `</tbody></table>`;
 
   // TABEL 2: TP
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
       html += `<tr>`;
-      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
+      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
       html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td>`;
       html += `<td>${tp}</td>`;
       html += `</tr>`;
@@ -557,12 +556,12 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 3: ATP
   html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
       html += `<tr>`;
-      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
+      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
       html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td>`;
       html += `<td>${atp}</td>`;
       html += `</tr>`;
@@ -580,7 +579,7 @@ async function autoSaveToFirestore(container, result, metadata) {
       userEmail: currentUser.email,
       userName: currentUser.namaLengkap || 'Guru',
       ...metadata,
-      topik: result.tp.map(e => e.subTema).join(', '), // ⭐ Diubah ke subTema
+      topik: result.tp.map(e => e.subTema).join(', '),
       cp: JSON.stringify(result.cp),
       tp: JSON.stringify(result.tp),
       atp: JSON.stringify(result.atp),
@@ -708,9 +707,15 @@ function loadCTAData(container) {
   const countSpan = container.querySelector('#cp-saved-count');
   if (!list) return;
 
+  // PERBAIKAN 1: Validasi user untuk mencegah error query jika belum login
+  if (!currentUser || !currentUser.uid) {
+    list.innerHTML = '<p class="cp-empty-state">Silakan login untuk melihat dokumen tersimpan.</p>';
+    if (countSpan) countSpan.textContent = '0';
+    return;
+  }
+
   const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
 
-  // ⭐ onSnapshot sudah berfungsi real-time. Error handler dibuat silent agar tidak mengganggu.
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
       list.innerHTML = '<p class="cp-empty-state">Belum ada dokumen tersimpan</p>';
@@ -718,23 +723,31 @@ function loadCTAData(container) {
       return;
     }
     if (countSpan) countSpan.textContent = snapshot.docs.length;
+    
     list.innerHTML = snapshot.docs.map(docSnap => {
       const d = docSnap.data();
       const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
       return `
         <div class="cp-document-item">
           <div class="cp-document-header">
-            <div><strong>${d.mapel?.toUpperCase() || '-'} - Kelas ${d.kelas}</strong><br><small>${d.userName} • ${d.sekolah || '-'}</small></div>
+            <div>
+              <strong>${d.mapel?.toUpperCase() || '-'}</strong> - Kelas ${d.kelas || '-'}<br>
+              <small>${d.userName || 'Guru'} • ${d.sekolah || '-'}</small>
+            </div>
             <small class="cp-document-date">${date}</small>
           </div>
-          <p><strong>📋 Sub Tema:</strong> ${d.topik || '-'}</p> ⭐ Diubah ke Sub Tema
+          <p><strong>📋 Sub Tema:</strong> ${d.topik || '-'}</p>
         </div>
       `;
     }).join('');
   }, (error) => {
-    // ⭐ Pesan error index Firestore dihilangkan dari UI, hanya dicatat di console
-    console.warn('⚠️ Gagal memuat riwayat dokumen (mungkin index belum ready):', error.message);
-    // UI tetap bersih, tidak menampilkan pesan "tunggu 5-10 menit"
+    // Pesan error tetap di console untuk debugging, tidak mengganggu UI
+    console.warn('⚠️ Gagal memuat riwayat dokumen (mungkin index Firestore belum ready):', error.message);
+    
+    // Fallback UI jika query gagal total
+    if (list.innerHTML.includes('cp-empty-state') === false) {
+       list.innerHTML = '<p class="cp-error">Gagal memuat data. Pastikan index Firestore sudah dibuat.</p>';
+    }
   });
 }
 
