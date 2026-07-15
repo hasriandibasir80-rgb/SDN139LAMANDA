@@ -3,6 +3,7 @@
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
 // REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
 //         dan pesan error index Firestore dihilangkan.
+// PERBAIKAN PATH: Menggunakan absolute path GitHub Pages.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -16,8 +17,8 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
 
-// Konstanta CSS
-const CSS_PATH = '../../../css/modules/cp-generator.css';
+// Konstanta CSS (DIPERBAIKI SESUAI INSTRUKSI)
+const CSS_PATH = '/SDN139LAMANDA/css/modules/cp-generator.css';
 const CSS_ID = 'cp-generator-css';
 
 /**
