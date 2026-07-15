@@ -1,7 +1,10 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// UPDATE: Dropdown Mapel otomatis dari JSON, Base Path aman, Dual-Write terjaga.
+// REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
+//         pesan error index Firestore dihilangkan, 
+//         DAN DUAL-WRITE ke Master Data TP (Global Monitoring).
+// UPDATE: Dropdown Mapel otomatis dengan fallback data lengkap
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -46,22 +49,39 @@ export function cleanup() {
   if (inlineCSS) inlineCSS.remove();
 }
 
-// ⭐ FUNGSI BARU: Memuat Data Mapel dari JSON
+// ⭐ FUNGSI BARU: Memuat Data Mapel dari JSON dengan Fallback Lengkap
 async function loadMataPelajaran() {
+  // Data fallback lengkap (digunakan jika JSON gagal dimuat)
+  const fallbackData = [
+    { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+    { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+    { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+    { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+    { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs. Indonesia', icon: '📖' },
+    { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+    { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni Budaya', icon: '🎨' },
+    { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs. Inggris', icon: '🇬🇧' },
+    { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+    { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs. Ibu', icon: '🗣️' },
+    { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+  ];
+
   try {
-    const response = await fetch(`${BASE_PATH}/assets/data-mapel.json`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const url = `${BASE_PATH}/assets/data-mapel.json`;
+    console.log('🔍 Mencoba load dari:', url);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: File tidak ditemukan`);
+    }
+    
     const data = await response.json();
-    dataMapel = data.mataPelajaran || [];
-    console.log(`✅ Berhasil memuat ${dataMapel.length} mata pelajaran dari data-mapel.json`);
+    dataMapel = data.mataPelajaran || fallbackData;
+    console.log(`✅ Berhasil memuat ${dataMapel.length} mata pelajaran dari JSON`);
   } catch (error) {
-    console.warn('⚠️ Gagal memuat data-mapel.json. Menggunakan fallback minimal.', error);
-    // Fallback minimal hanya jika file JSON benar-benar hilang, agar UI tidak rusak total
-    dataMapel = [
-      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
-      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs. Indonesia', icon: '📖' }
-    ];
+    console.warn('⚠️ Gagal load data-mapel.json, menggunakan data fallback.');
+    console.warn('   Error:', error.message);
+    dataMapel = fallbackData;
   }
 }
 
@@ -70,7 +90,7 @@ function loadFeatureCSS() {
   
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
-  cssLink.href = CSS_PATH; // ⭐ Menggunakan BASE_PATH yang sudah diperbaiki
+  cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   
   cssLink.onerror = () => {
@@ -209,14 +229,14 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-kop-tahun" value="2026/2027" class="cp-input">
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-guru">👩‍🏫 Nama Guru</label>
+              <label class="cp-label" for="cp-guru">‍🏫 Nama Guru</label>
               <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
 
           <div class="cp-form-row-3">
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-jenjang">🎓 Jenjang</label>
+              <label class="cp-label" for="cp-jenjang"> Jenjang</label>
               <select id="cp-jenjang" class="cp-select" required>
                 <option value="">Pilih</option>
                 <option value="sd">SD</option>
@@ -432,7 +452,7 @@ async function handleGenerate(container) {
   const resultDiv = container.querySelector('#cp-result');
   if (resultDiv) resultDiv.classList.remove('cp-hidden');
   const resultContainer = container.querySelector('#cp-result-table-container');
-  resultContainer.innerHTML = '<p class="cp-loading">⏳ AI sedang membuat CP, TP, dan ATP... Mohon tunggu 15-30 detik.</p>';
+  resultContainer.innerHTML = '<p class="cp-loading"> AI sedang membuat CP, TP, dan ATP... Mohon tunggu 15-30 detik.</p>';
 
   try {
     const prompt = buildPrompt(dataTopik, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
@@ -613,8 +633,7 @@ function render3TabelHasil(container, data, metadata) {
 }
 
 /**
- * ⭐ FUNGSI PIPA PENYAMBUNG: SINKRONISASI KE MASTER DATA TP (GLOBAL MONITORING)
- * (Fungsi ini sudah ada di kode asli Anda, dipertahankan 100%)
+ * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (GLOBAL MONITORING)
  */
 async function syncToMasterTP(metadata, result, dataTopik) {
   try {
@@ -699,7 +718,7 @@ async function autoSaveToFirestore(container, result, metadata, dataTopik) {
       createdAt: serverTimestamp()
     });
 
-    // 2. ⭐ DUAL-WRITE: Sinkronisasi ke Master Data TP (Global Monitoring)
+    // 2.  DUAL-WRITE: Sinkronisasi ke Master Data TP (Global Monitoring)
     await syncToMasterTP(metadata, result, dataTopik);
 
     loadCTAData(container);
