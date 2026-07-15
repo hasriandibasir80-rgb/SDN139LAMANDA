@@ -3,7 +3,7 @@
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
 // REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
 //         pesan error index Firestore dihilangkan, 
-//         DAN DUAL-WRITE ke Master Data TP (Global Monitoring).
+//         DAN DUAL-WRITE ke Master Data TP (Global Monitoring) TANPA ERROR INDEX.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -23,9 +23,6 @@ let groqApiKey = null;
 const CSS_PATH = '../../../css/modules/cp-generator.css';
 const CSS_ID = 'cp-generator-css';
 
-/**
- * Init - Dipanggil oleh main.js
- */
 export async function init(container, db) {
   loadFeatureCSS();
   await loadGroqApiKey();
@@ -43,20 +40,17 @@ export function cleanup() {
 
 function loadFeatureCSS() {
   if (document.getElementById(CSS_ID)) return;
-  
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
-  
   cssLink.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
+    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
     document.head.appendChild(style);
   };
-  
   document.head.appendChild(cssLink);
 }
 
@@ -147,9 +141,6 @@ async function loadGroqApiKey() {
   }
 }
 
-/**
- * RENDER UI GENERATOR
- */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
   const userNama = currentUser.namaLengkap || '';
@@ -164,15 +155,12 @@ function renderCTAGenerator(container) {
             ? '<span class="cp-status-badge cp-status-ready">✅ AI Siap</span>' 
             : '<span class="cp-status-badge cp-status-warning">⚠️ API Key Belum Aktif</span>'}
         </p>
-
         <form id="cp-form">
           <div class="cp-section-title">📋 1. Informasi Dasar</div>
-          
           <div class="cp-form-group">
             <label class="cp-label" for="cp-kop-sekolah">🏫 Nama Sekolah</label>
             <input type="text" id="cp-kop-sekolah" value="${userSekolah}" class="cp-input" required>
           </div>
-
           <div class="cp-form-row">
             <div class="cp-form-group">
               <label class="cp-label" for="cp-kop-tahun">📅 Tahun Ajaran</label>
@@ -183,7 +171,6 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
-
           <div class="cp-form-row-3">
             <div class="cp-form-group">
               <label class="cp-label" for="cp-jenjang">🎓 Jenjang</label>
@@ -209,37 +196,22 @@ function renderCTAGenerator(container) {
               </select>
             </div>
           </div>
-
           <div class="cp-form-group">
             <label class="cp-label" for="cp-mapel">📚 Mata Pelajaran</label>
             <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
           </div>
-
           <div class="cp-section-title">✏️ 2. Input Topik & Sub Tema</div>
           <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">
             Setiap <strong style="color: #be185d;">Topik</strong> memiliki <strong style="color: #7c3aed;">Sub Tema</strong> sendiri. 
             Tambahkan topik sebanyak yang diperlukan, sub tema boleh dikosongkan.
           </p>
-          
-          <div id="cp-topik-container" class="cp-topik-container">
-            <!-- Topik items ditambahkan dinamis -->
-          </div>
-
-          <button type="button" id="cp-btn-tambah-topik" class="cp-btn cp-btn-tambah">
-            ➕ Tambah Topik Baru
-          </button>
-
-          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate" ${!aiReady ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
-            ✨ Generate CP, TP, & ATP dengan AI
-          </button>
+          <div id="cp-topik-container" class="cp-topik-container"></div>
+          <button type="button" id="cp-btn-tambah-topik" class="cp-btn cp-btn-tambah">➕ Tambah Topik Baru</button>
+          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate" ${!aiReady ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>✨ Generate CP, TP, & ATP dengan AI</button>
         </form>
-
         <div id="cp-result" class="cp-result-section cp-hidden">
           <h3 class="cp-result-title">📋 Hasil Generate</h3>
-          <div id="cp-result-table-container">
-            <!-- 3 Tabel hasil dirender di sini -->
-          </div>
-
+          <div id="cp-result-table-container"></div>
           <div class="cp-action-buttons">
             <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">🖨️ Print</button>
             <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">📥 Download Word</button>
@@ -247,57 +219,41 @@ function renderCTAGenerator(container) {
             <button type="button" id="cp-btn-regenerate" class="cp-btn cp-btn-secondary">🔄 Ulang</button>
           </div>
         </div>
-
         <div class="cp-saved-section">
           <h3 class="cp-saved-title">📚 Dokumen Tersimpan (<span id="cp-saved-count">0</span>)</h3>
-          <div id="cp-list" class="cp-document-list">
-            <p class="cp-loading">Memuat data...</p>
-          </div>
+          <div id="cp-list" class="cp-document-list"><p class="cp-loading">Memuat data...</p></div>
         </div>
       </div>
     </div>
   `;
-
   tambahTopikBaru();
 }
 
-/**
- * TAMBAH TOPIK BARU
- */
 function tambahTopikBaru() {
   const container = document.getElementById('cp-topik-container');
   if (!container) return;
-
   const topikId = Date.now() + Math.random();
   const topikDiv = document.createElement('div');
   topikDiv.className = 'cp-topik-item';
   topikDiv.dataset.id = topikId;
-  
   const topikNumber = container.querySelectorAll('.cp-topik-item').length + 1;
-  
   topikDiv.innerHTML = `
     <div class="cp-topik-header">
       <span class="cp-topik-badge">Topik ${topikNumber}</span>
       <button type="button" class="cp-btn-hapus" onclick="hapusTopikItem(${topikId})">🗑️ Hapus</button>
     </div>
-    
     <div class="cp-form-group">
       <label class="cp-topik-label">📝 Topik/Materi <span style="color: #ef4444;">*</span></label>
       <textarea class="cp-topik-input" placeholder="Contoh: Penjumlahan, Senam Lantai" rows="2" required></textarea>
     </div>
-    
     <div class="cp-elemen-group">
       <label class="cp-elemen-label">📁 Sub Tema <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
       <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar (boleh dikosongkan)" rows="4"></textarea>
     </div>
   `;
-
   container.appendChild(topikDiv);
 }
 
-/**
- * HAPUS TOPIK ITEM
- */
 window.hapusTopikItem = function(topikId) {
   const item = document.querySelector(`.cp-topik-item[data-id="${topikId}"]`);
   if (item) {
@@ -312,9 +268,7 @@ function updateNomorTopik() {
   const topikItems = document.querySelectorAll('.cp-topik-item');
   topikItems.forEach((item, idx) => {
     const badge = item.querySelector('.cp-topik-badge');
-    if (badge) {
-      badge.textContent = `Topik ${idx + 1}`;
-    }
+    if (badge) badge.textContent = `Topik ${idx + 1}`;
   });
 }
 
@@ -345,9 +299,6 @@ function attachEventListeners(container) {
   if (btnRegenerate) btnRegenerate.addEventListener('click', () => handleGenerate(container));
 }
 
-/**
- * HANDLE GENERATE
- */
 async function handleGenerate(container) {
   if (!currentUser.uid) { showToast('⚠️ Silakan login dulu!', 'error'); return; }
 
@@ -376,12 +327,8 @@ async function handleGenerate(container) {
   topikItems.forEach(item => {
     const topikNama = item.querySelector('.cp-topik-input')?.value.trim();
     const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim();
-    
     if (topikNama) {
-      dataTopik.push({ 
-        topik: topikNama,
-        subTema: subTemaNama || 'Umum'
-      });
+      dataTopik.push({ topik: topikNama, subTema: subTemaNama || 'Umum' });
       totalTopikValid++;
     }
   });
@@ -425,7 +372,6 @@ async function handleGenerate(container) {
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
-
     const parsedData = parseAIResponse(aiResponse);
     
     if (!parsedData || !parsedData.cp || !parsedData.tp || !parsedData.atp) {
@@ -445,11 +391,6 @@ async function handleGenerate(container) {
       <div class="cp-error" style="padding: 20px; border: 2px solid #ef4444; border-radius: 8px;">
         <h4 style="margin-top:0; color:#991b1b;">❌ Gagal Generate</h4>
         <p>${error.message}</p>
-        <p style="font-size:13px; margin-top:10px;">
-          <strong>Tips:</strong><br>
-          1. Pastikan API Key Groq masih memiliki quota.<br>
-          2. Coba gunakan topik yang lebih spesifik/sederhana.
-        </p>
       </div>
     `;
     showToast('❌ Gagal generate: ' + error.message, 'error');
@@ -485,15 +426,10 @@ function buildPrompt(dataTopik, metadata) {
   return prompt;
 }
 
-/**
- * ROBUST AI PARSER
- */
 function parseAIResponse(aiResponse) {
   try {
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) {
-      return validateAndFixData(JSON.parse(jsonMatch[1]));
-    }
+    if (jsonMatch) return validateAndFixData(JSON.parse(jsonMatch[1]));
     return validateAndFixData(JSON.parse(aiResponse));
   } catch (error) {
     console.error('❌ JSON Parse Error:', error);
@@ -527,51 +463,33 @@ function getFallbackData() {
 
 function render3TabelHasil(container, data, metadata) {
   const labelSemester = metadata.semester === '1' ? 'Ganjil' : 'Genap';
+  let html = `<div class="cp-hasil-header"><h2>Perangkat Pembelajaran: ${metadata.mapel}</h2><p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p></div>`;
 
-  let html = `
-    <div class="cp-hasil-header">
-      <h2>Perangkat Pembelajaran: ${metadata.mapel}</h2>
-      <p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p>
-    </div>
-  `;
-
-  // TABEL 1: CP
   html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
-  html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
-  data.cp.forEach(item => {
-    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`;
-  });
+  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
+  data.cp.forEach(item => { html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; });
   html += `</tbody></table>`;
 
-  // TABEL 2: TP
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
-  html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
+  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
       html += `<tr>`;
       if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
-      html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td>`;
-      html += `<td>${tp}</td>`;
-      html += `</tr>`;
+      html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td><td>${tp}</td></tr>`;
     });
   });
   html += `</tbody></table>`;
 
-  // TABEL 3: ATP
   html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
-  html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
+  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
       html += `<tr>`;
       if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
-      html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td>`;
-      html += `<td>${atp}</td>`;
-      html += `</tr>`;
+      html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td><td>${atp}</td></tr>`;
     });
   });
   html += `</tbody></table>`;
@@ -580,23 +498,35 @@ function render3TabelHasil(container, data, metadata) {
 }
 
 /**
- * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (GLOBAL MONITORING)
+ * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (TANPA ERROR INDEX)
+ * Menggunakan client-side filtering agar tidak memerlukan Composite Index Firestore
  */
 async function syncToMasterTP(metadata, result, dataTopik) {
   try {
+    console.log('🔄 Memulai sinkronisasi ke Master Data TP...');
+    
     let fase = 'A';
     if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
     else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
 
-    // Flatten semua TP yang di-generate menjadi array string
     const allGeneratedTPs = result.tp.flatMap(group => group.items);
-    if (allGeneratedTPs.length === 0) return;
+    if (allGeneratedTPs.length === 0) {
+      console.warn('⚠️ Tidak ada TP yang di-generate.');
+      return;
+    }
 
-    // Simpan per Topik agar terorganisir rapi di Master Data
+    // Ambil semua data_tp user ini (menghindari kebutuhan index Firestore yang rumit)
+    const q = query(collection(db, 'data_tp'), where('userId', '==', currentUser.uid));
+    const querySnapshot = await getDocs(q);
+    
+    const existingData = [];
+    querySnapshot.forEach(doc => {
+      existingData.push({ id: doc.id, ...doc.data() });
+    });
+
     for (const item of dataTopik) {
       const topikName = item.topik;
       
-      // Coba cocokkan TP dengan Sub Tema/Topik ini
       let specificTPs = [];
       result.tp.forEach(group => {
         if (group.subTema.toLowerCase().includes(topikName.toLowerCase()) || 
@@ -606,22 +536,17 @@ async function syncToMasterTP(metadata, result, dataTopik) {
         }
       });
 
-      // Fallback: jika tidak cocok, gunakan semua TP (untuk generasi 1 topik)
       if (specificTPs.length === 0) {
         specificTPs = allGeneratedTPs;
       }
 
-      // Cek apakah topik ini sudah ada di Master Data untuk user, mapel, dan kelas ini
-      const q = query(
-        collection(db, 'data_tp'),
-        where('userId', '==', currentUser.uid),
-        where('mapel', '==', metadata.mapel),
-        where('kelas', '==', metadata.kelas),
-        where('topik', '==', topikName)
+      // Cari di data yang sudah ada (client-side filtering)
+      const existingDoc = existingData.find(d => 
+        d.mapel === metadata.mapel && 
+        d.kelas === metadata.kelas && 
+        d.topik === topikName
       );
-      
-      const querySnapshot = await getDocs(q);
-      
+
       const tpData = {
         kelas: metadata.kelas,
         fase: fase,
@@ -633,19 +558,20 @@ async function syncToMasterTP(metadata, result, dataTopik) {
         userId: currentUser.uid
       };
 
-      if (querySnapshot.empty) {
+      if (!existingDoc) {
         // Belum ada, buat baru
         tpData.createdAt = serverTimestamp();
         await addDoc(collection(db, 'data_tp'), tpData);
+        console.log(`✅ Master TP BARU dibuat untuk Topik: "${topikName}"`);
       } else {
         // Sudah ada, update agar selalu yang terbaru
-        const existingDoc = querySnapshot.docs[0];
         await updateDoc(doc(db, 'data_tp', existingDoc.id), tpData);
+        console.log(`✅ Master TP DIUPDATE untuk Topik: "${topikName}"`);
       }
     }
+    console.log('🎉 Sinkronisasi ke Master Data TP selesai!');
   } catch (error) {
-    console.warn('⚠️ Sinkronisasi ke Master TP gagal (non-fatal):', error);
-    // Tidak throw error agar penyimpanan utama ke cp_tp_atp tetap berhasil
+    console.error('❌ Sinkronisasi ke Master TP GAGAL:', error);
   }
 }
 
@@ -690,28 +616,21 @@ function downloadCTAResult(container) {
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
 
   let htmlContent = `
-    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
-          xmlns:w='urn:schemas-microsoft-com:office:word' 
-          xmlns='http://www.w3.org/TR/REC-html40'>
-    <head>
-      <meta charset='utf-8'>
-      <title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
-      <style>
-        @page { size: A4; margin: 2cm; }
-        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
-        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
-        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
-        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; }
-        td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; }
-        .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; }
-        .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; }
-        .col-deskripsi { width: 74%; }
-        .page-break { page-break-after: always; }
-      </style>
-    </head>
-    <body>
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head><meta charset='utf-8'><title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
+    <style>
+      @page { size: A4; margin: 2cm; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
+      h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+      h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
+      h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+      table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+      th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; }
+      td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; }
+      .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; }
+      .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; }
+      .page-break { page-break-after: always; }
+    </style></head><body>
       <div style="text-align: center; margin-bottom: 30px;">
         <h1>PERANGKAT PEMBELAJARAN</h1>
         <h2>${mapel.toUpperCase()}</h2>
@@ -721,8 +640,7 @@ function downloadCTAResult(container) {
           <tr><td style="border: none;"><strong>Kelas / Semester</strong></td><td style="border: none;">: ${kelas} / ${labelSemester}</td></tr>
           <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${guru}</td></tr>
         </table>
-      </div>
-  `;
+      </div>`;
 
   const tables = resultContainer.querySelectorAll('.cp-table');
   const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
@@ -730,14 +648,12 @@ function downloadCTAResult(container) {
   tables.forEach((table, idx) => {
     if (idx > 0) htmlContent += '<div class="page-break"></div>';
     htmlContent += `<h3>${titles[idx]}</h3><table>`;
-    
     const headers = table.querySelectorAll('thead th');
     if (headers.length > 0) {
       htmlContent += '<thead><tr>';
       headers.forEach(th => { htmlContent += `<th>${th.textContent}</th>`; });
       htmlContent += '</tr></thead>';
     }
-    
     htmlContent += '<tbody>';
     const rows = table.querySelectorAll('tbody tr');
     rows.forEach(row => {
@@ -758,10 +674,7 @@ function downloadCTAResult(container) {
     <div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;">
       <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
       <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-    </div>
-    </body>
-    </html>
-  `;
+    </div></body></html>`;
 
   const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
@@ -772,7 +685,6 @@ function downloadCTAResult(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-
   showToast('✅ File Word berhasil diunduh!', 'success');
 }
 
