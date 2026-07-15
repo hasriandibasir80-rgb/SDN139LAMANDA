@@ -1,7 +1,9 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// REVISI: Perbaikan teks yang bocor ke UI dan penambahan validasi user pada loadCTAData.
+// REVISI: 
+// 1. Perbaikan teks yang bocor ke UI dan validasi user pada loadCTAData.
+// 2. Penambahan fitur sinkronisasi manual ke Global Monitoring (Master Data TP).
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -14,6 +16,7 @@ const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
+let lastGeneratedData = null; // ⭐ TAMBAHAN: Menyimpan data hasil generate terakhir untuk sinkronisasi
 
 // Konstanta CSS
 const CSS_PATH = '../../../css/modules/cp-generator.css';
@@ -240,6 +243,7 @@ function renderCTAGenerator(container) {
             <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">🖨️ Print</button>
             <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">📥 Download Word</button>
             <button type="button" id="cp-btn-save" class="cp-btn cp-btn-save">💾 Simpan Manual</button>
+            <button type="button" id="cp-btn-sync-tp" class="cp-btn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;">🔄 Sinkronkan ke Master TP</button>
             <button type="button" id="cp-btn-regenerate" class="cp-btn cp-btn-secondary">🔄 Ulang</button>
           </div>
         </div>
@@ -337,6 +341,10 @@ function attachEventListeners(container) {
   const btnSave = container.querySelector('#cp-btn-save');
   if (btnSave) btnSave.addEventListener('click', () => handleSave(container));
 
+  // ⭐ TAMBAHAN: Event listener untuk tombol sinkronisasi
+  const btnSyncTP = container.querySelector('#cp-btn-sync-tp');
+  if (btnSyncTP) btnSyncTP.addEventListener('click', () => handleSyncToMasterTP(container));
+
   const btnRegenerate = container.querySelector('#cp-btn-regenerate');
   if (btnRegenerate) btnRegenerate.addEventListener('click', () => handleGenerate(container));
 }
@@ -429,6 +437,10 @@ async function handleGenerate(container) {
     }
 
     render3TabelHasil(resultContainer, parsedData, { mapel, kelas, semester });
+    
+    // ⭐ TAMBAHAN: Simpan data ke variabel global untuk keperluan sinkronisasi nanti
+    lastGeneratedData = { parsedData, metadata: { sekolah, tahun, jenjang, kelas, semester, mapel, guru } };
+    
     await autoSaveToFirestore(container, parsedData, { sekolah, tahun, jenjang, kelas, semester, mapel, guru });
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
@@ -702,12 +714,75 @@ async function handleSave(container) {
   showToast('✅ Data sudah otomatis tersimpan saat generate!', 'success');
 }
 
+/**
+ * SINKRONISASI KE GLOBAL MONITORING (MASTER DATA TP)
+ * Memetakan hasil generate AI ke struktur collection 'data_tp'
+ */
+async function handleSyncToMasterTP(container) {
+  if (!lastGeneratedData || !lastGeneratedData.parsedData) {
+    showToast('⚠️ Generate data terlebih dahulu sebelum menyinkronkan!', 'warning');
+    return;
+  }
+
+  if (!currentUser.uid) {
+    showToast('⚠️ Silakan login dulu!', 'error');
+    return;
+  }
+
+  const { parsedData, metadata } = lastGeneratedData;
+  const tpData = parsedData.tp;
+
+  if (!tpData || tpData.length === 0) {
+    showToast('⚠️ Tidak ada data TP untuk disinkronkan!', 'warning');
+    return;
+  }
+
+  if (!confirm(`Anda akan menyinkronkan ${tpData.length} kelompok TP ke Master Data Global Monitoring. Lanjutkan?`)) {
+    return;
+  }
+
+  showToast('⏳ Sedang menyinkronkan data...', 'warning');
+
+  try {
+    // Tentukan Fase berdasarkan Kelas (Logika sama persis dengan data-tp.js)
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+
+    // Buat array promise untuk menyimpan semua kelompok TP secara paralel
+    const syncPromises = tpData.map(tpGroup => {
+      const payload = {
+        kelas: metadata.kelas,
+        fase: fase,
+        mapel: metadata.mapel,
+        semester: metadata.semester,
+        topik: tpGroup.subTema || 'Umum',
+        tujuan_pembelajaran: tpGroup.items, // Sudah berupa Array of Strings, cocok dengan data-tp.js
+        source: 'AI-Generator-Sync', // Penanda bahwa ini berasal dari generator
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        userId: currentUser.uid
+      };
+      
+      return addDoc(collection(db, 'data_tp'), payload);
+    });
+
+    // Tunggu semua proses simpan selesai
+    await Promise.all(syncPromises);
+
+    showToast(`✅ Berhasil menyinkronkan ${tpData.length} data TP ke Master Data!`, 'success');
+  } catch (error) {
+    console.error('❌ Error syncing to Master TP:', error);
+    showToast('❌ Gagal menyinkronkan: ' + error.message, 'error');
+  }
+}
+
 function loadCTAData(container) {
   const list = container.querySelector('#cp-list');
   const countSpan = container.querySelector('#cp-saved-count');
   if (!list) return;
 
-  // PERBAIKAN 1: Validasi user untuk mencegah error query jika belum login
+  // PERBAIKAN: Validasi user untuk mencegah error query jika belum login
   if (!currentUser || !currentUser.uid) {
     list.innerHTML = '<p class="cp-empty-state">Silakan login untuk melihat dokumen tersimpan.</p>';
     if (countSpan) countSpan.textContent = '0';
