@@ -1,9 +1,8 @@
 // modules/global-monitoring/features/data-tp.js
 // =========================================
 // FITUR: DATA TP (MASTER DATA TUJUAN PEMBELAJARAN)
-// FUNGSI: Single Source of Truth untuk seluruh sub-fitur aplikasi
+// FUNGSI: Single Source of Truth untuk seluruh sub-fitur Admin Pembelajaran
 // TERINTEGRASI: Firestore (Collection: 'data_tp')
-// DATA MAPEL: Import langsung dari js/config/data-mapel.js (tanpa fallback)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -11,12 +10,26 @@ import {
   collection, addDoc, getDocs, query, where, 
   onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { dataMapel } from '../../config/data-mapel.js'; // ⭐ Import dari js/config/
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'data-tp-css';
 let currentEditId = null;
-// ⭐ dataMapel sudah tersedia dari import, tidak perlu inisialisasi array kosong
+let dataMapel = [];
+
+// Fallback Data Mapel (jika JSON gagal dimuat)
+const FALLBACK_MAPEL = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+];
 
 export async function init(container, db) {
   loadCSS();
@@ -31,10 +44,16 @@ export function cleanup() {
   if (css) css.remove();
 }
 
-// ⭐ Fungsi disederhanakan - data sudah di-import, tidak perlu fetch/fallback
 async function loadMataPelajaran() {
-  console.log('✅ Data mapel dimuat dari js/config/data-mapel.js:', dataMapel.length, 'mata pelajaran');
-  return Promise.resolve();
+  try {
+    const response = await fetch('../../../assets/data-mapel.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    dataMapel = data.mataPelajaran || [];
+  } catch (error) {
+    console.warn('⚠️ Menggunakan data mapel fallback');
+    dataMapel = FALLBACK_MAPEL;
+  }
 }
 
 function loadCSS() {
@@ -102,7 +121,7 @@ function renderUI(container) {
 
       <div class="dtp-tabs">
         <button class="dtp-tab active" data-tab="form">➕ Input / Edit Data TP</button>
-        <button class="dtp-tab" data-tab="list"> Daftar Master TP</button>
+        <button class="dtp-tab" data-tab="list">📚 Daftar Master TP</button>
       </div>
 
       <div id="dtp-form-section">
@@ -110,7 +129,7 @@ function renderUI(container) {
           <h3 class="dtp-section-title">📋 Informasi Master TP</h3>
           <div class="dtp-form-grid">
             <div class="dtp-form-group">
-              <label> Kelas</label>
+              <label>🎓 Kelas</label>
               <select id="dtp-kelas" class="dtp-form-control">
                 <option value="">-- Pilih Kelas --</option>
                 <option value="1">Kelas 1</option>
@@ -135,27 +154,27 @@ function renderUI(container) {
               </select>
             </div>
             <div class="dtp-form-group">
-              <label> Topik Pembelajaran</label>
+              <label>📝 Topik Pembelajaran</label>
               <input type="text" id="dtp-topik" class="dtp-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
           </div>
           <div class="dtp-form-group">
             <label>🎯 Daftar Tujuan Pembelajaran (TP)</label>
             <textarea id="dtp-list-tp" class="dtp-form-control" placeholder="1. Siswa mampu mengidentifikasi bagian tubuh tumbuhan&#10;2. Siswa mampu menjelaskan fungsi akar, batang, dan daun&#10;(Pisahkan setiap TP dengan baris baru / Enter)"></textarea>
-            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini adalah <strong>Master Data Terpusat (Single Source of Truth)</strong> yang dapat diakses secara universal oleh seluruh fitur aplikasi (RPM, KKTP, LKPD, Kisi-kisi, dan fitur-fitur baru di masa depan) sesuai kebutuhan.</p>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini akan menjadi master data yang bisa dipilih oleh fitur RPM, KKTP, LKPD, dan Kisi-kisi.</p>
           </div>
         </div>
 
         <div class="dtp-actions">
           <button class="dtp-btn dtp-btn-success" id="btn-simpan">💾 Simpan ke Master Data</button>
-          <button class="dtp-btn dtp-btn-warning" id="btn-export"> Export Word</button>
+          <button class="dtp-btn dtp-btn-warning" id="btn-export">📥 Export Word</button>
           <button class="dtp-btn dtp-btn-secondary" id="btn-reset">🔄 Reset Form</button>
         </div>
       </div>
 
       <div id="dtp-list-section" style="display: none;">
         <div class="dtp-section">
-          <h3 class="dtp-section-title"> Filter Data</h3>
+          <h3 class="dtp-section-title">🔍 Filter Data</h3>
           <div class="dtp-filters">
             <select id="filter-kelas" class="dtp-form-control" style="flex: 1;">
               <option value="">Semua Kelas</option>
@@ -173,7 +192,7 @@ function renderUI(container) {
             <input type="text" id="filter-topik" class="dtp-form-control" style="flex: 2;" placeholder="Cari topik...">
           </div>
 
-          <h3 class="dtp-section-title"> Daftar Master TP Tersimpan</h3>
+          <h3 class="dtp-section-title">📚 Daftar Master TP Tersimpan</h3>
           <div id="dtp-list-container">
             <div class="dtp-loading">⏳ Memuat data...</div>
           </div>
@@ -282,7 +301,8 @@ function loadDataTP(container) {
   // Query dasar: ambil semua data user ini
   const q = query(
     collection(db, 'data_tp'),
-    where('userId', '==', currentUser.uid)
+    where('userId', '==', currentUser.uid),
+    // orderBy('createdAt', 'desc') // Opsional, bisa menyebabkan error index jika belum dibuat
   );
 
   onSnapshot(q, (snapshot) => {
@@ -345,7 +365,7 @@ window.editDataTP = async function(id) {
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
-      showToast('⚠️ Data tidak ditemukan!', 'error');
+      showToast('❌ Data tidak ditemukan!', 'error');
       return;
     }
 
@@ -435,7 +455,7 @@ function handleExportWord(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('✅ Word berhasil diunduh!');
+  showToast('📥 Word berhasil diunduh!');
 }
 
 function showToast(msg, type = 'success') {
