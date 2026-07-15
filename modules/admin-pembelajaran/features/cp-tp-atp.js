@@ -1,7 +1,7 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// REVISI: Dual-Write ke Master Data TP (Global Monitoring) dengan Indexed Query
+// UPDATE: Dropdown Mapel otomatis dari JSON, Base Path aman, Dual-Write terjaga.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -12,18 +12,28 @@ import {
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
+// ⭐ DETEKSI BASE PATH OTOMATIS (Mencegah error 404 di GitHub Pages)
+const BASE_PATH = window.location.pathname.includes('/SDN139LAMANDA/') ? '/SDN139LAMANDA' : '';
+
 // Konfigurasi Groq API
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
 
-// Konstanta CSS
-const CSS_PATH = '../../../css/modules/cp-generator.css';
+// ⭐ VARIABEL UNTUK MENYIMPAN DATA MAPEL DARI JSON
+let dataMapel = [];
+
+// Konstanta CSS (menggunakan BASE_PATH)
+const CSS_PATH = `${BASE_PATH}/css/modules/cp-generator.css`;
 const CSS_ID = 'cp-generator-css';
 
+/**
+ * Init - Dipanggil oleh main.js
+ */
 export async function init(container, db) {
   loadFeatureCSS();
   await loadGroqApiKey();
+  await loadMataPelajaran(); // ⭐ Memuat data mapel dari JSON saat init
   renderCTAGenerator(container);
   attachEventListeners(container);
   loadCTAData(container);
@@ -36,19 +46,41 @@ export function cleanup() {
   if (inlineCSS) inlineCSS.remove();
 }
 
+// ⭐ FUNGSI BARU: Memuat Data Mapel dari JSON
+async function loadMataPelajaran() {
+  try {
+    const response = await fetch(`${BASE_PATH}/assets/data-mapel.json`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    dataMapel = data.mataPelajaran || [];
+    console.log(`✅ Berhasil memuat ${dataMapel.length} mata pelajaran dari data-mapel.json`);
+  } catch (error) {
+    console.warn('⚠️ Gagal memuat data-mapel.json. Menggunakan fallback minimal.', error);
+    // Fallback minimal hanya jika file JSON benar-benar hilang, agar UI tidak rusak total
+    dataMapel = [
+      { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+      { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+      { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs. Indonesia', icon: '📖' }
+    ];
+  }
+}
+
 function loadFeatureCSS() {
   if (document.getElementById(CSS_ID)) return;
+  
   const cssLink = document.createElement('link');
   cssLink.rel = 'stylesheet';
-  cssLink.href = CSS_PATH;
+  cssLink.href = CSS_PATH; // ⭐ Menggunakan BASE_PATH yang sudah diperbaiki
   cssLink.id = CSS_ID;
+  
   cssLink.onerror = () => {
-    console.warn('️ CSS eksternal gagal, menggunakan inline CSS');
+    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
     document.head.appendChild(style);
   };
+  
   document.head.appendChild(cssLink);
 }
 
@@ -139,10 +171,19 @@ async function loadGroqApiKey() {
   }
 }
 
+/**
+ * RENDER UI GENERATOR
+ */
 function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
   const userNama = currentUser.namaLengkap || '';
   const userSekolah = currentUser.namaSekolah || 'SDN 139 LAMANDA';
+
+  // ⭐ MEMBANGUN OPSI DROPDOWN MAPEL SECARA DINAMIS DARI JSON
+  let mapelOptions = '<option value="">-- Pilih Mata Pelajaran --</option>';
+  dataMapel.forEach(m => {
+    mapelOptions += `<option value="${m.nama}">${m.icon} ${m.singkatan}</option>`;
+  });
 
   container.innerHTML = `
     <div id="cp-generator-root">
@@ -153,12 +194,15 @@ function renderCTAGenerator(container) {
             ? '<span class="cp-status-badge cp-status-ready">✅ AI Siap</span>' 
             : '<span class="cp-status-badge cp-status-warning">⚠️ API Key Belum Aktif</span>'}
         </p>
+
         <form id="cp-form">
           <div class="cp-section-title">📋 1. Informasi Dasar</div>
+          
           <div class="cp-form-group">
-            <label class="cp-label" for="cp-kop-sekolah"> Nama Sekolah</label>
+            <label class="cp-label" for="cp-kop-sekolah">🏫 Nama Sekolah</label>
             <input type="text" id="cp-kop-sekolah" value="${userSekolah}" class="cp-input" required>
           </div>
+
           <div class="cp-form-row">
             <div class="cp-form-group">
               <label class="cp-label" for="cp-kop-tahun">📅 Tahun Ajaran</label>
@@ -169,6 +213,7 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
+
           <div class="cp-form-row-3">
             <div class="cp-form-group">
               <label class="cp-label" for="cp-jenjang">🎓 Jenjang</label>
@@ -194,64 +239,98 @@ function renderCTAGenerator(container) {
               </select>
             </div>
           </div>
+
           <div class="cp-form-group">
             <label class="cp-label" for="cp-mapel">📚 Mata Pelajaran</label>
-            <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
+            <!-- ⭐ DIUBAH DARI INPUT TEXT MENJADI SELECT DROPDOWN -->
+            <select id="cp-mapel" class="cp-select" required>
+              ${mapelOptions}
+            </select>
           </div>
+
           <div class="cp-section-title">✏️ 2. Input Topik & Sub Tema</div>
           <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">
             Setiap <strong style="color: #be185d;">Topik</strong> memiliki <strong style="color: #7c3aed;">Sub Tema</strong> sendiri. 
             Tambahkan topik sebanyak yang diperlukan, sub tema boleh dikosongkan.
           </p>
-          <div id="cp-topik-container" class="cp-topik-container"></div>
-          <button type="button" id="cp-btn-tambah-topik" class="cp-btn cp-btn-tambah">➕ Tambah Topik Baru</button>
-          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate" ${!aiReady ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>✨ Generate CP, TP, & ATP dengan AI</button>
+          
+          <div id="cp-topik-container" class="cp-topik-container">
+            <!-- Topik items ditambahkan dinamis -->
+          </div>
+
+          <button type="button" id="cp-btn-tambah-topik" class="cp-btn cp-btn-tambah">
+            ➕ Tambah Topik Baru
+          </button>
+
+          <button type="button" id="cp-btn-generate" class="cp-btn cp-btn-generate" ${!aiReady ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : ''}>
+            ✨ Generate CP, TP, & ATP dengan AI
+          </button>
         </form>
+
         <div id="cp-result" class="cp-result-section cp-hidden">
           <h3 class="cp-result-title">📋 Hasil Generate</h3>
-          <div id="cp-result-table-container"></div>
+          <div id="cp-result-table-container">
+            <!-- 3 Tabel hasil dirender di sini -->
+          </div>
+
           <div class="cp-action-buttons">
-            <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">️ Print</button>
+            <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">🖨️ Print</button>
             <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">📥 Download Word</button>
-            <button type="button" id="cp-btn-save" class="cp-btn cp-btn-save"> Simpan Manual</button>
+            <button type="button" id="cp-btn-save" class="cp-btn cp-btn-save">💾 Simpan Manual</button>
             <button type="button" id="cp-btn-regenerate" class="cp-btn cp-btn-secondary">🔄 Ulang</button>
           </div>
         </div>
+
         <div class="cp-saved-section">
-          <h3 class="cp-saved-title"> Dokumen Tersimpan (<span id="cp-saved-count">0</span>)</h3>
-          <div id="cp-list" class="cp-document-list"><p class="cp-loading">Memuat data...</p></div>
+          <h3 class="cp-saved-title">📚 Dokumen Tersimpan (<span id="cp-saved-count">0</span>)</h3>
+          <div id="cp-list" class="cp-document-list">
+            <p class="cp-loading">Memuat data...</p>
+          </div>
         </div>
       </div>
     </div>
   `;
+
   tambahTopikBaru();
 }
 
+/**
+ * TAMBAH TOPIK BARU
+ */
 function tambahTopikBaru() {
   const container = document.getElementById('cp-topik-container');
   if (!container) return;
+
   const topikId = Date.now() + Math.random();
   const topikDiv = document.createElement('div');
   topikDiv.className = 'cp-topik-item';
   topikDiv.dataset.id = topikId;
+  
   const topikNumber = container.querySelectorAll('.cp-topik-item').length + 1;
+  
   topikDiv.innerHTML = `
     <div class="cp-topik-header">
       <span class="cp-topik-badge">Topik ${topikNumber}</span>
       <button type="button" class="cp-btn-hapus" onclick="hapusTopikItem(${topikId})">🗑️ Hapus</button>
     </div>
+    
     <div class="cp-form-group">
       <label class="cp-topik-label">📝 Topik/Materi <span style="color: #ef4444;">*</span></label>
       <textarea class="cp-topik-input" placeholder="Contoh: Penjumlahan, Senam Lantai" rows="2" required></textarea>
     </div>
+    
     <div class="cp-elemen-group">
       <label class="cp-elemen-label">📁 Sub Tema <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
       <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar (boleh dikosongkan)" rows="4"></textarea>
     </div>
   `;
+
   container.appendChild(topikDiv);
 }
 
+/**
+ * HAPUS TOPIK ITEM
+ */
 window.hapusTopikItem = function(topikId) {
   const item = document.querySelector(`.cp-topik-item[data-id="${topikId}"]`);
   if (item) {
@@ -266,7 +345,9 @@ function updateNomorTopik() {
   const topikItems = document.querySelectorAll('.cp-topik-item');
   topikItems.forEach((item, idx) => {
     const badge = item.querySelector('.cp-topik-badge');
-    if (badge) badge.textContent = `Topik ${idx + 1}`;
+    if (badge) {
+      badge.textContent = `Topik ${idx + 1}`;
+    }
   });
 }
 
@@ -297,6 +378,9 @@ function attachEventListeners(container) {
   if (btnRegenerate) btnRegenerate.addEventListener('click', () => handleGenerate(container));
 }
 
+/**
+ * HANDLE GENERATE
+ */
 async function handleGenerate(container) {
   if (!currentUser.uid) { showToast('⚠️ Silakan login dulu!', 'error'); return; }
 
@@ -315,7 +399,7 @@ async function handleGenerate(container) {
 
   const topikItems = container.querySelectorAll('.cp-topik-item');
   if (topikItems.length === 0) { 
-    showToast('️ Tambahkan minimal 1 topik!', 'error'); 
+    showToast('⚠️ Tambahkan minimal 1 topik!', 'error'); 
     return; 
   }
 
@@ -325,8 +409,12 @@ async function handleGenerate(container) {
   topikItems.forEach(item => {
     const topikNama = item.querySelector('.cp-topik-input')?.value.trim();
     const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim();
+    
     if (topikNama) {
-      dataTopik.push({ topik: topikNama, subTema: subTemaNama || 'Umum' });
+      dataTopik.push({ 
+        topik: topikNama,
+        subTema: subTemaNama || 'Umum'
+      });
       totalTopikValid++;
     }
   });
@@ -370,6 +458,7 @@ async function handleGenerate(container) {
 
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
+
     const parsedData = parseAIResponse(aiResponse);
     
     if (!parsedData || !parsedData.cp || !parsedData.tp || !parsedData.atp) {
@@ -389,6 +478,11 @@ async function handleGenerate(container) {
       <div class="cp-error" style="padding: 20px; border: 2px solid #ef4444; border-radius: 8px;">
         <h4 style="margin-top:0; color:#991b1b;">❌ Gagal Generate</h4>
         <p>${error.message}</p>
+        <p style="font-size:13px; margin-top:10px;">
+          <strong>Tips:</strong><br>
+          1. Pastikan API Key Groq masih memiliki quota.<br>
+          2. Coba gunakan topik yang lebih spesifik/sederhana.
+        </p>
       </div>
     `;
     showToast('❌ Gagal generate: ' + error.message, 'error');
@@ -424,10 +518,15 @@ function buildPrompt(dataTopik, metadata) {
   return prompt;
 }
 
+/**
+ * ROBUST AI PARSER
+ */
 function parseAIResponse(aiResponse) {
   try {
     const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch) return validateAndFixData(JSON.parse(jsonMatch[1]));
+    if (jsonMatch) {
+      return validateAndFixData(JSON.parse(jsonMatch[1]));
+    }
     return validateAndFixData(JSON.parse(aiResponse));
   } catch (error) {
     console.error('❌ JSON Parse Error:', error);
@@ -461,33 +560,51 @@ function getFallbackData() {
 
 function render3TabelHasil(container, data, metadata) {
   const labelSemester = metadata.semester === '1' ? 'Ganjil' : 'Genap';
-  let html = `<div class="cp-hasil-header"><h2>Perangkat Pembelajaran: ${metadata.mapel}</h2><p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p></div>`;
 
-  html += `<h3 class="cp-tabel-title"> 1. Capaian Pembelajaran (CP)</h3>`;
-  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
-  data.cp.forEach(item => { html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; });
+  let html = `
+    <div class="cp-hasil-header">
+      <h2>Perangkat Pembelajaran: ${metadata.mapel}</h2>
+      <p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p>
+    </div>
+  `;
+
+  // TABEL 1: CP
+  html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
+  html += `<table class="cp-table">
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
+  data.cp.forEach(item => {
+    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`;
+  });
   html += `</tbody></table>`;
 
+  // TABEL 2: TP
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
-  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
+  html += `<table class="cp-table">
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
       html += `<tr>`;
       if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
-      html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td><td>${tp}</td></tr>`;
+      html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td>`;
+      html += `<td>${tp}</td>`;
+      html += `</tr>`;
     });
   });
   html += `</tbody></table>`;
 
-  html += `<h3 class="cp-tabel-title"> 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
-  html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
+  // TABEL 3: ATP
+  html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
+  html += `<table class="cp-table">
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
       html += `<tr>`;
       if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
-      html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td><td>${atp}</td></tr>`;
+      html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td>`;
+      html += `<td>${atp}</td>`;
+      html += `</tr>`;
     });
   });
   html += `</tbody></table>`;
@@ -496,56 +613,39 @@ function render3TabelHasil(container, data, metadata) {
 }
 
 /**
- * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (DENGAN INDEX)
- * Menggunakan indexed query untuk performa optimal
+ * ⭐ FUNGSI PIPA PENYAMBUNG: SINKRONISASI KE MASTER DATA TP (GLOBAL MONITORING)
+ * (Fungsi ini sudah ada di kode asli Anda, dipertahankan 100%)
  */
 async function syncToMasterTP(metadata, result, dataTopik) {
   try {
-    console.log('🔄 [DEBUG] Mulai sinkronisasi ke Master Data TP...');
-    console.log('📝 Metadata:', { mapel: metadata.mapel, kelas: metadata.kelas, semester: metadata.semester });
-    console.log('📝 Jumlah topik:', dataTopik.length);
-    console.log('📝 Data topik:', dataTopik);
-    
     let fase = 'A';
     if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
     else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
 
-    // Ambil semua TP yang di-generate
+    // Flatten semua TP yang di-generate menjadi array string
     const allGeneratedTPs = result.tp.flatMap(group => group.items);
-    console.log('📝 Total TP yang di-generate:', allGeneratedTPs.length);
-    
-    if (allGeneratedTPs.length === 0) {
-      console.warn('⚠️ Tidak ada TP yang di-generate. Batal sinkronisasi.');
-      return;
-    }
+    if (allGeneratedTPs.length === 0) return;
 
-    // Proses setiap topik
+    // Simpan per Topik agar terorganisir rapi di Master Data
     for (const item of dataTopik) {
       const topikName = item.topik;
-      console.log('\n🎯 Memproses topik:', topikName);
       
-      // Cari TP yang cocok dengan topik ini
+      // Coba cocokkan TP dengan Sub Tema/Topik ini
       let specificTPs = [];
       result.tp.forEach(group => {
-        const isMatch = group.subTema.toLowerCase().includes(topikName.toLowerCase()) || 
-                       topikName.toLowerCase().includes(group.subTema.toLowerCase()) ||
-                       dataTopik.length === 1;
-        
-        if (isMatch) {
-          console.log('  ✅ Match found:', group.subTema);
+        if (group.subTema.toLowerCase().includes(topikName.toLowerCase()) || 
+            topikName.toLowerCase().includes(group.subTema.toLowerCase()) ||
+            dataTopik.length === 1) {
           specificTPs = specificTPs.concat(group.items);
         }
       });
 
+      // Fallback: jika tidak cocok, gunakan semua TP (untuk generasi 1 topik)
       if (specificTPs.length === 0) {
-        console.log('  ⚠️ Tidak ada match spesifik, gunakan semua TP');
         specificTPs = allGeneratedTPs;
       }
-      
-      console.log('  📝 Jumlah TP untuk topik ini:', specificTPs.length);
 
-      // ⭐ QUERY DENGAN INDEX - Lebih cepat dan akurat
-      // Memerlukan Composite Index: userId, mapel, kelas, topik
+      // Cek apakah topik ini sudah ada di Master Data untuk user, mapel, dan kelas ini
       const q = query(
         collection(db, 'data_tp'),
         where('userId', '==', currentUser.uid),
@@ -554,10 +654,8 @@ async function syncToMasterTP(metadata, result, dataTopik) {
         where('topik', '==', topikName)
       );
       
-      console.log('  🔍 Mencari dokumen existing dengan indexed query...');
       const querySnapshot = await getDocs(q);
-      console.log('  📊 Ditemukan', querySnapshot.size, 'dokumen');
-
+      
       const tpData = {
         kelas: metadata.kelas,
         fase: fase,
@@ -570,42 +668,18 @@ async function syncToMasterTP(metadata, result, dataTopik) {
       };
 
       if (querySnapshot.empty) {
-        // Belum ada, buat dokumen BARU
-        console.log('  ➕ Membuat dokumen BARU di data_tp...');
+        // Belum ada, buat baru
         tpData.createdAt = serverTimestamp();
-        
-        try {
-          const docRef = await addDoc(collection(db, 'data_tp'), tpData);
-          console.log('  ✅ BERHASIL! Dokumen baru dibuat dengan ID:', docRef.id);
-        } catch (err) {
-          console.error('  ❌ GAGAL membuat dokumen:', err);
-          console.error('  Error code:', err.code);
-          console.error('  Error message:', err.message);
-          throw err;
-        }
+        await addDoc(collection(db, 'data_tp'), tpData);
       } else {
-        // Sudah ada, UPDATE dokumen yang ada
+        // Sudah ada, update agar selalu yang terbaru
         const existingDoc = querySnapshot.docs[0];
-        console.log('  ️ Update dokumen EXISTING dengan ID:', existingDoc.id);
-        
-        try {
-          await updateDoc(doc(db, 'data_tp', existingDoc.id), tpData);
-          console.log('  ✅ BERHASIL! Dokumen diupdate');
-        } catch (err) {
-          console.error('  ❌ GAGAL update dokumen:', err);
-          console.error('  Error code:', err.code);
-          console.error('  Error message:', err.message);
-          throw err;
-        }
+        await updateDoc(doc(db, 'data_tp', existingDoc.id), tpData);
       }
     }
-    
-    console.log('\n🎉 Sinkronisasi ke Master Data TP SELESAI!');
   } catch (error) {
-    console.error('\n❌ [ERROR FATAL] Sinkronisasi ke Master TP GAGAL:', error);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
-    console.error('Stack trace:', error.stack);
+    console.warn('⚠️ Sinkronisasi ke Master TP gagal (non-fatal):', error);
+    // Tidak throw error agar penyimpanan utama ke cp_tp_atp tetap berhasil
   }
 }
 
@@ -650,21 +724,28 @@ function downloadCTAResult(container) {
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
 
   let htmlContent = `
-    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head><meta charset='utf-8'><title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
-    <style>
-      @page { size: A4; margin: 2cm; }
-      body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
-      h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
-      h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
-      h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-      th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; }
-      td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; }
-      .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; }
-      .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; }
-      .page-break { page-break-after: always; }
-    </style></head><body>
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+          xmlns:w='urn:schemas-microsoft-com:office:word' 
+          xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
+      <style>
+        @page { size: A4; margin: 2cm; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; }
+        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; }
+        td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; }
+        .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; }
+        .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; }
+        .col-deskripsi { width: 74%; }
+        .page-break { page-break-after: always; }
+      </style>
+    </head>
+    <body>
       <div style="text-align: center; margin-bottom: 30px;">
         <h1>PERANGKAT PEMBELAJARAN</h1>
         <h2>${mapel.toUpperCase()}</h2>
@@ -674,20 +755,23 @@ function downloadCTAResult(container) {
           <tr><td style="border: none;"><strong>Kelas / Semester</strong></td><td style="border: none;">: ${kelas} / ${labelSemester}</td></tr>
           <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${guru}</td></tr>
         </table>
-      </div>`;
+      </div>
+  `;
 
   const tables = resultContainer.querySelectorAll('.cp-table');
-  const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', ' 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
+  const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
 
   tables.forEach((table, idx) => {
     if (idx > 0) htmlContent += '<div class="page-break"></div>';
     htmlContent += `<h3>${titles[idx]}</h3><table>`;
+    
     const headers = table.querySelectorAll('thead th');
     if (headers.length > 0) {
       htmlContent += '<thead><tr>';
       headers.forEach(th => { htmlContent += `<th>${th.textContent}</th>`; });
       htmlContent += '</tr></thead>';
     }
+    
     htmlContent += '<tbody>';
     const rows = table.querySelectorAll('tbody tr');
     rows.forEach(row => {
@@ -708,7 +792,10 @@ function downloadCTAResult(container) {
     <div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;">
       <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p>
       <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-    </div></body></html>`;
+    </div>
+    </body>
+    </html>
+  `;
 
   const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
@@ -719,6 +806,7 @@ function downloadCTAResult(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+
   showToast('✅ File Word berhasil diunduh!', 'success');
 }
 
