@@ -1,6 +1,7 @@
 // modules/admin-pembelajaran/features/lkpd.js
 // =========================================
 // FITUR: GENERATOR LKPD (AI POWERED)
+// OPTIMASI: 3 Opsi Tujuan Pembelajaran (Master Data, AI, Manual)
 // 6 TEMPLATE: Isian, PG, Praktik, Observasi, Proyek, Diskusi
 // OUTPUT: Versi Siswa + Versi Guru (dengan kunci jawaban)
 // =========================================
@@ -8,7 +9,7 @@
 import { db } from '../../../js/firebase-config.js';
 import { getDatabase, ref, get, push, set } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { getFirestore, doc, getDoc } 
+import { getFirestore, doc, getDoc, collection, query, where, getDocs } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -34,10 +35,10 @@ const DEFAULT_TTD = {
 
 // 6 Template LKPD
 const TEMPLATE_LKPD = [
-  { id: 'isian', icon: '', nama: 'Isian Singkat', deskripsi: 'Soal isian dengan ruang jawab' },
+  { id: 'isian', icon: '📝', nama: 'Isian Singkat', deskripsi: 'Soal isian dengan ruang jawab' },
   { id: 'pg', icon: '🔘', nama: 'Pilihan Ganda', deskripsi: 'Format kuis dengan 4 opsi' },
   { id: 'praktik', icon: '🔬', nama: 'Praktik/Eksperimen', deskripsi: 'Langkah kerja + tabel observasi' },
-  { id: 'observasi', icon: '️', nama: 'Observasi', deskripsi: 'Tabel pengamatan' },
+  { id: 'observasi', icon: '👁️', nama: 'Observasi', deskripsi: 'Tabel pengamatan' },
   { id: 'proyek', icon: '🏗️', nama: 'Proyek', deskripsi: 'Tugas proyek dengan tahapan' },
   { id: 'diskusi', icon: '💬', nama: 'Diskusi Kelompok', deskripsi: 'Format kolaboratif' }
 ];
@@ -120,7 +121,6 @@ function loadCSS() {
     textarea.form-control { resize: vertical; min-height: 100px; font-family: inherit; }
     select.form-control { cursor: pointer; }
     
-    /* Template Selection */
     .template-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -310,7 +310,6 @@ function loadCSS() {
       outline: none;
     }
     
-    /* Checkbox custom */
     .checkbox-group {
       display: flex;
       gap: 20px;
@@ -355,9 +354,6 @@ function loadCSS() {
   document.head.appendChild(style);
 }
 
-/**
- * Load API Key dari Firestore
- */
 async function loadApiKeyFromFirestore() {
   try {
     const docRef = doc(firestore, 'settings', 'api_key');
@@ -377,16 +373,11 @@ async function loadApiKeyFromFirestore() {
     if (btnGenerate) {
       btnGenerate.disabled = !storedApiKey;
     }
-    
-    console.log('✅ API Key loaded:', storedApiKey ? 'Available' : 'Not found');
   } catch (error) {
     console.error('❌ Error load API key:', error);
   }
 }
 
-/**
- * Load Data Tanda Tangan Default dari localStorage
- */
 function loadTTDDefaults() {
   const saved = localStorage.getItem('lkpd_ttd');
   let ttdData = { ...DEFAULT_TTD };
@@ -415,9 +406,6 @@ function loadTTDDefaults() {
   updateTTDPreview();
 }
 
-/**
- * Save Data Tanda Tangan ke localStorage
- */
 function saveTTDDefaults() {
   const ttdData = {
     namaKepsek: document.getElementById('inpKepsek')?.value || DEFAULT_TTD.namaKepsek,
@@ -425,14 +413,12 @@ function saveTTDDefaults() {
     namaGuru: document.getElementById('inpGuruPengampu')?.value || DEFAULT_TTD.namaGuru,
     nipGuru: document.getElementById('inpNipGuru')?.value || DEFAULT_TTD.nipGuru
   };
-  
   localStorage.setItem('lkpd_ttd', JSON.stringify(ttdData));
 }
 
 function renderUI(container) {
   const aiReady = storedApiKey ? true : false;
   
-  // Generate template cards HTML
   const templateCards = TEMPLATE_LKPD.map((t, idx) => `
     <div class="template-card ${idx === 0 ? 'selected' : ''}" data-template="${t.id}">
       <div class="template-icon">${t.icon}</div>
@@ -470,7 +456,7 @@ function renderUI(container) {
         </div>
         <div class="form-grid">
           <div class="form-group">
-            <label> Mata Pelajaran</label>
+            <label>📚 Mata Pelajaran</label>
             <input type="text" id="inpMapel" class="form-control" placeholder="Contoh: Matematika">
           </div>
           <div class="form-group">
@@ -502,6 +488,7 @@ function renderUI(container) {
             <input type="text" id="inpWaktu" class="form-control" placeholder="Contoh: 35 Menit">
           </div>
         </div>
+        
         <div class="form-grid">
           <div class="form-group">
             <label>👥 Jenis Pekerjaan</label>
@@ -514,7 +501,39 @@ function renderUI(container) {
           </div>
           <div class="form-group">
             <label>🎯 Tujuan Pembelajaran</label>
-            <input type="text" id="inpTujuan" class="form-control" placeholder="Contoh: Siswa mampu menjumlahkan pecahan">
+            <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px;">
+                <input type="radio" name="tpMethod" value="master" checked> 1. Master Data
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px;">
+                <input type="radio" name="tpMethod" value="ai"> 2. Generate AI
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px;">
+                <input type="radio" name="tpMethod" value="manual"> 3. Input Manual
+              </label>
+            </div>
+
+            <!-- Opsi 1: Master Data -->
+            <div id="tpMethodMaster" class="tp-method-content">
+              <button type="button" id="btnLoadMasterTP" class="btn-action" style="background: #3b82f6; color: white; width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas & Topik di atas)
+              </button>
+              <select id="selectMasterTP" class="form-control" multiple size="4" style="min-height: 100px; display: none;"></select>
+              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu TP.</small>
+            </div>
+
+            <!-- Opsi 2: AI -->
+            <div id="tpMethodAI" class="tp-method-content" style="display: none;">
+              <button type="button" id="btnGenerateTP" class="btn-action" style="background: #8b5cf6; color: white; width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                ✨ Generate TP dengan AI
+              </button>
+              <textarea id="inpTujuanAI" class="form-control" rows="4" readonly placeholder="TP akan muncul di sini setelah di-generate..."></textarea>
+            </div>
+
+            <!-- Opsi 3: Manual -->
+            <div id="tpMethodManual" class="tp-method-content" style="display: none;">
+              <textarea id="inpTujuanManual" class="form-control" rows="4" placeholder="1. Siswa mampu...&#10;2. Siswa dapat..."></textarea>
+            </div>
           </div>
         </div>
 
@@ -525,7 +544,7 @@ function renderUI(container) {
             <input type="text" id="inpKepsek" class="form-control" placeholder="Nama lengkap Kepala Sekolah">
           </div>
           <div class="form-group">
-            <label> NIP Kepala Sekolah</label>
+            <label>🔢 NIP Kepala Sekolah</label>
             <input type="text" id="inpNipKepsek" class="form-control" placeholder="NIP Kepala Sekolah">
           </div>
         </div>
@@ -535,12 +554,12 @@ function renderUI(container) {
             <input type="text" id="inpGuruPengampu" class="form-control" placeholder="Nama Guru Pengampu">
           </div>
           <div class="form-group">
-            <label> NIP Guru Pengampu</label>
+            <label>🔢 NIP Guru Pengampu</label>
             <input type="text" id="inpNipGuru" class="form-control" placeholder="NIP Guru Pengampu">
           </div>
         </div>
 
-        <div class="form-section-title">️ 4. Opsi Output</div>
+        <div class="form-section-title">⚙️ 4. Opsi Output</div>
         <div class="checkbox-group">
           <label class="checkbox-item">
             <input type="checkbox" id="optVersiGuru" checked>
@@ -563,11 +582,10 @@ function renderUI(container) {
 
       <div class="output-area" id="outputArea">
         <div class="output-header">
-          <h3> Hasil Generate LKPD</h3>
+          <h3>📄 Hasil Generate LKPD</h3>
           <span id="editIndicator" style="display:none; background:#fbbf24; color:#1e293b; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;">✏️ Mode Edit Aktif</span>
         </div>
         
-        <!-- Tabs untuk Versi Siswa & Guru -->
         <div class="output-tabs" id="outputTabs">
           <button class="tab-btn active" data-tab="siswa">📘 Versi Siswa</button>
           <button class="tab-btn" data-tab="guru" id="tabGuru" style="display:none;">📗 Versi Guru</button>
@@ -580,7 +598,6 @@ function renderUI(container) {
           <div class="output-content" id="outputGuru"></div>
         </div>
         
-        <!-- Tanda Tangan Section -->
         <div class="ttd-section" id="ttdSection">
           <div class="ttd-box">
             <div class="ttd-label">Mengetahui,</div>
@@ -608,7 +625,6 @@ function renderUI(container) {
 }
 
 function attachEvents() {
-  // Template selection
   document.querySelectorAll('.template-card').forEach(card => {
     card.addEventListener('click', () => {
       document.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
@@ -617,13 +633,25 @@ function attachEvents() {
     });
   });
 
+  // TP Method switching
+  document.querySelectorAll('input[name="tpMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      document.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+      const method = e.target.value;
+      if (method === 'master') document.getElementById('tpMethodMaster').style.display = 'block';
+      else if (method === 'ai') document.getElementById('tpMethodAI').style.display = 'block';
+      else if (method === 'manual') document.getElementById('tpMethodManual').style.display = 'block';
+    });
+  });
+
+  document.getElementById('btnLoadMasterTP').addEventListener('click', loadMasterTP);
+  document.getElementById('btnGenerateTP').addEventListener('click', generateTPWithAI);
   document.getElementById('btnGenerate').addEventListener('click', handleGenerate);
   document.getElementById('btnPrint').addEventListener('click', handlePrint);
   document.getElementById('btnSaveDb').addEventListener('click', saveToDatabase);
   document.getElementById('btnEdit').addEventListener('click', toggleEditMode);
   document.getElementById('btnDownload').addEventListener('click', handleDownloadWord);
 
-  // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -633,7 +661,6 @@ function attachEvents() {
     });
   });
 
-  // Auto-update tanda tangan + auto-save
   const ttdInputs = ['inpKepsek', 'inpNipKepsek', 'inpGuruPengampu', 'inpNipGuru'];
   ttdInputs.forEach(id => {
     const el = document.getElementById(id);
@@ -667,9 +694,118 @@ function updateTTDPreview() {
   if (ttdNipGuru) ttdNipGuru.textContent = nipGuru ? `NIP: ${nipGuru}` : 'NIP: -';
 }
 
-/**
- * Build prompt berdasarkan template yang dipilih
- */
+// ⭐ FUNGSI BARU: Muat TP dari Master Data (Opsi 1)
+async function loadMasterTP() {
+  const mapel = document.getElementById('inpMapel').value.trim();
+  const kelasFull = document.getElementById('inpKelas').value;
+  const kelas = kelasFull ? kelasFull.split(' ')[0] : ''; 
+  const topik = document.getElementById('inpTopik').value.trim();
+
+  if (!mapel || !kelas || !topik) {
+    alert('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Topik terlebih dahulu!');
+    return;
+  }
+
+  const btn = document.getElementById('btnLoadMasterTP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Memuat...';
+
+  try {
+    const q = query(
+      collection(firestore, 'data_tp'),
+      where('userId', '==', currentUser.uid),
+      where('mapel', '==', mapel),
+      where('kelas', '==', kelas),
+      where('topik', '==', topik)
+    );
+    
+    const snapshot = await getDocs(q);
+    const select = document.getElementById('selectMasterTP');
+    select.innerHTML = '';
+
+    if (snapshot.empty) {
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data. Coba Opsi 2 atau 3.</option>';
+      select.style.display = 'block';
+      document.getElementById('masterTPHint').style.display = 'none';
+    } else {
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
+          data.tujuan_pembelajaran.forEach((tp) => {
+            const option = document.createElement('option');
+            option.value = tp;
+            option.textContent = tp;
+            option.selected = true; // Auto-select all for convenience
+            select.appendChild(option);
+          });
+        }
+      });
+      select.style.display = 'block';
+      document.getElementById('masterTPHint').style.display = 'block';
+    }
+  } catch (error) {
+    console.error('Error loading Master TP:', error);
+    alert('❌ Gagal memuat Master Data TP: ' + error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ⭐ FUNGSI BARU: Generate TP dengan AI (Opsi 2)
+async function generateTPWithAI() {
+  if (!storedApiKey) {
+    alert('⚠️ API Key tidak tersedia.');
+    return;
+  }
+  const mapel = document.getElementById('inpMapel').value;
+  const kelas = document.getElementById('inpKelas').value;
+  const topik = document.getElementById('inpTopik').value;
+
+  if (!mapel || !topik) {
+    alert('⚠️ Mohon isi Mata Pelajaran dan Topik terlebih dahulu!');
+    return;
+  }
+
+  const btn = document.getElementById('btnGenerateTP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ AI sedang berpikir...';
+  const outputArea = document.getElementById('inpTujuanAI');
+  outputArea.value = 'Sedang generate...';
+
+  try {
+    const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
+- Mata Pelajaran: ${mapel}
+- Kelas: ${kelas}
+- Topik: ${topik}
+
+Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan kalimat "Siswa mampu...". Jangan berikan penjelasan lain.`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${storedApiKey}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) throw new Error('Gagal menghubungi API');
+    const result = await response.json();
+    outputArea.value = result.choices[0].message.content.trim();
+  } catch (error) {
+    alert('❌ Gagal generate TP: ' + error.message);
+    outputArea.value = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
 function buildPrompt(template, data) {
   const baseInfo = `
     DATA INPUT:
@@ -687,15 +823,9 @@ function buildPrompt(template, data) {
   const prompts = {
     isian: `
       Buatkan LKPD tipe ISIAN SINGKAT berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD)
-      ## Identitas LKPD
-      - Mata Pelajaran, Kelas/Semester, Topik, Alokasi Waktu, Jenis Pekerjaan
-      ## Identitas Siswa
-      - Nama, Kelas, Tanggal, Kelompok (jika berkelompok)
-      ## Tujuan Pembelajaran
-      ## Petunjuk Pengerjaan
+      ## Identitas LKPD, ## Identitas Siswa, ## Tujuan Pembelajaran, ## Petunjuk Pengerjaan
       ## Soal Isian (10-15 soal)
       Format setiap soal:
       Nomor. Pertanyaan/soal
@@ -704,152 +834,71 @@ function buildPrompt(template, data) {
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # KUNCI JAWABAN & RUBRIK PENILAIAN
-      ## Kunci Jawaban (semua soal)
-      ## Rubrik Penilaian
-      - Skor per soal
-      - Kriteria penilaian
-      - Skor maksimal
-      ## Pedoman Penskoran
+      ## Kunci Jawaban (semua soal), ## Rubrik Penilaian, ## Pedoman Penskoran
     `,
-
     pg: `
       Buatkan LKPD tipe PILIHAN GANDA berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD)
-      ## Identitas LKPD
-      ## Identitas Siswa
-      ## Tujuan Pembelajaran
-      ## Petunjuk Pengerjaan
+      ## Identitas LKPD, ## Identitas Siswa, ## Tujuan Pembelajaran, ## Petunjuk Pengerjaan
       ## Soal Pilihan Ganda (10-15 soal)
-      Format setiap soal:
-      Nomor. Pertanyaan
-      A. Opsi A
-      B. Opsi B
-      C. Opsi C
-      D. Opsi D
+      Format: Nomor. Pertanyaan \n A. Opsi A \n B. Opsi B \n C. Opsi C \n D. Opsi D
       ## Refleksi Diri
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # KUNCI JAWABAN & RUBRIK PENILAIAN
-      ## Kunci Jawaban (dengan pembahasan singkat)
-      ## Rubrik Penilaian
-      ## Pedoman Penskoran
+      ## Kunci Jawaban (dengan pembahasan singkat), ## Rubrik Penilaian, ## Pedoman Penskoran
     `,
-
     praktik: `
       Buatkan LKPD tipe PRAKTIK/EKSPERIMEN berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD) - PRAKTIK
-      ## Identitas LKPD
-      ## Identitas Siswa
-      ## Tujuan Pembelajaran
-      ## Alat dan Bahan
-      ## Langkah Kerja (step-by-step, detail)
-      ## Tabel Pengamatan/Observasi
-      Format tabel dengan kolom yang sesuai topik
-      ## Pertanyaan Analisis (3-5 pertanyaan)
-      ## Kesimpulan
-      ## Refleksi Diri
+      ## Identitas LKPD, ## Identitas Siswa, ## Tujuan Pembelajaran, ## Alat dan Bahan
+      ## Langkah Kerja (step-by-step, detail), ## Tabel Pengamatan/Observasi, ## Pertanyaan Analisis, ## Kesimpulan, ## Refleksi Diri
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # PANDUAN GURU
-      ## Tujuan Praktikum
-      ## Alat dan Bahan (lengkap)
-      ## Prosedur Detail
-      ## Hasil yang Diharapkan
-      ## Kunci Jawaban Pertanyaan Analisis
-      ## Rubrik Penilaian Praktikum
-      ## Kriteria Keamanan
+      ## Tujuan Praktikum, ## Alat dan Bahan, ## Prosedur Detail, ## Hasil yang Diharapkan
+      ## Kunci Jawaban Pertanyaan Analisis, ## Rubrik Penilaian Praktikum, ## Kriteria Keamanan
     `,
-
     observasi: `
       Buatkan LKPD tipe OBSERVASI berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD) - OBSERVASI
-      ## Identitas LKPD
-      ## Identitas Siswa
-      ## Tujuan Observasi
-      ## Lokasi/Waktu Observasi
-      ## Petunjuk Observasi
-      ## Tabel Observasi
-      Format tabel dengan kolom: No, Aspek yang Diamati, Hasil Pengamatan, Keterangan
-      ## Pertanyaan Analisis (3-5 pertanyaan)
-      ## Kesimpulan
-      ## Refleksi Diri
+      ## Identitas LKPD, ## Identitas Siswa, ## Tujuan Observasi, ## Lokasi/Waktu Observasi
+      ## Petunjuk Observasi, ## Tabel Observasi (No, Aspek yang Diamati, Hasil Pengamatan, Keterangan)
+      ## Pertanyaan Analisis, ## Kesimpulan, ## Refleksi Diri
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # PANDUAN GURU
-      ## Tujuan Observasi
-      ## Aspek yang Dinilai
-      ## Kunci Jawaban Pertanyaan Analisis
-      ## Rubrik Penilaian Observasi
-      ## Pedoman Penskoran
+      ## Tujuan Observasi, ## Aspek yang Dinilai, ## Kunci Jawaban Pertanyaan Analisis
+      ## Rubrik Penilaian Observasi, ## Pedoman Penskoran
     `,
-
     proyek: `
       Buatkan LKPD tipe PROYEK berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD) - PROYEK
-      ## Identitas LKPD
-      ## Identitas Siswa/Kelompok
-      ## Tujuan Proyek
-      ## Deskripsi Proyek
-      ## Tahapan Pengerjaan
-      - Tahap 1: Perencanaan
-      - Tahap 2: Pelaksanaan
-      - Tahap 3: Penyajian/Produk
-      ## Checklist Kelengkapan
-      ## Rubrik Self-Assessment
-      ## Refleksi Proyek
+      ## Identitas LKPD, ## Identitas Siswa/Kelompok, ## Tujuan Proyek, ## Deskripsi Proyek
+      ## Tahapan Pengerjaan (Perencanaan, Pelaksanaan, Penyajian/Produk)
+      ## Checklist Kelengkapan, ## Rubrik Self-Assessment, ## Refleksi Proyek
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # PANDUAN GURU
-      ## Tujuan Proyek
-      ## Kriteria Produk Akhir
-      ## Rubrik Penilaian Proyek (dengan skala 1-4)
-      ## Aspek yang Dinilai:
-      - Perencanaan
-      - Pelaksanaan
-      - Kerjasama
-      - Produk Akhir
-      - Presentasi
-      ## Pedoman Penskoran
+      ## Tujuan Proyek, ## Kriteria Produk Akhir, ## Rubrik Penilaian Proyek (skala 1-4)
+      ## Aspek yang Dinilai (Perencanaan, Pelaksanaan, Kerjasama, Produk Akhir, Presentasi), ## Pedoman Penskoran
     `,
-
     diskusi: `
       Buatkan LKPD tipe DISKUSI KELOMPOK berdasarkan data di atas.
-
       STRUKTUR WAJIB (Versi Siswa):
       # LEMBAR KERJA PESERTA DIDIK (LKPD) - DISKUSI KELOMPOK
-      ## Identitas LKPD
-      ## Identitas Kelompok
-      - Nama Anggota (4-6 siswa dengan peran: ketua, sekretaris, anggota)
-      ## Tujuan Diskusi
-      ## Topik/Masalah yang Didiskusikan
-      ## Pertanyaan Pemantik (3-5 pertanyaan)
-      ## Format Diskusi
-      - Pendapat Anggota 1
-      - Pendapat Anggota 2
-      - dst
-      ## Kesimpulan Kelompok
-      ## Presentasi Hasil
-      ## Refleksi Kelompok
+      ## Identitas LKPD, ## Identitas Kelompok (Nama Anggota dengan peran: ketua, sekretaris, anggota)
+      ## Tujuan Diskusi, ## Topik/Masalah yang Didiskusikan, ## Pertanyaan Pemantik (3-5 pertanyaan)
+      ## Format Diskusi (Pendapat Anggota 1, 2, dst), ## Kesimpulan Kelompok, ## Presentasi Hasil, ## Refleksi Kelompok
 
       STRUKTUR WAJIB (Versi Guru - TERPISAH):
       # PANDUAN GURU
-      ## Tujuan Diskusi
-      ## Pembagian Peran dalam Kelompok
-      ## Kunci Jawaban/Pedoman Diskusi
-      ## Rubrik Penilaian Diskusi
-      - Keaktifan
-      - Kerjasama
-      - Kedalaman Analisis
-      - Presentasi
-      ## Pedoman Penskoran
+      ## Tujuan Diskusi, ## Pembagian Peran dalam Kelompok, ## Kunci Jawaban/Pedoman Diskusi
+      ## Rubrik Penilaian Diskusi (Keaktifan, Kerjasama, Kedalaman Analisis, Presentasi), ## Pedoman Penskoran
     `
   };
 
@@ -859,6 +908,25 @@ function buildPrompt(template, data) {
 async function handleGenerate() {
   if (!storedApiKey) {
     alert('⚠️ API Key tidak tersedia.');
+    return;
+  }
+
+  // ⭐ Tentukan Tujuan Pembelajaran berdasarkan metode yang dipilih
+  const activeMethod = document.querySelector('input[name="tpMethod"]:checked').value;
+  let finalTujuan = '';
+  
+  if (activeMethod === 'master') {
+    const select = document.getElementById('selectMasterTP');
+    const selectedOptions = Array.from(select.selectedOptions).map(opt => opt.value);
+    finalTujuan = selectedOptions.join('\n');
+  } else if (activeMethod === 'ai') {
+    finalTujuan = document.getElementById('inpTujuanAI').value;
+  } else {
+    finalTujuan = document.getElementById('inpTujuanManual').value;
+  }
+
+  if (!finalTujuan) {
+    alert('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!');
     return;
   }
 
@@ -875,11 +943,11 @@ async function handleGenerate() {
     topik: document.getElementById('inpTopik').value,
     waktu: document.getElementById('inpWaktu').value,
     jenisKerja: document.getElementById('inpJenisKerja').value,
-    tujuan: document.getElementById('inpTujuan').value || 'Sesuai dengan kurikulum yang berlaku.'
+    tujuan: finalTujuan // Gunakan TP yang sudah ditentukan
   };
 
   if (!data.mapel || !data.topik) {
-    alert('️ Mata Pelajaran dan Topik wajib diisi!');
+    alert('⚠️ Mata Pelajaran dan Topik wajib diisi!');
     return;
   }
 
@@ -891,7 +959,6 @@ async function handleGenerate() {
 
   const prompt = `
     Anda adalah guru ahli Kurikulum Merdeka di Indonesia.
-    
     ${buildPrompt(template, data)}
     
     CATATAN PENTING:
@@ -929,7 +996,6 @@ async function handleGenerate() {
     const result = await response.json();
     const aiText = result.choices[0].message.content;
 
-    // Parse output menjadi versi siswa dan guru
     parseAIOutput(aiText, includeGuru);
 
     document.getElementById('outputArea').style.display = 'block';
@@ -945,11 +1011,7 @@ async function handleGenerate() {
   }
 }
 
-/**
- * Parse output AI menjadi versi siswa dan guru
- */
 function parseAIOutput(aiText, includeGuru) {
-  // Cari pemisah antara versi siswa dan guru
   const guruMarkers = [
     'KUNCI JAWABAN & RUBRIK PENILAIAN',
     'PANDUAN GURU',
@@ -962,7 +1024,6 @@ function parseAIOutput(aiText, includeGuru) {
   let guruText = '';
 
   if (includeGuru) {
-    // Cari posisi marker versi guru
     let guruStart = -1;
     for (const marker of guruMarkers) {
       const idx = aiText.indexOf(marker);
@@ -975,7 +1036,6 @@ function parseAIOutput(aiText, includeGuru) {
       siswaText = aiText.substring(0, guruStart).trim();
       guruText = aiText.substring(guruStart).trim();
     } else {
-      // Jika tidak ada pemisah jelas, pakai semua sebagai versi siswa
       siswaText = aiText;
     }
   }
@@ -985,13 +1045,11 @@ function parseAIOutput(aiText, includeGuru) {
   document.getElementById('outputSiswa').innerText = siswaText;
   document.getElementById('outputGuru').innerText = guruText || 'Versi Guru tidak tersedia.';
 
-  // Show/hide tab guru
   const tabGuru = document.getElementById('tabGuru');
   if (tabGuru) {
     tabGuru.style.display = includeGuru && guruText ? 'inline-block' : 'none';
   }
 
-  // Reset ke tab siswa
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector('[data-tab="siswa"]').classList.add('active');
@@ -1041,9 +1099,6 @@ function exitEditMode() {
   if (indicator) indicator.style.display = 'none';
 }
 
-/**
- * Download sebagai Word Document (.doc)
- */
 function handleDownloadWord() {
   const includeGuru = document.getElementById('optVersiGuru').checked;
   const siswaContent = document.getElementById('outputSiswa').innerText;
@@ -1087,142 +1142,40 @@ function handleDownloadWord() {
       <![endif]-->
       <style>
         @page { size: A4; margin: 2cm 2cm 2cm 2cm; }
-        body { 
-          font-family: 'Times New Roman', Times, serif; 
-          font-size: 12pt; 
-          margin: 0; 
-          line-height: 1.6;
-          text-align: justify;
-        }
-        .header-info {
-          text-align: center;
-          margin-bottom: 20px;
-          padding-bottom: 10px;
-          border-bottom: 3px double #000;
-        }
-        .header-info h1 {
-          font-size: 16pt;
-          font-weight: bold;
-          margin: 0 0 3px 0;
-          text-transform: uppercase;
-        }
-        .header-info h2 {
-          font-size: 13pt;
-          font-weight: bold;
-          margin: 3px 0 10px 0;
-          text-transform: uppercase;
-        }
-        .header-info table { 
-          border: none; 
-          width: 90%; 
-          margin: 5px auto; 
-          font-size: 11pt;
-        }
-        .header-info td { 
-          border: none; 
-          padding: 2px 5px; 
-          text-align: left;
-        }
-        .header-info td:first-child {
-          width: 35%;
-          font-weight: bold;
-        }
-        .identitas-siswa {
-          border: 1px solid #000;
-          padding: 10px;
-          margin: 15px 0;
-          background: #f9f9f9;
-        }
-        .identitas-siswa table {
-          width: 100%;
-          border: none;
-        }
-        .identitas-siswa td {
-          padding: 3px 5px;
-          border: none;
-        }
-        h2 { 
-          font-size: 13pt; 
-          font-weight: bold; 
-          margin: 20px 0 10px 0;
-          border-bottom: 1px solid #000;
-          padding-bottom: 3px;
-        }
-        h3 { 
-          font-size: 12pt; 
-          font-weight: bold; 
-          margin: 15px 0 8px 0;
-        }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 0; line-height: 1.6; text-align: justify; }
+        .header-info { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 3px double #000; }
+        .header-info h1 { font-size: 16pt; font-weight: bold; margin: 0 0 3px 0; text-transform: uppercase; }
+        .header-info h2 { font-size: 13pt; font-weight: bold; margin: 3px 0 10px 0; text-transform: uppercase; }
+        .header-info table { border: none; width: 90%; margin: 5px auto; font-size: 11pt; }
+        .header-info td { border: none; padding: 2px 5px; text-align: left; }
+        .header-info td:first-child { width: 35%; font-weight: bold; }
+        .identitas-siswa { border: 1px solid #000; padding: 10px; margin: 15px 0; background: #f9f9f9; }
+        .identitas-siswa table { width: 100%; border: none; }
+        .identitas-siswa td { padding: 3px 5px; border: none; }
+        h2 { font-size: 13pt; font-weight: bold; margin: 20px 0 10px 0; border-bottom: 1px solid #000; padding-bottom: 3px; }
+        h3 { font-size: 12pt; font-weight: bold; margin: 15px 0 8px 0; }
         p { margin: 5px 0; }
         ul { margin: 8px 0; padding-left: 30px; }
         li { margin: 4px 0; line-height: 1.5; }
-        table.data-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 10px 0;
-        }
-        table.data-table th, table.data-table td {
-          border: 1px solid #000;
-          padding: 6px 8px;
-          text-align: left;
-        }
-        table.data-table th {
-          background: #f0f0f0;
-          font-weight: bold;
-        }
-        .ttd-section { 
-          margin-top: 40px; 
-          margin-bottom: 20px;
-          page-break-inside: avoid;
-        }
-        .ttd-table {
-          width: 100%;
-          border: none;
-          border-collapse: collapse;
-        }
-        .ttd-table td {
-          width: 50%;
-          vertical-align: top;
-          text-align: center;
-          padding: 10px;
-          border: none;
-        }
+        table.data-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        table.data-table th, table.data-table td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
+        table.data-table th { background: #f0f0f0; font-weight: bold; }
+        .ttd-section { margin-top: 40px; margin-bottom: 20px; page-break-inside: avoid; }
+        .ttd-table { width: 100%; border: none; border-collapse: collapse; }
+        .ttd-table td { width: 50%; vertical-align: top; text-align: center; padding: 10px; border: none; }
         .ttd-label { font-size: 11pt; margin-bottom: 5px; }
         .ttd-role { font-weight: bold; font-size: 11pt; margin-bottom: 60px; line-height: 1.4; }
-        .ttd-name {
-          font-weight: bold;
-          font-size: 11pt;
-          border-bottom: 1px solid #000;
-          display: inline-block;
-          min-width: 200px;
-          margin-bottom: 5px;
-          padding-bottom: 2px;
-        }
+        .ttd-name { font-weight: bold; font-size: 11pt; border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; padding-bottom: 2px; }
         .ttd-nip { font-size: 10pt; }
-        .footer-note {
-          margin-top: 30px;
-          font-size: 9pt;
-          color: #666;
-          text-align: right;
-          font-style: italic;
-        }
+        .footer-note { margin-top: 30px; font-size: 9pt; color: #666; text-align: right; font-style: italic; }
         .page-break { page-break-before: always; }
-        .guru-section {
-          border: 2px dashed #666;
-          padding: 15px;
-          margin-top: 20px;
-          background: #f5f5f5;
-        }
-        .guru-section h2 {
-          color: #d32f2f;
-          border-bottom-color: #d32f2f;
-        }
+        .guru-section { border: 2px dashed #666; padding: 15px; margin-top: 20px; background: #f5f5f5; }
+        .guru-section h2 { color: #d32f2f; border-bottom-color: #d32f2f; }
       </style>
     </head>
     <body>
   `;
 
-  // VERSI SISWA
   htmlContent += `
     <div class="header-info">
       <h1>LEMBAR KERJA PESERTA DIDIK</h1>
@@ -1244,11 +1197,9 @@ function handleDownloadWord() {
     </div>
   `;
 
-  // Convert markdown ke HTML untuk versi siswa
   let formattedSiswa = convertMarkdownToHTML(siswaContent);
   htmlContent += formattedSiswa;
 
-  // VERSI GURU (jika ada)
   if (includeGuru && guruContent && guruContent !== 'Versi Guru tidak tersedia.') {
     htmlContent += `
       <div class="page-break"></div>
@@ -1261,7 +1212,6 @@ function handleDownloadWord() {
     htmlContent += `</div>`;
   }
 
-  // Tanda Tangan
   htmlContent += `
     <div class="ttd-section">
       <table class="ttd-table">
@@ -1303,9 +1253,6 @@ function handleDownloadWord() {
   showToast('📥 File Word berhasil diunduh!');
 }
 
-/**
- * Convert Markdown ke HTML
- */
 function convertMarkdownToHTML(content) {
   let html = content
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
@@ -1316,9 +1263,7 @@ function convertMarkdownToHTML(content) {
     .replace(/^[-•] (.*$)/gim, '<ul><li>$1</li></ul>')
     .replace(/\n/gim, '<br>');
 
-  // Bersihkan duplikasi <ul>
   html = html.replace(/<\/ul>\s*<ul>/gim, '');
-  
   return html;
 }
 
@@ -1350,7 +1295,9 @@ async function saveToDatabase() {
       guru: guru,
       sekolah: document.getElementById('inpSekolah').value,
       jenisKerja: document.getElementById('inpJenisKerja').value,
-      tujuan: document.getElementById('inpTujuan').value,
+      tujuan: document.querySelector('input[name="tpMethod"]:checked').value === 'master' 
+        ? Array.from(document.getElementById('selectMasterTP').selectedOptions).map(opt => opt.value).join('\n')
+        : (document.getElementById('inpTujuanAI').value || document.getElementById('inpTujuanManual').value),
       versiSiswa: content,
       versiGuru: currentLkpdData.guru || '',
       tandaTangan: {
@@ -1366,7 +1313,7 @@ async function saveToDatabase() {
       createdAt: Date.now(),
       createdBy: currentUser.uid || 'unknown'
     });
-    showToast(' LKPD berhasil disimpan!');
+    showToast('✅ LKPD berhasil disimpan!');
   } catch (error) {
     alert('Gagal menyimpan: ' + error.message);
   }
