@@ -3,6 +3,7 @@
 // FITUR: DATA TP (MASTER DATA TUJUAN PEMBELAJARAN)
 // FUNGSI: Single Source of Truth untuk seluruh sub-fitur aplikasi
 // TERINTEGRASI: Firestore (Collection: 'data_tp')
+// UJI COBA: Menggunakan import JS langsung dari data-mapel.js (tanpa fetch/fallback)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -10,26 +11,12 @@ import {
   collection, addDoc, getDocs, query, where, 
   onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { dataMapel } from '../../../assets/data-mapel.js'; // ⭐ UJI COBA: Import langsung dari JS
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'data-tp-css';
 let currentEditId = null;
-let dataMapel = [];
-
-// Fallback Data Mapel (jika JSON gagal dimuat)
-const FALLBACK_MAPEL = [
-  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
-  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
-  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
-  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
-  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
-  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
-];
+// ⭐ dataMapel sudah tersedia dari import, tidak perlu inisialisasi array kosong
 
 export async function init(container, db) {
   loadCSS();
@@ -44,16 +31,12 @@ export function cleanup() {
   if (css) css.remove();
 }
 
+// ⭐ UJI COBA: Fungsi disederhanakan, tanpa fetch dan tanpa fallback
 async function loadMataPelajaran() {
-  try {
-    const response = await fetch('../../../assets/data-mapel.json');
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    dataMapel = data.mataPelajaran || [];
-  } catch (error) {
-    console.warn('⚠️ Menggunakan data mapel fallback');
-    dataMapel = FALLBACK_MAPEL;
-  }
+  // Data sudah di-import langsung dari data-mapel.js
+  console.log(' [UJI COBA] Data mapel dimuat dari modul JS:', dataMapel.length, 'mata pelajaran');
+  console.log('🧪 [UJI COBA] Isi dataMapel:', dataMapel);
+  return Promise.resolve();
 }
 
 function loadCSS() {
@@ -121,15 +104,15 @@ function renderUI(container) {
 
       <div class="dtp-tabs">
         <button class="dtp-tab active" data-tab="form">➕ Input / Edit Data TP</button>
-        <button class="dtp-tab" data-tab="list">📚 Daftar Master TP</button>
+        <button class="dtp-tab" data-tab="list"> Daftar Master TP</button>
       </div>
 
       <div id="dtp-form-section">
         <div class="dtp-section">
-          <h3 class="dtp-section-title">📋 Informasi Master TP</h3>
+          <h3 class="dtp-section-title"> Informasi Master TP</h3>
           <div class="dtp-form-grid">
             <div class="dtp-form-group">
-              <label>🎓 Kelas</label>
+              <label> Kelas</label>
               <select id="dtp-kelas" class="dtp-form-control">
                 <option value="">-- Pilih Kelas --</option>
                 <option value="1">Kelas 1</option>
@@ -154,7 +137,7 @@ function renderUI(container) {
               </select>
             </div>
             <div class="dtp-form-group">
-              <label> Topik Pembelajaran</label>
+              <label>📝 Topik Pembelajaran</label>
               <input type="text" id="dtp-topik" class="dtp-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
           </div>
@@ -168,7 +151,7 @@ function renderUI(container) {
         <div class="dtp-actions">
           <button class="dtp-btn dtp-btn-success" id="btn-simpan">💾 Simpan ke Master Data</button>
           <button class="dtp-btn dtp-btn-warning" id="btn-export">📥 Export Word</button>
-          <button class="dtp-btn dtp-btn-secondary" id="btn-reset">🔄 Reset Form</button>
+          <button class="dtp-btn dtp-btn-secondary" id="btn-reset"> Reset Form</button>
         </div>
       </div>
 
@@ -222,7 +205,7 @@ function attachEvents(container) {
 
   // Reset
   container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm(' Reset form?')) {
+    if (confirm('🔄 Reset form?')) {
       currentEditId = null;
       container.querySelector('#dtp-kelas').value = '';
       container.querySelector('#dtp-mapel').value = '';
@@ -341,7 +324,7 @@ function loadDataTP(container) {
               <div class="dtp-item-meta">Topik: <strong>${d.topik}</strong></div>
             </div>
             <div class="dtp-item-actions">
-              <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">️ Edit</button>
+              <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
               <button onclick="deleteDataTP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
             </div>
           </div>
@@ -364,7 +347,7 @@ window.editDataTP = async function(id) {
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
-      showToast(' Data tidak ditemukan!', 'error');
+      showToast('⚠️ Data tidak ditemukan!', 'error');
       return;
     }
 
@@ -389,14 +372,14 @@ window.editDataTP = async function(id) {
 };
 
 window.deleteDataTP = async function(id) {
-  if (!confirm('️ Yakin hapus Data TP ini? Penghapusan akan mempengaruhi sub-fitur yang menggunakan data ini.')) return;
+  if (!confirm('⚠️ Yakin hapus Data TP ini? Penghapusan akan mempengaruhi sub-fitur yang menggunakan data ini.')) return;
   
   try {
     await deleteDoc(doc(db, 'data_tp', id));
     showToast('✅ Data TP berhasil dihapus!');
   } catch (error) {
     console.error('Error deleting:', error);
-    showToast(' Gagal menghapus!', 'error');
+    showToast('❌ Gagal menghapus!', 'error');
   }
 };
 
@@ -454,7 +437,7 @@ function handleExportWord(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast(' Word berhasil diunduh!');
+  showToast('✅ Word berhasil diunduh!');
 }
 
 function showToast(msg, type = 'success') {
