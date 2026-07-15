@@ -1,0 +1,17 @@
+// js/config/data-mapel.js
+// Master Data Mata Pelajaran - Single Source of Truth
+// Digunakan oleh: Data TP, CP-TP-ATP Generator, dan fitur lainnya
+
+export const dataMapel = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+];
