@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR 5 SUB-FITUR MONITORING
+// ✅ DAFTAR 6 SUB-FITUR MONITORING (Ditambahkan Data TP)
 const MENU_ITEMS = [
   { 
     id: 'data-peserta-didik', 
@@ -48,6 +48,14 @@ const MENU_ITEMS = [
     title: 'Evaluasi Mandiri', 
     path: './features/evaluasi-mandiri.js',
     status: 'soon'
+  },
+  // ⭐ SUB-FITUR BARU: MASTER DATA TUJUAN PEMBELAJARAN
+  { 
+    id: 'data-tp', 
+    icon: '🎯', 
+    title: 'Data TP', 
+    path: './features/data-tp.js',
+    status: 'soon' // Akan diubah jadi 'ready' setelah file data-tp.js kita buat
   }
 ];
 
