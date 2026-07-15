@@ -55,7 +55,7 @@ const MENU_ITEMS = [
     icon: '🎯', 
     title: 'Data TP', 
     path: './features/data-tp.js',
-    status: 'soon' // Akan diubah jadi 'ready' setelah file data-tp.js kita buat
+    status: 'ready' 
   }
 ];
 
