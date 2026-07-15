@@ -1,7 +1,7 @@
 // modules/admin-pembelajaran/features/cp-tp-atp.js
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
-// REVISI: Dual-Write ke Master Data TP (Global Monitoring) dengan Debug Log
+// REVISI: Dual-Write ke Master Data TP (Global Monitoring) dengan Indexed Query
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -43,7 +43,7 @@ function loadFeatureCSS() {
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   cssLink.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS');
+    console.warn('️ CSS eksternal gagal, menggunakan inline CSS');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
@@ -156,7 +156,7 @@ function renderCTAGenerator(container) {
         <form id="cp-form">
           <div class="cp-section-title">📋 1. Informasi Dasar</div>
           <div class="cp-form-group">
-            <label class="cp-label" for="cp-kop-sekolah">🏫 Nama Sekolah</label>
+            <label class="cp-label" for="cp-kop-sekolah"> Nama Sekolah</label>
             <input type="text" id="cp-kop-sekolah" value="${userSekolah}" class="cp-input" required>
           </div>
           <div class="cp-form-row">
@@ -165,7 +165,7 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-kop-tahun" value="2026/2027" class="cp-input">
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-guru">👩‍ Nama Guru</label>
+              <label class="cp-label" for="cp-guru">👩‍🏫 Nama Guru</label>
               <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
@@ -195,7 +195,7 @@ function renderCTAGenerator(container) {
             </div>
           </div>
           <div class="cp-form-group">
-            <label class="cp-label" for="cp-mapel"> Mata Pelajaran</label>
+            <label class="cp-label" for="cp-mapel">📚 Mata Pelajaran</label>
             <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
           </div>
           <div class="cp-section-title">✏️ 2. Input Topik & Sub Tema</div>
@@ -211,7 +211,7 @@ function renderCTAGenerator(container) {
           <h3 class="cp-result-title">📋 Hasil Generate</h3>
           <div id="cp-result-table-container"></div>
           <div class="cp-action-buttons">
-            <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">🖨️ Print</button>
+            <button type="button" id="cp-btn-print" class="cp-btn cp-btn-print">️ Print</button>
             <button type="button" id="cp-btn-download" class="cp-btn cp-btn-download">📥 Download Word</button>
             <button type="button" id="cp-btn-save" class="cp-btn cp-btn-save"> Simpan Manual</button>
             <button type="button" id="cp-btn-regenerate" class="cp-btn cp-btn-secondary">🔄 Ulang</button>
@@ -238,14 +238,14 @@ function tambahTopikBaru() {
   topikDiv.innerHTML = `
     <div class="cp-topik-header">
       <span class="cp-topik-badge">Topik ${topikNumber}</span>
-      <button type="button" class="cp-btn-hapus" onclick="hapusTopikItem(${topikId})">️ Hapus</button>
+      <button type="button" class="cp-btn-hapus" onclick="hapusTopikItem(${topikId})">🗑️ Hapus</button>
     </div>
     <div class="cp-form-group">
-      <label class="cp-topik-label"> Topik/Materi <span style="color: #ef4444;">*</span></label>
+      <label class="cp-topik-label">📝 Topik/Materi <span style="color: #ef4444;">*</span></label>
       <textarea class="cp-topik-input" placeholder="Contoh: Penjumlahan, Senam Lantai" rows="2" required></textarea>
     </div>
     <div class="cp-elemen-group">
-      <label class="cp-elemen-label"> Sub Tema <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
+      <label class="cp-elemen-label">📁 Sub Tema <span style="color: #6b7280; font-weight: normal;">(Opsional)</span></label>
       <textarea class="cp-elemen-input" placeholder="Contoh: Bilangan, Gerak Dasar (boleh dikosongkan)" rows="4"></textarea>
     </div>
   `;
@@ -298,7 +298,7 @@ function attachEventListeners(container) {
 }
 
 async function handleGenerate(container) {
-  if (!currentUser.uid) { showToast('️ Silakan login dulu!', 'error'); return; }
+  if (!currentUser.uid) { showToast('⚠️ Silakan login dulu!', 'error'); return; }
 
   const jenjang = container.querySelector('#cp-jenjang')?.value;
   const kelas = container.querySelector('#cp-kelas')?.value;
@@ -315,7 +315,7 @@ async function handleGenerate(container) {
 
   const topikItems = container.querySelectorAll('.cp-topik-item');
   if (topikItems.length === 0) { 
-    showToast('⚠️ Tambahkan minimal 1 topik!', 'error'); 
+    showToast('️ Tambahkan minimal 1 topik!', 'error'); 
     return; 
   }
 
@@ -463,12 +463,12 @@ function render3TabelHasil(container, data, metadata) {
   const labelSemester = metadata.semester === '1' ? 'Ganjil' : 'Genap';
   let html = `<div class="cp-hasil-header"><h2>Perangkat Pembelajaran: ${metadata.mapel}</h2><p>Kelas ${metadata.kelas} | Semester ${labelSemester}</p></div>`;
 
-  html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
+  html += `<h3 class="cp-tabel-title"> 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
   data.cp.forEach(item => { html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; });
   html += `</tbody></table>`;
 
-  html += `<h3 class="cp-tabel-title"> 2. Tujuan Pembelajaran (TP)</h3>`;
+  html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
   html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
@@ -480,7 +480,7 @@ function render3TabelHasil(container, data, metadata) {
   });
   html += `</tbody></table>`;
 
-  html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
+  html += `<h3 class="cp-tabel-title"> 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
   html += `<table class="cp-table"><thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
@@ -496,44 +496,35 @@ function render3TabelHasil(container, data, metadata) {
 }
 
 /**
- * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (VERSI DEBUG LENGKAP)
+ * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (DENGAN INDEX)
+ * Menggunakan indexed query untuk performa optimal
  */
 async function syncToMasterTP(metadata, result, dataTopik) {
   try {
     console.log('🔄 [DEBUG] Mulai sinkronisasi ke Master Data TP...');
-    console.log(' Metadata:', metadata);
-    console.log(' Jumlah topik:', dataTopik.length);
+    console.log('📝 Metadata:', { mapel: metadata.mapel, kelas: metadata.kelas, semester: metadata.semester });
+    console.log('📝 Jumlah topik:', dataTopik.length);
     console.log('📝 Data topik:', dataTopik);
     
     let fase = 'A';
     if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
     else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
 
+    // Ambil semua TP yang di-generate
     const allGeneratedTPs = result.tp.flatMap(group => group.items);
-    console.log(' Total TP yang di-generate:', allGeneratedTPs.length);
+    console.log('📝 Total TP yang di-generate:', allGeneratedTPs.length);
     
     if (allGeneratedTPs.length === 0) {
-      console.warn('️ Tidak ada TP yang di-generate. Batal sinkronisasi.');
+      console.warn('⚠️ Tidak ada TP yang di-generate. Batal sinkronisasi.');
       return;
     }
 
-    console.log('🔍 Mengambil data existing dari Firestore...');
-    const q = query(collection(db, 'data_tp'), where('userId', '==', currentUser.uid));
-    const querySnapshot = await getDocs(q);
-    
-    console.log('📊 Ditemukan', querySnapshot.size, 'dokumen existing di data_tp');
-    
-    const existingData = [];
-    querySnapshot.forEach(doc => {
-      const data = doc.data();
-      existingData.push({ id: doc.id, ...data });
-      console.log('  - Existing:', data.mapel, 'Kelas', data.kelas, 'Topik:', data.topik);
-    });
-
+    // Proses setiap topik
     for (const item of dataTopik) {
       const topikName = item.topik;
       console.log('\n🎯 Memproses topik:', topikName);
       
+      // Cari TP yang cocok dengan topik ini
       let specificTPs = [];
       result.tp.forEach(group => {
         const isMatch = group.subTema.toLowerCase().includes(topikName.toLowerCase()) || 
@@ -553,11 +544,19 @@ async function syncToMasterTP(metadata, result, dataTopik) {
       
       console.log('  📝 Jumlah TP untuk topik ini:', specificTPs.length);
 
-      const existingDoc = existingData.find(d => 
-        d.mapel === metadata.mapel && 
-        d.kelas === metadata.kelas && 
-        d.topik.toLowerCase() === topikName.toLowerCase()
+      // ⭐ QUERY DENGAN INDEX - Lebih cepat dan akurat
+      // Memerlukan Composite Index: userId, mapel, kelas, topik
+      const q = query(
+        collection(db, 'data_tp'),
+        where('userId', '==', currentUser.uid),
+        where('mapel', '==', metadata.mapel),
+        where('kelas', '==', metadata.kelas),
+        where('topik', '==', topikName)
       );
+      
+      console.log('  🔍 Mencari dokumen existing dengan indexed query...');
+      const querySnapshot = await getDocs(q);
+      console.log('  📊 Ditemukan', querySnapshot.size, 'dokumen');
 
       const tpData = {
         kelas: metadata.kelas,
@@ -570,7 +569,8 @@ async function syncToMasterTP(metadata, result, dataTopik) {
         userId: currentUser.uid
       };
 
-      if (!existingDoc) {
+      if (querySnapshot.empty) {
+        // Belum ada, buat dokumen BARU
         console.log('  ➕ Membuat dokumen BARU di data_tp...');
         tpData.createdAt = serverTimestamp();
         
@@ -579,22 +579,32 @@ async function syncToMasterTP(metadata, result, dataTopik) {
           console.log('  ✅ BERHASIL! Dokumen baru dibuat dengan ID:', docRef.id);
         } catch (err) {
           console.error('  ❌ GAGAL membuat dokumen:', err);
+          console.error('  Error code:', err.code);
+          console.error('  Error message:', err.message);
+          throw err;
         }
       } else {
-        console.log('  ✏️ Update dokumen EXISTING dengan ID:', existingDoc.id);
+        // Sudah ada, UPDATE dokumen yang ada
+        const existingDoc = querySnapshot.docs[0];
+        console.log('  ️ Update dokumen EXISTING dengan ID:', existingDoc.id);
         
         try {
           await updateDoc(doc(db, 'data_tp', existingDoc.id), tpData);
           console.log('  ✅ BERHASIL! Dokumen diupdate');
         } catch (err) {
           console.error('  ❌ GAGAL update dokumen:', err);
+          console.error('  Error code:', err.code);
+          console.error('  Error message:', err.message);
+          throw err;
         }
       }
     }
     
     console.log('\n🎉 Sinkronisasi ke Master Data TP SELESAI!');
   } catch (error) {
-    console.error('❌ [ERROR FATAL] Sinkronisasi ke Master TP GAGAL:', error);
+    console.error('\n❌ [ERROR FATAL] Sinkronisasi ke Master TP GAGAL:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
     console.error('Stack trace:', error.stack);
   }
 }
@@ -615,7 +625,7 @@ async function autoSaveToFirestore(container, result, metadata, dataTopik) {
       createdAt: serverTimestamp()
     });
 
-    // 2.  DUAL-WRITE: Sinkronisasi ke Master Data TP (Global Monitoring)
+    // 2. ⭐ DUAL-WRITE: Sinkronisasi ke Master Data TP (Global Monitoring)
     await syncToMasterTP(metadata, result, dataTopik);
 
     loadCTAData(container);
