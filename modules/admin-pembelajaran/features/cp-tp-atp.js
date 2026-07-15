@@ -2,12 +2,15 @@
 // =========================================
 // FITUR: CP, TP, & ATP GENERATOR (UNIVERSAL)
 // REVISI: "Elemen" diganti "Sub Tema", Dokumen Tersimpan difungsikan, 
-//         dan pesan error index Firestore dihilangkan.
+//         pesan error index Firestore dihilangkan, 
+//         DAN DUAL-WRITE ke Master Data TP (Global Monitoring).
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
-import { collection, addDoc, query, where, orderBy, onSnapshot, doc, getDoc, serverTimestamp } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { 
+  collection, addDoc, query, where, orderBy, onSnapshot, 
+  doc, getDoc, getDocs, updateDoc, serverTimestamp 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
@@ -372,12 +375,12 @@ async function handleGenerate(container) {
 
   topikItems.forEach(item => {
     const topikNama = item.querySelector('.cp-topik-input')?.value.trim();
-    const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim(); // ⭐ Diubah ke subTema
+    const subTemaNama = item.querySelector('.cp-elemen-input')?.value.trim();
     
     if (topikNama) {
       dataTopik.push({ 
         topik: topikNama,
-        subTema: subTemaNama || 'Umum' // ⭐ Diubah ke subTema
+        subTema: subTemaNama || 'Umum'
       });
       totalTopikValid++;
     }
@@ -430,8 +433,11 @@ async function handleGenerate(container) {
     }
 
     render3TabelHasil(resultContainer, parsedData, { mapel, kelas, semester });
-    await autoSaveToFirestore(container, parsedData, { sekolah, tahun, jenjang, kelas, semester, mapel, guru });
-    showToast('✅ Berhasil generate & tersimpan!', 'success');
+    
+    // ⭐ DUAL-WRITE: Simpan ke cp_tp_atp DAN sinkronisasi ke Master Data TP
+    await autoSaveToFirestore(container, parsedData, { sekolah, tahun, jenjang, kelas, semester, mapel, guru }, dataTopik);
+    
+    showToast('✅ Berhasil generate & tersimpan ke Master Data!', 'success');
 
   } catch (error) {
     console.error('❌ Error generating:', error);
@@ -461,7 +467,7 @@ function buildPrompt(dataTopik, metadata) {
   dataTopik.forEach((item, idx) => {
     const nomorTopik = idx + 1;
     prompt += `TOPIK ${nomorTopik}: ${item.topik}\n`;
-    prompt += `  Sub Tema: ${item.subTema}\n`; // ⭐ Diubah ke Sub Tema
+    prompt += `  Sub Tema: ${item.subTema}\n`;
     prompt += `  → Untuk TP dan ATP, gunakan penomoran ${nomorTopik}.1, ${nomorTopik}.2, dst\n\n`;
   });
 
@@ -471,7 +477,7 @@ function buildPrompt(dataTopik, metadata) {
   
   prompt += `Format output HARUS JSON valid seperti ini (tanpa markdown tambahan di luar block json):\n`;
   prompt += `{\n`;
-  prompt += `  "cp": [{"subTema": "Nama Sub Tema", "deskripsi": "Deskripsi CP..."}],\n`; // ⭐ Diubah ke subTema
+  prompt += `  "cp": [{"subTema": "Nama Sub Tema", "deskripsi": "Deskripsi CP..."}],\n`;
   prompt += `  "tp": [{"subTema": "Nama Sub Tema", "items": ["1.1 TP pertama...", "1.2 TP kedua..."]}],\n`;
   prompt += `  "atp": [{"subTema": "Nama Sub Tema", "items": ["1.1 ATP pertama...", "1.2 ATP kedua..."]}]\n`;
   prompt += `}`;
@@ -532,21 +538,21 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 1: CP
   html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
   data.cp.forEach(item => {
-    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`; // ⭐ Diubah ke subTema
+    html += `<tr><td class="cp-col-elemen">${item.subTema}</td><td>${item.deskripsi}</td></tr>`;
   });
   html += `</tbody></table>`;
 
   // TABEL 2: TP
   html += `<h3 class="cp-tabel-title">🏁 2. Tujuan Pembelajaran (TP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.tp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((tp, tpIdx) => {
       html += `<tr>`;
-      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
+      if (tpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
       html += `<td class="cp-col-no">${idx + 1}.${tpIdx + 1}</td>`;
       html += `<td>${tp}</td>`;
       html += `</tr>`;
@@ -557,12 +563,12 @@ function render3TabelHasil(container, data, metadata) {
   // TABEL 3: ATP
   html += `<h3 class="cp-tabel-title">📊 3. Alur Tujuan Pembelajaran (ATP)</h3>`;
   html += `<table class="cp-table">
-    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`; // ⭐ Diubah ke Sub Tema
+    <thead><tr><th class="cp-col-elemen">Sub Tema</th><th class="cp-col-no">No</th><th>Alur Tujuan Pembelajaran</th></tr></thead><tbody>`;
   data.atp.forEach((item, idx) => {
     const rowspan = item.items.length;
     item.items.forEach((atp, atpIdx) => {
       html += `<tr>`;
-      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`; // ⭐ Diubah ke subTema
+      if (atpIdx === 0) html += `<td class="cp-col-elemen" rowspan="${rowspan}">${item.subTema}</td>`;
       html += `<td class="cp-col-no">${idx + 1}.${atpIdx + 1}</td>`;
       html += `<td>${atp}</td>`;
       html += `</tr>`;
@@ -573,20 +579,95 @@ function render3TabelHasil(container, data, metadata) {
   container.innerHTML = html;
 }
 
-async function autoSaveToFirestore(container, result, metadata) {
+/**
+ * ⭐ FUNGSI BARU: SINKRONISASI KE MASTER DATA TP (GLOBAL MONITORING)
+ */
+async function syncToMasterTP(metadata, result, dataTopik) {
   try {
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+
+    // Flatten semua TP yang di-generate menjadi array string
+    const allGeneratedTPs = result.tp.flatMap(group => group.items);
+    if (allGeneratedTPs.length === 0) return;
+
+    // Simpan per Topik agar terorganisir rapi di Master Data
+    for (const item of dataTopik) {
+      const topikName = item.topik;
+      
+      // Coba cocokkan TP dengan Sub Tema/Topik ini
+      let specificTPs = [];
+      result.tp.forEach(group => {
+        if (group.subTema.toLowerCase().includes(topikName.toLowerCase()) || 
+            topikName.toLowerCase().includes(group.subTema.toLowerCase()) ||
+            dataTopik.length === 1) {
+          specificTPs = specificTPs.concat(group.items);
+        }
+      });
+
+      // Fallback: jika tidak cocok, gunakan semua TP (untuk generasi 1 topik)
+      if (specificTPs.length === 0) {
+        specificTPs = allGeneratedTPs;
+      }
+
+      // Cek apakah topik ini sudah ada di Master Data untuk user, mapel, dan kelas ini
+      const q = query(
+        collection(db, 'data_tp'),
+        where('userId', '==', currentUser.uid),
+        where('mapel', '==', metadata.mapel),
+        where('kelas', '==', metadata.kelas),
+        where('topik', '==', topikName)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
+      const tpData = {
+        kelas: metadata.kelas,
+        fase: fase,
+        mapel: metadata.mapel,
+        semester: metadata.semester,
+        topik: topikName,
+        tujuan_pembelajaran: specificTPs,
+        updatedAt: serverTimestamp(),
+        userId: currentUser.uid
+      };
+
+      if (querySnapshot.empty) {
+        // Belum ada, buat baru
+        tpData.createdAt = serverTimestamp();
+        await addDoc(collection(db, 'data_tp'), tpData);
+      } else {
+        // Sudah ada, update agar selalu yang terbaru
+        const existingDoc = querySnapshot.docs[0];
+        await updateDoc(doc(db, 'data_tp', existingDoc.id), tpData);
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Sinkronisasi ke Master TP gagal (non-fatal):', error);
+    // Tidak throw error agar penyimpanan utama ke cp_tp_atp tetap berhasil
+  }
+}
+
+async function autoSaveToFirestore(container, result, metadata, dataTopik) {
+  try {
+    // 1. Simpan ke koleksi cp_tp_atp (Arsip Admin Pembelajaran)
     await addDoc(collection(db, 'cp_tp_atp'), {
       userId: currentUser.uid,
       userEmail: currentUser.email,
       userName: currentUser.namaLengkap || 'Guru',
       ...metadata,
-      topik: result.tp.map(e => e.subTema).join(', '), // ⭐ Diubah ke subTema
+      topik: dataTopik.map(t => t.topik).join(', '), 
       cp: JSON.stringify(result.cp),
       tp: JSON.stringify(result.tp),
       atp: JSON.stringify(result.atp),
       mode: 'AI-Generated',
       createdAt: serverTimestamp()
     });
+
+    // 2. ⭐ DUAL-WRITE: Sinkronisasi ke Master Data TP (Global Monitoring)
+    await syncToMasterTP(metadata, result, dataTopik);
+
     loadCTAData(container);
   } catch (error) {
     console.warn('⚠️ Auto-save gagal:', error);
@@ -710,7 +791,6 @@ function loadCTAData(container) {
 
   const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
 
-  // ⭐ onSnapshot sudah berfungsi real-time. Error handler dibuat silent agar tidak mengganggu.
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
       list.innerHTML = '<p class="cp-empty-state">Belum ada dokumen tersimpan</p>';
@@ -727,14 +807,12 @@ function loadCTAData(container) {
             <div><strong>${d.mapel?.toUpperCase() || '-'} - Kelas ${d.kelas}</strong><br><small>${d.userName} • ${d.sekolah || '-'}</small></div>
             <small class="cp-document-date">${date}</small>
           </div>
-          <p><strong>📋 Sub Tema:</strong> ${d.topik || '-'}</p> ⭐ Diubah ke Sub Tema
+          <p><strong>📋 Sub Tema:</strong> ${d.topik || '-'}</p>
         </div>
       `;
     }).join('');
   }, (error) => {
-    // ⭐ Pesan error index Firestore dihilangkan dari UI, hanya dicatat di console
-    console.warn('⚠️ Gagal memuat riwayat dokumen (mungkin index belum ready):', error.message);
-    // UI tetap bersih, tidak menampilkan pesan "tunggu 5-10 menit"
+    console.warn('⚠️ Gagal memuat riwayat dokumen:', error.message);
   });
 }
 
