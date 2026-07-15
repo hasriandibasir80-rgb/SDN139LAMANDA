@@ -1,7 +1,7 @@
 // modules/global-monitoring/features/data-tp.js
 // =========================================
 // FITUR: DATA TP (MASTER DATA TUJUAN PEMBELAJARAN)
-// FUNGSI: Single Source of Truth untuk seluruh sub-fitur Admin Pembelajaran
+// FUNGSI: Single Source of Truth untuk seluruh sub-fitur aplikasi
 // TERINTEGRASI: Firestore (Collection: 'data_tp')
 // =========================================
 
@@ -27,7 +27,7 @@ const FALLBACK_MAPEL = [
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '️' },
   { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
 ];
 
@@ -154,14 +154,14 @@ function renderUI(container) {
               </select>
             </div>
             <div class="dtp-form-group">
-              <label>📝 Topik Pembelajaran</label>
+              <label> Topik Pembelajaran</label>
               <input type="text" id="dtp-topik" class="dtp-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
           </div>
           <div class="dtp-form-group">
             <label>🎯 Daftar Tujuan Pembelajaran (TP)</label>
             <textarea id="dtp-list-tp" class="dtp-form-control" placeholder="1. Siswa mampu mengidentifikasi bagian tubuh tumbuhan&#10;2. Siswa mampu menjelaskan fungsi akar, batang, dan daun&#10;(Pisahkan setiap TP dengan baris baru / Enter)"></textarea>
-            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini akan menjadi master data yang bisa dipilih oleh fitur RPM, KKTP, LKPD, dan Kisi-kisi.</p>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini adalah <strong>Master Data Terpusat (Single Source of Truth)</strong> yang dapat diakses secara universal oleh seluruh fitur aplikasi (RPM, KKTP, LKPD, Kisi-kisi, dan fitur-fitur baru di masa depan) sesuai kebutuhan.</p>
           </div>
         </div>
 
@@ -222,7 +222,7 @@ function attachEvents(container) {
 
   // Reset
   container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm('🔄 Reset form?')) {
+    if (confirm(' Reset form?')) {
       currentEditId = null;
       container.querySelector('#dtp-kelas').value = '';
       container.querySelector('#dtp-mapel').value = '';
@@ -247,7 +247,7 @@ async function handleSimpan(container) {
   const tpText = container.querySelector('#dtp-list-tp').value.trim();
 
   if (!kelas || !mapel || !topik || !tpText) {
-    showToast('⚠️ Lengkapi semua field (Kelas, Mapel, Topik, dan TP)!', 'error');
+    showToast('️ Lengkapi semua field (Kelas, Mapel, Topik, dan TP)!', 'error');
     return;
   }
 
@@ -301,8 +301,7 @@ function loadDataTP(container) {
   // Query dasar: ambil semua data user ini
   const q = query(
     collection(db, 'data_tp'),
-    where('userId', '==', currentUser.uid),
-    // orderBy('createdAt', 'desc') // Opsional, bisa menyebabkan error index jika belum dibuat
+    where('userId', '==', currentUser.uid)
   );
 
   onSnapshot(q, (snapshot) => {
@@ -342,7 +341,7 @@ function loadDataTP(container) {
               <div class="dtp-item-meta">Topik: <strong>${d.topik}</strong></div>
             </div>
             <div class="dtp-item-actions">
-              <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
+              <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">️ Edit</button>
               <button onclick="deleteDataTP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
             </div>
           </div>
@@ -365,7 +364,7 @@ window.editDataTP = async function(id) {
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
-      showToast('❌ Data tidak ditemukan!', 'error');
+      showToast(' Data tidak ditemukan!', 'error');
       return;
     }
 
@@ -390,14 +389,14 @@ window.editDataTP = async function(id) {
 };
 
 window.deleteDataTP = async function(id) {
-  if (!confirm('⚠️ Yakin hapus Data TP ini? Penghapusan akan mempengaruhi sub-fitur yang menggunakan data ini.')) return;
+  if (!confirm('️ Yakin hapus Data TP ini? Penghapusan akan mempengaruhi sub-fitur yang menggunakan data ini.')) return;
   
   try {
     await deleteDoc(doc(db, 'data_tp', id));
     showToast('✅ Data TP berhasil dihapus!');
   } catch (error) {
     console.error('Error deleting:', error);
-    showToast('❌ Gagal menghapus!', 'error');
+    showToast(' Gagal menghapus!', 'error');
   }
 };
 
@@ -455,7 +454,7 @@ function handleExportWord(container) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('📥 Word berhasil diunduh!');
+  showToast(' Word berhasil diunduh!');
 }
 
 function showToast(msg, type = 'success') {
