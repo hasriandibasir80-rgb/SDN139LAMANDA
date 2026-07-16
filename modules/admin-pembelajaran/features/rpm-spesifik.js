@@ -3,7 +3,7 @@
 // FITUR: RPM SPESIFIK (Rencana Pembelajaran Mendalam)
 // TEMPLATE KHUSUS PER METODE PEMBELAJARAN
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
-// UPDATE: 3 Opsi untuk CP & TP (Master Data, AI, Manual)
+// UPDATE: 3 Opsi untuk CP & TP dengan Fuzzy Matching (seperti LKPD)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -33,17 +33,17 @@ const DEFAULT_TTD = {
 
 // Fallback Data Mapel
 const FALLBACK_MAPEL = [
-  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
   { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
 ];
 
 // Template Langkah Pembelajaran per Metode
@@ -228,7 +228,7 @@ function loadCSS() {
 }
 
 function renderUI(container) {
-  const aiReady = groqApiKey ? '✅ AI Siap' : '️ API Key Belum Aktif';
+  const aiReady = groqApiKey ? '✅ AI Siap' : '⚠️ API Key Belum Aktif';
   const aiStatusClass = groqApiKey ? 'rpm-badge-spesifik' : '';
   
   let mapelOptions = '<option value="">-- Pilih Mapel --</option>';
@@ -251,8 +251,8 @@ function renderUI(container) {
       </div>
 
       <div class="rpm-tabs">
-        <button class="rpm-tab active" data-tab="form"> Buat/Edit RPM</button>
-        <button class="rpm-tab" data-tab="list"> RPM Tersimpan</button>
+        <button class="rpm-tab active" data-tab="form">📝 Buat/Edit RPM</button>
+        <button class="rpm-tab" data-tab="list">📚 RPM Tersimpan</button>
       </div>
 
       <div id="rpm-form-section">
@@ -260,11 +260,11 @@ function renderUI(container) {
           <h3 class="rpm-section-title">📋 1. Identitas Dokumen</h3>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label> Sekolah</label>
+              <label>🏫 Sekolah</label>
               <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
             </div>
             <div class="rpm-form-group">
-              <label>👩🏫 Nama Guru</label>
+              <label>👩‍🏫 Nama Guru</label>
               <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
           </div>
@@ -288,23 +288,23 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label> Topik / Materi</label>
+              <label>📝 Topik / Materi</label>
               <input type="text" id="rpm-topik" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
             <div class="rpm-form-group">
-              <label> Alokasi Waktu</label>
+              <label>⏰ Alokasi Waktu</label>
               <input type="text" id="rpm-alokasi" class="rpm-form-control" placeholder="Contoh: 4 Pertemuan (8 x 35 Menit)">
             </div>
           </div>
           <div class="rpm-form-group">
-            <label> Metode Pembelajaran</label>
+            <label>🎨 Metode Pembelajaran</label>
             <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
           </div>
           <div id="metode-info-container"></div>
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">🎯 1.5 Target & Sarana Prasarana</h3>
+          <h3 class="rpm-section-title"> 1.5 Target & Sarana Prasarana</h3>
           <div class="rpm-form-group">
             <label>🎯 Target Peserta Didik</label>
             <textarea id="rpm-target-peserta-didik" class="rpm-form-control" rows="3" placeholder="Contoh: Siswa kelas 4 yang telah memahami konsep dasar..."></textarea>
@@ -316,7 +316,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 2. Analisis Kesiapan Murid</h3>
+          <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
           <div class="rpm-form-group">
             <label>🔴 Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
@@ -332,7 +332,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">📖 3. Tujuan & Profil Lulusan</h3>
+          <h3 class="rpm-section-title"> 3. Tujuan & Profil Lulusan</h3>
           <div class="rpm-form-group">
             <label>📖 Capaian Pembelajaran (CP)</label>
             <div class="method-options">
@@ -408,7 +408,7 @@ function renderUI(container) {
           </div>
 
           <div class="rpm-form-group">
-            <label> Profil Lulusan yang Disasar (pilih 3-4)</label>
+            <label>🌟 Profil Lulusan yang Disasar (pilih 3-4)</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
               <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Keimanan dan Ketakwaan"> Keimanan & Ketakwaan</label>
               <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kewargaan"> Kewargaan</label>
@@ -460,7 +460,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">🔄 7. Refleksi</h3>
+          <h3 class="rpm-section-title"> 7. Refleksi</h3>
           <div class="rpm-form-group">
             <label>🧑‍🏫 Refleksi Guru</label>
             <textarea id="rpm-refleksi-guru" class="rpm-form-control" rows="2"></textarea>
@@ -491,7 +491,7 @@ function renderUI(container) {
           <h3 class="rpm-section-title">✍️ 9. Tanda Tangan</h3>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👨‍💼 Nama Kepala Sekolah</label>
+              <label>‍💼 Nama Kepala Sekolah</label>
               <input type="text" id="rpm-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.namaKepsek}">
             </div>
             <div class="rpm-form-group">
@@ -501,7 +501,7 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👩‍ Nama Guru Pengampu</label>
+              <label>👩‍🏫 Nama Guru Pengampu</label>
               <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
             <div class="rpm-form-group">
@@ -513,8 +513,8 @@ function renderUI(container) {
 
         <div class="rpm-actions">
           <button class="rpm-btn rpm-btn-primary" id="btn-generate-ai">✨ Generate dengan AI</button>
-          <button class="rpm-btn rpm-btn-success" id="btn-simpan"> Simpan ke Database</button>
-          <button class="rpm-btn rpm-btn-warning" id="btn-export">📥 Export Word</button>
+          <button class="rpm-btn rpm-btn-success" id="btn-simpan">💾 Simpan ke Database</button>
+          <button class="rpm-btn rpm-btn-warning" id="btn-export"> Export Word</button>
           <button class="rpm-btn rpm-btn-secondary" id="btn-reset">🔄 Reset Form</button>
         </div>
       </div>
@@ -523,7 +523,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
           <div id="rpm-list-container">
-            <div class="rpm-loading"> Memuat data...</div>
+            <div class="rpm-loading">⏳ Memuat data...</div>
           </div>
         </div>
       </div>
@@ -575,7 +575,7 @@ function attachEvents(container) {
         <div class="metode-info">
           <h4>📚 ${info.nama}</h4>
           <p>${info.deskripsi}</p>
-          <p style="margin-top: 8px;"><strong>📋 Template:</strong> ${info.langkah.length} Pertemuan</p>
+          <p style="margin-top: 8px;"><strong> Template:</strong> ${info.langkah.length} Pertemuan</p>
         </div>
       `;
       loadTemplatePertemuan(metode);
@@ -596,7 +596,7 @@ function attachEvents(container) {
 
   // Reset
   container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm('⚠️ Reset semua form?')) {
+    if (confirm('️ Reset semua form?')) {
       currentEditId = null;
       container.querySelectorAll('input[type="text"], textarea').forEach(el => {
         if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
@@ -638,35 +638,37 @@ function attachEvents(container) {
   container.querySelector('#btnGenerateTP').addEventListener('click', () => generateTPWithAI(container));
 }
 
-// ========== FUNGSI CP: LOAD DARI MASTER DATA ==========
+// ========== FUNGSI CP: LOAD DARI MASTER DATA (FUZZY MATCHING) ==========
 async function loadMasterCP(container) {
   const mapelInput = container.querySelector('#rpm-mapel').value.trim();
   const kelasFull = container.querySelector('#rpm-kelas').value;
   const fase = kelasFull ? kelasFull.split('|')[1] : '';
 
   if (!mapelInput || !fase) {
-    showToast('️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+    showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
     return;
   }
 
   const btn = container.querySelector('#btnLoadMasterCP');
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = '⏳ Memuat...';
+  btn.textContent = ' Memuat...';
 
   try {
+    // Query hanya berdasarkan userId untuk menghindari index issue
     const q = query(
       collection(db, 'data_cp'),
-      where('userId', '==', currentUser.uid),
-      where('fase', '==', fase)
+      where('userId', '==', currentUser.uid)
     );
     
     const snapshot = await getDocs(q);
     const select = container.querySelector('#selectMasterCP');
     select.innerHTML = '';
 
+    console.log('🔍 Load CP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
+
     if (snapshot.empty) {
-      select.innerHTML = '<option value="" disabled>❌ Tidak ada CP di Master Data untuk Fase ini. Coba Opsi 2 atau 3.</option>';
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada CP di Master Data. Coba Opsi 2 atau 3.</option>';
       select.style.display = 'block';
       container.querySelector('#masterCPHint').style.display = 'none';
     } else {
@@ -675,12 +677,17 @@ async function loadMasterCP(container) {
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const dbMapel = (data.mapel || '').toLowerCase();
+        const dbFase = data.fase || '';
         const mapelLower = mapelInput.toLowerCase();
         
-        // Fuzzy matching untuk mapel
+        console.log('Checking CP - DB Mapel:', dbMapel, 'DB Fase:', dbFase);
+        
+        // Fuzzy matching untuk mapel (case-insensitive & partial match)
         const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
+        const matchFase = dbFase === fase;
 
-        if (matchMapel) {
+        if (matchMapel && matchFase) {
+          console.log('✅ Match found!');
           if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
             data.elemen_cp.forEach((elemen) => {
               const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
@@ -696,8 +703,10 @@ async function loadMasterCP(container) {
         }
       });
 
+      console.log('Total CP found:', foundCount);
+
       if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled>❌ Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.innerHTML = `<option value="" disabled> Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
         select.style.display = 'block';
         container.querySelector('#masterCPHint').style.display = 'none';
       } else {
@@ -707,7 +716,7 @@ async function loadMasterCP(container) {
       }
     }
   } catch (error) {
-    console.error('Error loading Master CP:', error);
+    console.error(' Error loading Master CP:', error);
     showToast('❌ Gagal memuat Master Data CP: ' + error.message, 'error');
   } finally {
     btn.disabled = false;
@@ -718,7 +727,7 @@ async function loadMasterCP(container) {
 // ========== FUNGSI CP: GENERATE DENGAN AI ==========
 async function generateCPWithAI(container) {
   if (!groqApiKey) {
-    showToast('⚠️ API Key tidak tersedia.', 'error');
+    showToast('️ API Key tidak tersedia.', 'error');
     return;
   }
   const mapel = container.querySelector('#rpm-mapel').value;
@@ -772,7 +781,7 @@ Deskripsi: Siswa mampu menerapkan keterampilan proses...`;
   }
 }
 
-// ========== FUNGSI TP: LOAD DARI MASTER DATA ==========
+// ========== FUNGSI TP: LOAD DARI MASTER DATA (FUZZY MATCHING) ==========
 async function loadMasterTP(container) {
   const mapelInput = container.querySelector('#rpm-mapel').value.trim();
   const kelasFull = container.querySelector('#rpm-kelas').value;
@@ -790,18 +799,20 @@ async function loadMasterTP(container) {
   btn.textContent = '⏳ Memuat...';
 
   try {
+    // Query hanya berdasarkan userId untuk menghindari index issue
     const q = query(
       collection(db, 'data_tp'),
-      where('userId', '==', currentUser.uid),
-      where('kelas', '==', kelas)
+      where('userId', '==', currentUser.uid)
     );
     
     const snapshot = await getDocs(q);
     const select = container.querySelector('#selectMasterTP');
     select.innerHTML = '';
 
+    console.log('🔍 Load TP - Mapel:', mapelInput, 'Kelas:', kelas, 'Topik:', topikInput, 'Total docs:', snapshot.size);
+
     if (snapshot.empty) {
-      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data untuk Kelas ini. Coba Opsi 2 atau 3.</option>';
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data. Coba Opsi 2 atau 3.</option>';
       select.style.display = 'block';
       container.querySelector('#masterTPHint').style.display = 'none';
     } else {
@@ -810,18 +821,25 @@ async function loadMasterTP(container) {
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
         const dbMapel = (data.mapel || '').toLowerCase();
+        const dbKelas = data.kelas || '';
         const dbTopik = (data.topik || '').toLowerCase();
         const mapelLower = mapelInput.toLowerCase();
         const topikLower = topikInput.toLowerCase();
         
-        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
+        console.log('Checking TP - DB Mapel:', dbMapel, 'DB Kelas:', dbKelas, 'DB Topik:', dbTopik);
         
+        // Fuzzy matching untuk mapel
+        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
+        const matchKelas = dbKelas === kelas;
+        
+        // Fuzzy matching untuk topik (partial match)
         const inputTopikWords = topikLower.split(/\s+/).filter(w => w.length > 2);
         const matchTopik = inputTopikWords.some(word => dbTopik.includes(word)) || 
                            dbTopik.includes(topikLower) || 
                            topikLower.includes(dbTopik);
 
-        if (matchMapel && matchTopik) {
+        if (matchMapel && matchKelas && matchTopik) {
+          console.log('✅ Match found!');
           if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
             data.tujuan_pembelajaran.forEach((tp) => {
               const option = document.createElement('option');
@@ -835,8 +853,10 @@ async function loadMasterTP(container) {
         }
       });
 
+      console.log('Total TP found:', foundCount);
+
       if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Topik: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Kelas: ${kelas}<br>Topik: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
         select.style.display = 'block';
         container.querySelector('#masterTPHint').style.display = 'none';
       } else {
@@ -846,7 +866,7 @@ async function loadMasterTP(container) {
       }
     }
   } catch (error) {
-    console.error('Error loading Master TP:', error);
+    console.error('❌ Error loading Master TP:', error);
     showToast('❌ Gagal memuat Master Data TP: ' + error.message, 'error');
   } finally {
     btn.disabled = false;
@@ -1221,7 +1241,7 @@ async function handleSimpan(container) {
   const metode = container.querySelector('#rpm-metode').value;
 
   if (!sekolah || !guru || !mapel || !kelas || !topik || !metode) {
-    showToast('️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
+    showToast('⚠️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
     return;
   }
 
@@ -1329,11 +1349,11 @@ async function handleSimpan(container) {
 function loadRPMList(container) {
   const listContainer = container.querySelector('#rpm-list-container');
   
+  // Query sederhana tanpa orderBy untuk menghindari index issue
   const q = query(
     collection(db, 'rpm_data'),
     where('userId', '==', currentUser.uid),
-    where('jenis', '==', 'spesifik'),
-    orderBy('createdAt', 'desc')
+    where('jenis', '==', 'spesifik')
   );
 
   onSnapshot(q, (snapshot) => {
@@ -1342,8 +1362,11 @@ function loadRPMList(container) {
       return;
     }
 
-    listContainer.innerHTML = snapshot.docs.map(docSnap => {
-      const d = docSnap.data();
+    // Sort manually by createdAt
+    const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+    docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+    listContainer.innerHTML = docs.map(d => {
       const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
       return `
         <div class="rpm-item">
@@ -1353,8 +1376,8 @@ function loadRPMList(container) {
               <div class="rpm-item-meta">Kelas ${d.identitas?.kelas || '-'} | Metode: ${d.metode_pembelajaran || '-'} | ${date}</div>
             </div>
             <div class="rpm-item-actions">
-              <button onclick="editRPM('${docSnap.id}')" style="background: #3b82f6;">✏️ Edit</button>
-              <button onclick="deleteRPM('${docSnap.id}')" style="background: #ef4444;">🗑️ Hapus</button>
+              <button onclick="editRPM('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
+              <button onclick="deleteRPM('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
             </div>
           </div>
         </div>
@@ -1362,11 +1385,7 @@ function loadRPMList(container) {
     }).join('');
   }, (error) => {
     console.warn('Error loading RPM list:', error);
-    if (error.code === 'failed-precondition') {
-      listContainer.innerHTML = '<div class="rpm-empty">⚠️ Index Firestore sedang diproses. Silakan tunggu beberapa menit.</div>';
-    } else {
-      listContainer.innerHTML = '<div class="rpm-empty"> Gagal memuat data</div>';
-    }
+    listContainer.innerHTML = '<div class="rpm-empty">❌ Gagal memuat data</div>';
   });
 }
 
@@ -1490,7 +1509,7 @@ window.deleteRPM = async function(id) {
 function handleExportWord(container) {
   const data = gatherFormData(container);
   if (!data.identitas.topik) {
-    showToast('️ Isi data terlebih dahulu!', 'error');
+    showToast('⚠️ Isi data terlebih dahulu!', 'error');
     return;
   }
 
@@ -1530,7 +1549,7 @@ function handleExportWord(container) {
 
     <h2>B. ANALISIS KESIAPAN MURID</h2>
     <p><strong>🔴 Belum Siap:</strong> ${d.analisis_kesiapan.belum_siap}</p>
-    <p><strong>🟡 Siap:</strong> ${d.analisis_kesiapan.siap}</p>
+    <p><strong> Siap:</strong> ${d.analisis_kesiapan.siap}</p>
     <p><strong>🟢 Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
 
     <h2>C. TUJUAN & PROFIL LULUSAN</h2>
