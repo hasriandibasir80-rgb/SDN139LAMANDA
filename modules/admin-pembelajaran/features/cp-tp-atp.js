@@ -4,6 +4,7 @@
 // REVISI: 
 // 1. Perbaikan teks yang bocor ke UI dan validasi user pada loadCTAData.
 // 2. Penambahan fitur sinkronisasi manual ke Global Monitoring (Master Data TP).
+// 3. AUTO-SAVE CP ke Master Data CP (data_cp collection)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -165,7 +166,7 @@ function renderCTAGenerator(container) {
         </p>
 
         <form id="cp-form">
-          <div class="cp-section-title">📋 1. Informasi Dasar</div>
+          <div class="cp-section-title"> 1. Informasi Dasar</div>
           
           <div class="cp-form-group">
             <label class="cp-label" for="cp-kop-sekolah">🏫 Nama Sekolah</label>
@@ -178,7 +179,7 @@ function renderCTAGenerator(container) {
               <input type="text" id="cp-kop-tahun" value="2026/2027" class="cp-input">
             </div>
             <div class="cp-form-group">
-              <label class="cp-label" for="cp-guru">👩‍🏫 Nama Guru</label>
+              <label class="cp-label" for="cp-guru">👩‍ Nama Guru</label>
               <input type="text" id="cp-guru" value="${userNama}" class="cp-input">
             </div>
           </div>
@@ -234,7 +235,7 @@ function renderCTAGenerator(container) {
         </form>
 
         <div id="cp-result" class="cp-result-section cp-hidden">
-          <h3 class="cp-result-title">📋 Hasil Generate</h3>
+          <h3 class="cp-result-title"> Hasil Generate</h3>
           <div id="cp-result-table-container">
             <!-- 3 Tabel hasil dirender di sini -->
           </div>
@@ -329,7 +330,7 @@ function attachEventListeners(container) {
   if (btnPrint) btnPrint.addEventListener('click', () => {
     const resultContainer = container.querySelector('#cp-result-table-container');
     if (!resultContainer || resultContainer.innerHTML.trim() === '') {
-      showToast('⚠️ Generate data dulu sebelum print!', 'warning');
+      showToast('️ Generate data dulu sebelum print!', 'warning');
       return;
     }
     window.print();
@@ -370,7 +371,7 @@ async function handleGenerate(container) {
 
   const topikItems = container.querySelectorAll('.cp-topik-item');
   if (topikItems.length === 0) { 
-    showToast('⚠️ Tambahkan minimal 1 topik!', 'error'); 
+    showToast('️ Tambahkan minimal 1 topik!', 'error'); 
     return; 
   }
 
@@ -391,7 +392,7 @@ async function handleGenerate(container) {
   });
 
   if (totalTopikValid === 0) { 
-    showToast('⚠️ Minimal isi 1 Topik/Materi!', 'error'); 
+    showToast('️ Minimal isi 1 Topik/Materi!', 'error'); 
     return; 
   }
 
@@ -442,6 +443,10 @@ async function handleGenerate(container) {
     lastGeneratedData = { parsedData, metadata: { sekolah, tahun, jenjang, kelas, semester, mapel, guru } };
     
     await autoSaveToFirestore(container, parsedData, { sekolah, tahun, jenjang, kelas, semester, mapel, guru });
+    
+    // ⭐ BARU: Auto-save CP ke Master Data CP
+    await autoSaveCPToMasterData(parsedData, { kelas, semester, mapel, jenjang });
+    
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
   } catch (error) {
@@ -501,7 +506,7 @@ function parseAIResponse(aiResponse) {
     }
     return validateAndFixData(JSON.parse(aiResponse));
   } catch (error) {
-    console.error('❌ JSON Parse Error:', error);
+    console.error(' JSON Parse Error:', error);
     try {
       const cleaned = aiResponse.replace(/```json|```/g, '').trim();
       return validateAndFixData(JSON.parse(cleaned));
@@ -541,7 +546,7 @@ function render3TabelHasil(container, data, metadata) {
   `;
 
   // TABEL 1: CP
-  html += `<h3 class="cp-tabel-title">🎯 1. Capaian Pembelajaran (CP)</h3>`;
+  html += `<h3 class="cp-tabel-title"> 1. Capaian Pembelajaran (CP)</h3>`;
   html += `<table class="cp-table">
     <thead><tr><th class="cp-col-elemen">Sub Tema</th><th>Capaian Pembelajaran</th></tr></thead><tbody>`;
   data.cp.forEach(item => {
@@ -601,6 +606,45 @@ async function autoSaveToFirestore(container, result, metadata) {
     loadCTAData(container);
   } catch (error) {
     console.warn('⚠️ Auto-save gagal:', error);
+  }
+}
+
+/**
+ * ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
+ * Menyimpan CP yang di-generate ke collection 'data_cp' untuk jadi referensi global
+ */
+async function autoSaveCPToMasterData(result, metadata) {
+  try {
+    if (!result.cp || result.cp.length === 0) return;
+    
+    // Tentukan Fase berdasarkan Kelas/Jenjang
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+    
+    // Format CP untuk disimpan ke data_cp
+    // Struktur: elemen_cp adalah array dari object {elemen, deskripsi}
+    const elemenCP = result.cp.map(cpItem => ({
+      elemen: cpItem.subTema || 'Umum',
+      deskripsi: cpItem.deskripsi || ''
+    }));
+    
+    const cpData = {
+      fase: fase,
+      mapel: metadata.mapel,
+      elemen_cp: elemenCP,
+      source: 'AI-Generator-AutoSave',
+      userId: currentUser.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    
+    // Simpan ke collection data_cp
+    await addDoc(collection(db, 'data_cp'), cpData);
+    console.log('✅ CP berhasil disimpan ke Master Data');
+  } catch (error) {
+    console.warn('⚠️ Auto-save CP ke Master Data gagal:', error);
+    // Jangan tampilkan error ke user karena ini hanya bonus feature
   }
 }
 
@@ -741,7 +785,7 @@ async function handleSyncToMasterTP(container) {
     return;
   }
 
-  showToast('⏳ Sedang menyinkronkan data...', 'warning');
+  showToast(' Sedang menyinkronkan data...', 'warning');
 
   try {
     // Tentukan Fase berdasarkan Kelas (Logika sama persis dengan data-tp.js)
