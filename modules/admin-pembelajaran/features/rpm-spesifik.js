@@ -3,6 +3,7 @@
 // FITUR: RPM SPESIFIK (Rencana Pembelajaran Mendalam)
 // TEMPLATE KHUSUS PER METODE PEMBELAJARAN
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
+// UPDATE: Penambahan Target Peserta Didik & Sarana Prasarana
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -266,7 +267,7 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label> Mata Pelajaran</label>
+              <label>📚 Mata Pelajaran</label>
               <select id="rpm-mapel" class="rpm-form-control">${mapelOptions}</select>
             </div>
             <div class="rpm-form-group">
@@ -299,8 +300,21 @@ function renderUI(container) {
           <div id="metode-info-container"></div>
         </div>
 
+        <!-- ⭐ BAGIAN BARU: Target & Sarana Prasarana -->
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 2. Analisis Kesiapan Murid</h3>
+          <h3 class="rpm-section-title">🎯 1.5 Target & Sarana Prasarana</h3>
+          <div class="rpm-form-group">
+            <label>🎯 Target Peserta Didik</label>
+            <textarea id="rpm-target-peserta-didik" class="rpm-form-control" rows="3" placeholder="Contoh: Siswa kelas 4 yang telah memahami konsep dasar..."></textarea>
+          </div>
+          <div class="rpm-form-group">
+            <label>🏫 Sarana dan Prasarana yang Digunakan</label>
+            <textarea id="rpm-sarana-prasarana" class="rpm-form-control" rows="3" placeholder="Contoh: Proyektor, Laptop, Lembar Kerja, Alat Peraga..."></textarea>
+          </div>
+        </div>
+
+        <div class="rpm-section">
+          <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
           <div class="rpm-form-group">
             <label>🔴 Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
@@ -316,7 +330,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 3. Tujuan & Profil Lulusan</h3>
+          <h3 class="rpm-section-title">📖 3. Tujuan & Profil Lulusan</h3>
           <div class="rpm-form-group">
             <label>📖 Capaian Pembelajaran (CP)</label>
             <textarea id="rpm-cp" class="rpm-form-control" rows="3" placeholder="Paste CP dari kurikulum..."></textarea>
@@ -346,7 +360,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title"> 5. Asesmen Holistik</h3>
+          <h3 class="rpm-section-title">📊 5. Asesmen Holistik</h3>
           <div class="rpm-form-group">
             <label>🔍 Asesmen Diagnostik</label>
             <textarea id="rpm-diagnostik" class="rpm-form-control" rows="2"></textarea>
@@ -406,20 +420,20 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">️ 9. Tanda Tangan</h3>
+          <h3 class="rpm-section-title">✍️ 9. Tanda Tangan</h3>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
               <label>👨‍💼 Nama Kepala Sekolah</label>
               <input type="text" id="rpm-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.namaKepsek}">
             </div>
             <div class="rpm-form-group">
-              <label> NIP Kepala Sekolah</label>
+              <label>🔢 NIP Kepala Sekolah</label>
               <input type="text" id="rpm-nip-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.nipKepsek}">
             </div>
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👩‍ Nama Guru Pengampu</label>
+              <label>👩‍🏫 Nama Guru Pengampu</label>
               <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
             <div class="rpm-form-group">
@@ -441,7 +455,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
           <div id="rpm-list-container">
-            <div class="rpm-loading"> Memuat data...</div>
+            <div class="rpm-loading">⏳ Memuat data...</div>
           </div>
         </div>
       </div>
@@ -492,7 +506,7 @@ function attachEvents(container) {
 
   // Reset
   container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm(' Reset semua form?')) {
+    if (confirm('⚠️ Reset semua form?')) {
       currentEditId = null;
       container.querySelectorAll('input[type="text"], textarea').forEach(el => {
         if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
@@ -506,7 +520,7 @@ function attachEvents(container) {
         } else if (el.id === 'rpm-sekolah') {
           el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
         } else {
-          el.value = '';
+          el.value = ''; // Ini otomatis mengosongkan textarea baru juga
         }
       });
       container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
@@ -586,8 +600,6 @@ function saveTTDDefaults() {
   localStorage.setItem('rpm_ttd', JSON.stringify(ttdData));
 }
 
-// ... (fungsi handleGenerateAI, handleSimpan, loadRPMList, editRPM, deleteRPM, handleExportWord, gatherFormData, showToast sama seperti rpm-standar.js, hanya field 'jenis' yang berbeda)
-
 async function handleGenerateAI(container) {
   if (!groqApiKey) {
     showToast('⚠️ API Key belum aktif!', 'error');
@@ -617,6 +629,8 @@ Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} deng
 
 WAJIB output dalam format JSON berikut (tanpa markdown tambahan):
 {
+  "target_peserta_didik": "Deskripsi karakteristik siswa target...",
+  "sarana_prasarana": "Daftar alat, bahan, dan media...",
   "analisis_kesiapan": {
     "belum_siap": "deskripsi...",
     "siap": "deskripsi...",
@@ -692,7 +706,10 @@ PENTING:
       parsed = JSON.parse(aiText);
     }
 
-    // Isi form dengan data AI (sama seperti rpm-standar.js)
+    // ⭐ Mapping data baru dari AI
+    if (parsed.target_peserta_didik) container.querySelector('#rpm-target-peserta-didik').value = parsed.target_peserta_didik;
+    if (parsed.sarana_prasarana) container.querySelector('#rpm-sarana-prasarana').value = parsed.sarana_prasarana;
+
     if (parsed.analisis_kesiapan) {
       container.querySelector('#rpm-belum-siap').value = parsed.analisis_kesiapan.belum_siap || '';
       container.querySelector('#rpm-siap').value = parsed.analisis_kesiapan.siap || '';
@@ -789,7 +806,7 @@ async function handleSimpan(container) {
   });
 
   const dataRPM = {
-    jenis: 'spesifik', // Berbeda dengan rpm-standar
+    jenis: 'spesifik',
     metode_pembelajaran: metode,
     identitas: {
       sekolah, guru, mapel,
@@ -798,6 +815,9 @@ async function handleSimpan(container) {
       topik,
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
+    // ⭐ Data baru ditambahkan di sini
+    target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
+    sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
     analisis_kesiapan: {
       belum_siap: container.querySelector('#rpm-belum-siap').value,
       siap: container.querySelector('#rpm-siap').value,
@@ -869,7 +889,7 @@ function loadRPMList(container) {
   const q = query(
     collection(db, 'rpm_data'),
     where('userId', '==', currentUser.uid),
-    where('jenis', '==', 'spesifik'), // Berbeda dengan rpm-standar
+    where('jenis', '==', 'spesifik'),
     orderBy('createdAt', 'desc')
   );
 
@@ -907,8 +927,6 @@ function loadRPMList(container) {
   });
 }
 
-// ... (fungsi editRPM, deleteRPM, handleExportWord, gatherFormData, showToast sama seperti rpm-standar.js)
-
 window.editRPM = async function(id) {
   try {
     const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
@@ -931,8 +949,11 @@ window.editRPM = async function(id) {
     document.querySelector('#rpm-alokasi').value = d.identitas?.alokasi_waktu || '';
     document.querySelector('#rpm-metode').value = d.metode_pembelajaran || '';
     
-    // Trigger change event untuk load template
     document.querySelector('#rpm-metode').dispatchEvent(new Event('change'));
+
+    // ⭐ Load data baru saat edit
+    document.querySelector('#rpm-target-peserta-didik').value = d.target_peserta_didik || '';
+    document.querySelector('#rpm-sarana-prasarana').value = d.sarana_prasarana || '';
 
     document.querySelector('#rpm-belum-siap').value = d.analisis_kesiapan?.belum_siap || '';
     document.querySelector('#rpm-siap').value = d.analisis_kesiapan?.siap || '';
@@ -1013,7 +1034,6 @@ window.deleteRPM = async function(id) {
 };
 
 function handleExportWord(container) {
-  // Sama seperti rpm-standar.js, hanya menambahkan info metode
   const data = gatherFormData(container);
   if (!data.identitas.topik) {
     showToast('⚠️ Isi data terlebih dahulu!', 'error');
@@ -1041,7 +1061,7 @@ function handleExportWord(container) {
     <h2 style="text-align: center; border: none;">${d.identitas.topik}</h2>
     <p style="text-align: center; font-style: italic;">Metode: ${d.metode_pembelajaran}</p>
     
-    <h2>A. IDENTITAS DOKUMEN</h2>
+    <h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
     <table>
       <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>${d.identitas.sekolah}</td></tr>
       <tr><td><strong>Guru</strong></td><td>${d.identitas.guru}</td></tr>
@@ -1050,12 +1070,14 @@ function handleExportWord(container) {
       <tr><td><strong>Topik</strong></td><td>${d.identitas.topik}</td></tr>
       <tr><td><strong>Alokasi Waktu</strong></td><td>${d.identitas.alokasi_waktu}</td></tr>
       <tr><td><strong>Metode</strong></td><td>${d.metode_pembelajaran}</td></tr>
+      <tr><td><strong>Target Peserta Didik</strong></td><td>${d.target_peserta_didik || '-'}</td></tr>
+      <tr><td><strong>Sarana & Prasarana</strong></td><td>${d.sarana_prasarana || '-'}</td></tr>
     </table>
 
     <h2>B. ANALISIS KESIAPAN MURID</h2>
     <p><strong>🔴 Belum Siap:</strong> ${d.analisis_kesiapan.belum_siap}</p>
     <p><strong>🟡 Siap:</strong> ${d.analisis_kesiapan.siap}</p>
-    <p><strong> Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
+    <p><strong>🟢 Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
 
     <h2>C. TUJUAN & PROFIL LULUSAN</h2>
     <p><strong>CP:</strong> ${d.tujuan_dan_profil.cp}</p>
@@ -1152,6 +1174,9 @@ function gatherFormData(container) {
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
     metode_pembelajaran: container.querySelector('#rpm-metode').value,
+    // ⭐ Data baru ditambahkan di sini agar terbaca oleh Export Word
+    target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
+    sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
     analisis_kesiapan: {
       belum_siap: container.querySelector('#rpm-belum-siap').value,
       siap: container.querySelector('#rpm-siap').value,
