@@ -2,6 +2,7 @@
 // =========================================
 // FITUR: GENERATOR LKPD (AI POWERED)
 // OPTIMASI: 3 Opsi Tujuan Pembelajaran (Master Data, AI, Manual)
+// PERBAIKAN: Fuzzy Matching untuk pencarian TP dari Master Data (Lebih Longgar)
 // 6 TEMPLATE: Isian, PG, Praktik, Observasi, Proyek, Diskusi
 // OUTPUT: Versi Siswa + Versi Guru (dengan kunci jawaban)
 // =========================================
@@ -694,14 +695,14 @@ function updateTTDPreview() {
   if (ttdNipGuru) ttdNipGuru.textContent = nipGuru ? `NIP: ${nipGuru}` : 'NIP: -';
 }
 
-// ⭐ FUNGSI BARU: Muat TP dari Master Data (Opsi 1)
+// ⭐ FUNGSI BARU: Muat TP dari Master Data (Opsi 1) - DENGAN FUZZY MATCHING
 async function loadMasterTP() {
-  const mapel = document.getElementById('inpMapel').value.trim();
+  const mapelInput = document.getElementById('inpMapel').value.trim().toLowerCase();
   const kelasFull = document.getElementById('inpKelas').value;
   const kelas = kelasFull ? kelasFull.split(' ')[0] : ''; 
-  const topik = document.getElementById('inpTopik').value.trim();
+  const topikInput = document.getElementById('inpTopik').value.trim().toLowerCase();
 
-  if (!mapel || !kelas || !topik) {
+  if (!mapelInput || !kelas || !topikInput) {
     alert('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Topik terlebih dahulu!');
     return;
   }
@@ -712,12 +713,11 @@ async function loadMasterTP() {
   btn.textContent = '⏳ Memuat...';
 
   try {
+    // Ambil semua data TP milik user ini untuk kelas tersebut agar bisa difilter di client-side
     const q = query(
       collection(firestore, 'data_tp'),
       where('userId', '==', currentUser.uid),
-      where('mapel', '==', mapel),
-      where('kelas', '==', kelas),
-      where('topik', '==', topik)
+      where('kelas', '==', kelas)
     );
     
     const snapshot = await getDocs(q);
@@ -725,24 +725,50 @@ async function loadMasterTP() {
     select.innerHTML = '';
 
     if (snapshot.empty) {
-      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data. Coba Opsi 2 atau 3.</option>';
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data untuk Kelas ini. Coba Opsi 2 atau 3.</option>';
       select.style.display = 'block';
       document.getElementById('masterTPHint').style.display = 'none';
     } else {
+      let foundCount = 0;
+      
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
-          data.tujuan_pembelajaran.forEach((tp) => {
-            const option = document.createElement('option');
-            option.value = tp;
-            option.textContent = tp;
-            option.selected = true; // Auto-select all for convenience
-            select.appendChild(option);
-          });
+        const dbMapel = (data.mapel || '').toLowerCase();
+        const dbTopik = (data.topik || '').toLowerCase();
+        
+        // Logika pencocokan longgar (Fuzzy/Partial Match)
+        // 1. Cek apakah mapel input ada di dbMapel, atau sebaliknya
+        const matchMapel = dbMapel.includes(mapelInput) || mapelInput.includes(dbMapel);
+        
+        // 2. Cek kesamaan topik (split kata untuk toleransi typo/urutan)
+        const inputTopikWords = topikInput.split(/\s+/).filter(w => w.length > 2); // abaikan kata < 3 huruf
+        const matchTopik = inputTopikWords.some(word => dbTopik.includes(word)) || 
+                           dbTopik.includes(topikInput) || 
+                           topikInput.includes(dbTopik);
+
+        if (matchMapel && matchTopik) {
+          if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
+            data.tujuan_pembelajaran.forEach((tp) => {
+              const option = document.createElement('option');
+              option.value = tp;
+              option.textContent = tp;
+              option.selected = true; // Auto-select all for convenience
+              select.appendChild(option);
+              foundCount++;
+            });
+          }
         }
       });
-      select.style.display = 'block';
-      document.getElementById('masterTPHint').style.display = 'block';
+
+      if (foundCount === 0) {
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Topik: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.style.display = 'block';
+        document.getElementById('masterTPHint').style.display = 'none';
+      } else {
+        select.style.display = 'block';
+        document.getElementById('masterTPHint').style.display = 'block';
+        showToast(`✅ Ditemukan ${foundCount} TP yang cocok!`);
+      }
     }
   } catch (error) {
     console.error('Error loading Master TP:', error);
