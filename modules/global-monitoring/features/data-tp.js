@@ -1,8 +1,9 @@
 // modules/global-monitoring/features/data-tp.js
 // =========================================
-// FITUR: DATA TP (MASTER DATA TUJUAN PEMBELAJARAN)
+// FITUR: DATA TP & CP (MASTER DATA)
 // FUNGSI: Single Source of Truth untuk seluruh sub-fitur Admin Pembelajaran
-// TERINTEGRASI: Firestore (Collection: 'data_tp')
+// TERINTEGRASI: Firestore (Collection: 'data_tp' & 'data_cp')
+// UPDATE: Penambahan Master CP di samping Master TP
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -14,6 +15,7 @@ import {
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'data-tp-css';
 let currentEditId = null;
+let currentEditCPId = null;
 let dataMapel = [];
 
 // Fallback Data Mapel (jika JSON gagal dimuat)
@@ -28,7 +30,7 @@ const FALLBACK_MAPEL = [
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
   { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
 ];
 
 export async function init(container, db) {
@@ -37,6 +39,7 @@ export async function init(container, db) {
   renderUI(container);
   attachEvents(container);
   loadDataTP(container);
+  loadDataCP(container);
 }
 
 export function cleanup() {
@@ -101,6 +104,9 @@ function loadCSS() {
     .dtp-tp-list ol { margin: 0; padding-left: 20px; color: #334155; font-size: 14px; line-height: 1.6; }
     .dtp-filters { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
     .dtp-filters select, .dtp-filters input { padding: 10px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; }
+    .dtp-cp-elemen { background: #ede9fe; padding: 10px; border-radius: 6px; margin: 8px 0; border-left: 3px solid #8b5cf6; }
+    .dtp-cp-elemen strong { color: #7c3aed; display: block; margin-bottom: 4px; }
+    .dtp-cp-elemen p { margin: 0; color: #5b21b6; font-size: 14px; line-height: 1.5; }
     @media (max-width: 768px) { .dtp-form-grid { grid-template-columns: 1fr; } .dtp-actions { flex-direction: column; } .dtp-btn { width: 100%; justify-content: center; } .dtp-filters { flex-direction: column; } }
   `;
   document.head.appendChild(style);
@@ -115,15 +121,18 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="dtp-container">
       <div class="dtp-header">
-        <h2>🎯 Data TP (Master Data)</h2>
-        <p>Database Terpusat Tujuan Pembelajaran untuk Konsistensi Administrasi Kurikulum</p>
+        <h2>🎯 Master Data CP & TP</h2>
+        <p>Database Terpusat Capaian & Tujuan Pembelajaran untuk Konsistensi Administrasi Kurikulum</p>
       </div>
 
       <div class="dtp-tabs">
-        <button class="dtp-tab active" data-tab="form">➕ Input / Edit Data TP</button>
-        <button class="dtp-tab" data-tab="list">📚 Daftar Master TP</button>
+        <button class="dtp-tab active" data-tab="tp-form">📋 Input TP</button>
+        <button class="dtp-tab" data-tab="tp-list"> Daftar TP</button>
+        <button class="dtp-tab" data-tab="cp-form">📝 Input CP</button>
+        <button class="dtp-tab" data-tab="cp-list">📖 Daftar CP</button>
       </div>
 
+      <!-- FORM TP -->
       <div id="dtp-form-section">
         <div class="dtp-section">
           <h3 class="dtp-section-title">📋 Informasi Master TP</h3>
@@ -166,15 +175,16 @@ function renderUI(container) {
         </div>
 
         <div class="dtp-actions">
-          <button class="dtp-btn dtp-btn-success" id="btn-simpan">💾 Simpan ke Master Data</button>
-          <button class="dtp-btn dtp-btn-warning" id="btn-export">📥 Export Word</button>
-          <button class="dtp-btn dtp-btn-secondary" id="btn-reset">🔄 Reset Form</button>
+          <button class="dtp-btn dtp-btn-success" id="btn-simpan-tp">💾 Simpan TP</button>
+          <button class="dtp-btn dtp-btn-warning" id="btn-export-tp">📥 Export Word</button>
+          <button class="dtp-btn dtp-btn-secondary" id="btn-reset-tp">🔄 Reset</button>
         </div>
       </div>
 
+      <!-- LIST TP -->
       <div id="dtp-list-section" style="display: none;">
         <div class="dtp-section">
-          <h3 class="dtp-section-title">🔍 Filter Data</h3>
+          <h3 class="dtp-section-title">🔍 Filter Data TP</h3>
           <div class="dtp-filters">
             <select id="filter-kelas" class="dtp-form-control" style="flex: 1;">
               <option value="">Semua Kelas</option>
@@ -194,6 +204,63 @@ function renderUI(container) {
 
           <h3 class="dtp-section-title">📚 Daftar Master TP Tersimpan</h3>
           <div id="dtp-list-container">
+            <div class="dtp-loading"> Memuat data...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM CP -->
+      <div id="dtp-cp-form-section" style="display: none;">
+        <div class="dtp-section">
+          <h3 class="dtp-section-title">📝 Informasi Capaian Pembelajaran (CP)</h3>
+          <div class="dtp-form-grid">
+            <div class="dtp-form-group">
+              <label>🎓 Fase</label>
+              <select id="dcp-fase" class="dtp-form-control">
+                <option value="">-- Pilih Fase --</option>
+                <option value="A">Fase A (Kelas 1-2)</option>
+                <option value="B">Fase B (Kelas 3-4)</option>
+                <option value="C">Fase C (Kelas 5-6)</option>
+              </select>
+            </div>
+            <div class="dtp-form-group">
+              <label> Mata Pelajaran</label>
+              <select id="dcp-mapel" class="dtp-form-control">${mapelOptions}</select>
+            </div>
+          </div>
+          <div class="dtp-form-group">
+            <label>📋 Elemen & Deskripsi CP</label>
+            <textarea id="dcp-list-cp" class="dtp-form-control" rows="8" placeholder="Elemen: [Nama Elemen]&#10;Deskripsi: [Deskripsi capaian pembelajaran]&#10;&#10;Elemen: [Nama Elemen 2]&#10;Deskripsi: [Deskripsi capaian pembelajaran 2]&#10;&#10;(Pisahkan setiap elemen dengan baris kosong)"></textarea>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Format: Tulis "Elemen: [nama]" diikuti "Deskripsi: [deskripsi]" untuk setiap elemen CP.</p>
+          </div>
+        </div>
+
+        <div class="dtp-actions">
+          <button class="dtp-btn dtp-btn-success" id="btn-simpan-cp">💾 Simpan CP</button>
+          <button class="dtp-btn dtp-btn-warning" id="btn-export-cp">📥 Export Word</button>
+          <button class="dtp-btn dtp-btn-secondary" id="btn-reset-cp">🔄 Reset</button>
+        </div>
+      </div>
+
+      <!-- LIST CP -->
+      <div id="dtp-cp-list-section" style="display: none;">
+        <div class="dtp-section">
+          <h3 class="dtp-section-title">🔍 Filter Data CP</h3>
+          <div class="dtp-filters">
+            <select id="filter-cp-fase" class="dtp-form-control" style="flex: 1;">
+              <option value="">Semua Fase</option>
+              <option value="A">Fase A</option>
+              <option value="B">Fase B</option>
+              <option value="C">Fase C</option>
+            </select>
+            <select id="filter-cp-mapel" class="dtp-form-control" style="flex: 2;">
+              <option value="">Semua Mapel</option>
+              ${mapelOptions}
+            </select>
+          </div>
+
+          <h3 class="dtp-section-title">📖 Daftar Capaian Pembelajaran (CP)</h3>
+          <div id="dcp-list-container">
             <div class="dtp-loading">⏳ Memuat data...</div>
           </div>
         </div>
@@ -209,37 +276,65 @@ function attachEvents(container) {
       container.querySelectorAll('.dtp-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       const target = tab.dataset.tab;
-      container.querySelector('#dtp-form-section').style.display = target === 'form' ? 'block' : 'none';
-      container.querySelector('#dtp-list-section').style.display = target === 'list' ? 'block' : 'none';
+      
+      // Hide all sections
+      container.querySelector('#dtp-form-section').style.display = 'none';
+      container.querySelector('#dtp-list-section').style.display = 'none';
+      container.querySelector('#dtp-cp-form-section').style.display = 'none';
+      container.querySelector('#dtp-cp-list-section').style.display = 'none';
+      
+      // Show target section
+      if (target === 'tp-form') container.querySelector('#dtp-form-section').style.display = 'block';
+      else if (target === 'tp-list') container.querySelector('#dtp-list-section').style.display = 'block';
+      else if (target === 'cp-form') container.querySelector('#dtp-cp-form-section').style.display = 'block';
+      else if (target === 'cp-list') container.querySelector('#dtp-cp-list-section').style.display = 'block';
     });
   });
 
-  // Simpan
-  container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
-
-  // Export
-  container.querySelector('#btn-export').addEventListener('click', () => handleExportWord(container));
-
-  // Reset
-  container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm('🔄 Reset form?')) {
+  // TP Actions
+  container.querySelector('#btn-simpan-tp').addEventListener('click', () => handleSimpanTP(container));
+  container.querySelector('#btn-export-tp').addEventListener('click', () => handleExportTP(container));
+  container.querySelector('#btn-reset-tp').addEventListener('click', () => {
+    if (confirm('🔄 Reset form TP?')) {
       currentEditId = null;
       container.querySelector('#dtp-kelas').value = '';
       container.querySelector('#dtp-mapel').value = '';
       container.querySelector('#dtp-semester').value = '1';
       container.querySelector('#dtp-topik').value = '';
       container.querySelector('#dtp-list-tp').value = '';
-      showToast('✅ Form direset!');
+      showToast('✅ Form TP direset!');
     }
   });
 
-  // Filter listeners
+  // CP Actions
+  container.querySelector('#btn-simpan-cp').addEventListener('click', () => handleSimpanCP(container));
+  container.querySelector('#btn-export-cp').addEventListener('click', () => handleExportCP(container));
+  container.querySelector('#btn-reset-cp').addEventListener('click', () => {
+    if (confirm('🔄 Reset form CP?')) {
+      currentEditCPId = null;
+      container.querySelector('#dcp-fase').value = '';
+      container.querySelector('#dcp-mapel').value = '';
+      container.querySelector('#dcp-list-cp').value = '';
+      showToast('✅ Form CP direset!');
+    }
+  });
+
+  // Filter listeners for TP
   ['filter-kelas', 'filter-mapel', 'filter-topik'].forEach(id => {
-    container.querySelector(`#${id}`).addEventListener('input', () => loadDataTP(container));
+    const el = container.querySelector(`#${id}`);
+    if (el) el.addEventListener('input', () => loadDataTP(container));
+  });
+
+  // Filter listeners for CP
+  ['filter-cp-fase', 'filter-cp-mapel'].forEach(id => {
+    const el = container.querySelector(`#${id}`);
+    if (el) el.addEventListener('change', () => loadDataCP(container));
   });
 }
 
-async function handleSimpan(container) {
+// ========== FUNGSI TP ==========
+
+async function handleSimpanTP(container) {
   const kelas = container.querySelector('#dtp-kelas').value;
   const mapel = container.querySelector('#dtp-mapel').value;
   const semester = container.querySelector('#dtp-semester').value;
@@ -251,10 +346,8 @@ async function handleSimpan(container) {
     return;
   }
 
-  // Ubah textarea (satu per baris) menjadi Array
   const tujuan_pembelajaran = tpText.split('\n').map(t => t.trim()).filter(t => t.length > 0);
 
-  // Tentukan Fase berdasarkan Kelas
   let fase = 'A';
   if (kelas === '3' || kelas === '4') fase = 'B';
   else if (kelas === '5' || kelas === '6') fase = 'C';
@@ -279,13 +372,11 @@ async function handleSimpan(container) {
     } else {
       dataTP.createdAt = serverTimestamp();
       await addDoc(collection(db, 'data_tp'), dataTP);
-      showToast('✅ Data TP berhasil disimpan ke Master Data!');
+      showToast('✅ Data TP berhasil disimpan!');
     }
     
-    // Reset form setelah simpan
-    container.querySelector('#btn-reset').click();
-    // Pindah ke tab list
-    container.querySelector('[data-tab="list"]').click();
+    container.querySelector('#btn-reset-tp').click();
+    container.querySelector('[data-tab="tp-list"]').click();
   } catch (error) {
     console.error('Error saving:', error);
     showToast('❌ Gagal menyimpan: ' + error.message, 'error');
@@ -294,20 +385,18 @@ async function handleSimpan(container) {
 
 function loadDataTP(container) {
   const listContainer = container.querySelector('#dtp-list-container');
-  const filterKelas = container.querySelector('#filter-kelas').value;
-  const filterMapel = container.querySelector('#filter-mapel').value;
-  const filterTopik = container.querySelector('#filter-topik').value.toLowerCase();
+  const filterKelas = container.querySelector('#filter-kelas')?.value || '';
+  const filterMapel = container.querySelector('#filter-mapel')?.value || '';
+  const filterTopik = (container.querySelector('#filter-topik')?.value || '').toLowerCase();
 
-  // Query dasar: ambil semua data user ini
   const q = query(
     collection(db, 'data_tp'),
-    where('userId', '==', currentUser.uid),
-    // orderBy('createdAt', 'desc') // Opsional, bisa menyebabkan error index jika belum dibuat
+    where('userId', '==', currentUser.uid)
   );
 
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
-      listContainer.innerHTML = '<div class="dtp-empty">📭 Belum ada Data TP tersimpan. Silakan input atau biarkan fitur CP-TP-ATP mengisi otomatis.</div>';
+      listContainer.innerHTML = '<div class="dtp-empty">📭 Belum ada Data TP tersimpan.</div>';
       return;
     }
 
@@ -316,24 +405,22 @@ function loadDataTP(container) {
       allData.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // Client-side filtering (lebih aman dari error index Firestore yang rumit)
     let filteredData = allData.filter(item => {
       const matchKelas = !filterKelas || item.kelas === filterKelas;
       const matchMapel = !filterMapel || item.mapel === filterMapel;
-      const matchTopik = !filterTopik || item.topik.toLowerCase().includes(filterTopik);
+      const matchTopik = !filterTopik || (item.topik && item.topik.toLowerCase().includes(filterTopik));
       return matchKelas && matchMapel && matchTopik;
     });
 
-    // Sort by createdAt descending manually
     filteredData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     if (filteredData.length === 0) {
-      listContainer.innerHTML = '<div class="dtp-empty">🔍 Tidak ada data yang cocok dengan filter.</div>';
+      listContainer.innerHTML = '<div class="dtp-empty"> Tidak ada data yang cocok dengan filter.</div>';
       return;
     }
 
     listContainer.innerHTML = filteredData.map(d => {
-      const tpListHtml = d.tujuan_pembelajaran.map((tp, idx) => `<li>${tp}</li>`).join('');
+      const tpListHtml = (d.tujuan_pembelajaran || []).map((tp, idx) => `<li>${tp}</li>`).join('');
       return `
         <div class="dtp-item">
           <div class="dtp-item-header">
@@ -354,7 +441,7 @@ function loadDataTP(container) {
     }).join('');
   }, (error) => {
     console.warn('Error loading data TP:', error);
-    listContainer.innerHTML = '<div class="dtp-empty">❌ Gagal memuat data. Periksa koneksi internet.</div>';
+    listContainer.innerHTML = '<div class="dtp-empty">❌ Gagal memuat data.</div>';
   });
 }
 
@@ -376,12 +463,9 @@ window.editDataTP = async function(id) {
     document.querySelector('#dtp-mapel').value = d.mapel || '';
     document.querySelector('#dtp-semester').value = d.semester || '1';
     document.querySelector('#dtp-topik').value = d.topik || '';
-    
-    // Gabungkan array TP kembali menjadi string dengan baris baru
     document.querySelector('#dtp-list-tp').value = (d.tujuan_pembelajaran || []).join('\n');
 
-    // Pindah ke tab form
-    document.querySelector('[data-tab="form"]').click();
+    document.querySelector('[data-tab="tp-form"]').click();
     showToast('✅ Data TP dimuat untuk diedit!');
   } catch (error) {
     console.error('Error loading data TP:', error);
@@ -390,7 +474,7 @@ window.editDataTP = async function(id) {
 };
 
 window.deleteDataTP = async function(id) {
-  if (!confirm('⚠️ Yakin hapus Data TP ini? Penghapusan akan mempengaruhi sub-fitur yang menggunakan data ini.')) return;
+  if (!confirm('️ Yakin hapus Data TP ini?')) return;
   
   try {
     await deleteDoc(doc(db, 'data_tp', id));
@@ -401,13 +485,11 @@ window.deleteDataTP = async function(id) {
   }
 };
 
-function handleExportWord(container) {
-  // Ambil data yang sedang tampil di filter
-  const filterKelas = container.querySelector('#filter-kelas').value || 'Semua';
-  const filterMapel = container.querySelector('#filter-mapel').value || 'Semua';
+function handleExportTP(container) {
+  const filterKelas = container.querySelector('#filter-kelas')?.value || 'Semua';
+  const filterMapel = container.querySelector('#filter-mapel')?.value || 'Semua';
   
-  // Kita ambil ulang data dari DOM yang sudah difilter untuk konsistensi
-  const items = container.querySelectorAll('.dtp-item');
+  const items = container.querySelectorAll('#dtp-list-container .dtp-item');
   if (items.length === 0) {
     showToast('⚠️ Tidak ada data untuk diexport!', 'error');
     return;
@@ -456,6 +538,247 @@ function handleExportWord(container) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
   showToast('📥 Word berhasil diunduh!');
+}
+
+// ========== FUNGSI CP ==========
+
+async function handleSimpanCP(container) {
+  const fase = container.querySelector('#dcp-fase').value;
+  const mapel = container.querySelector('#dcp-mapel').value;
+  const cpText = container.querySelector('#dcp-list-cp').value.trim();
+
+  if (!fase || !mapel || !cpText) {
+    showToast('⚠️ Lengkapi semua field (Fase, Mapel, dan Elemen CP)!', 'error');
+    return;
+  }
+
+  // Parse CP text menjadi array elemen
+  const cpElements = [];
+  const blocks = cpText.split(/\n\s*\n/); // Split by empty lines
+  
+  blocks.forEach(block => {
+    const lines = block.trim().split('\n');
+    let elemen = '';
+    let deskripsi = '';
+    
+    lines.forEach(line => {
+      if (line.toLowerCase().startsWith('elemen:')) {
+        elemen = line.replace(/^elemen:\s*/i, '').trim();
+      } else if (line.toLowerCase().startsWith('deskripsi:')) {
+        deskripsi = line.replace(/^deskripsi:\s*/i, '').trim();
+      } else if (!elemen) {
+        elemen = line.trim();
+      } else {
+        deskripsi += ' ' + line.trim();
+      }
+    });
+    
+    if (elemen) {
+      cpElements.push({
+        elemen: elemen,
+        deskripsi: deskripsi.trim()
+      });
+    }
+  });
+
+  const dataCP = {
+    fase,
+    mapel,
+    elemen_cp: cpElements,
+    updatedAt: serverTimestamp(),
+    userId: currentUser.uid
+  };
+
+  try {
+    if (currentEditCPId) {
+      const docRef = doc(db, 'data_cp', currentEditCPId);
+      await updateDoc(docRef, dataCP);
+      showToast('✅ Data CP berhasil diupdate!');
+      currentEditCPId = null;
+    } else {
+      dataCP.createdAt = serverTimestamp();
+      await addDoc(collection(db, 'data_cp'), dataCP);
+      showToast('✅ Data CP berhasil disimpan!');
+    }
+    
+    container.querySelector('#btn-reset-cp').click();
+    container.querySelector('[data-tab="cp-list"]').click();
+  } catch (error) {
+    console.error('Error saving:', error);
+    showToast('❌ Gagal menyimpan: ' + error.message, 'error');
+  }
+}
+
+function loadDataCP(container) {
+  const listContainer = container.querySelector('#dcp-list-container');
+  const filterFase = container.querySelector('#filter-cp-fase')?.value || '';
+  const filterMapel = container.querySelector('#filter-cp-mapel')?.value || '';
+
+  const q = query(
+    collection(db, 'data_cp'),
+    where('userId', '==', currentUser.uid)
+  );
+
+  onSnapshot(q, (snapshot) => {
+    if (snapshot.empty) {
+      listContainer.innerHTML = '<div class="dtp-empty"> Belum ada Data CP tersimpan.</div>';
+      return;
+    }
+
+    let allData = [];
+    snapshot.forEach(docSnap => {
+      allData.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    let filteredData = allData.filter(item => {
+      const matchFase = !filterFase || item.fase === filterFase;
+      const matchMapel = !filterMapel || item.mapel === filterMapel;
+      return matchFase && matchMapel;
+    });
+
+    filteredData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+
+    if (filteredData.length === 0) {
+      listContainer.innerHTML = '<div class="dtp-empty">🔍 Tidak ada data yang cocok dengan filter.</div>';
+      return;
+    }
+
+    listContainer.innerHTML = filteredData.map(d => {
+      const cpElementsHtml = (d.elemen_cp || []).map(el => `
+        <div class="dtp-cp-elemen">
+          <strong>${el.elemen}</strong>
+          <p>${el.deskripsi}</p>
+        </div>
+      `).join('');
+      
+      return `
+        <div class="dtp-item">
+          <div class="dtp-item-header">
+            <div>
+              <div class="dtp-item-title">${d.mapel} - Fase ${d.fase}</div>
+              <div class="dtp-item-meta">${(d.elemen_cp || []).length} Elemen CP</div>
+            </div>
+            <div class="dtp-item-actions">
+              <button onclick="editDataCP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
+              <button onclick="deleteDataCP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
+            </div>
+          </div>
+          ${cpElementsHtml}
+        </div>
+      `;
+    }).join('');
+  }, (error) => {
+    console.warn('Error loading data CP:', error);
+    listContainer.innerHTML = '<div class="dtp-empty">❌ Gagal memuat data.</div>';
+  });
+}
+
+window.editDataCP = async function(id) {
+  try {
+    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const docRef = doc(db, 'data_cp', id);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      showToast('❌ Data tidak ditemukan!', 'error');
+      return;
+    }
+
+    const d = docSnap.data();
+    currentEditCPId = id;
+
+    document.querySelector('#dcp-fase').value = d.fase || '';
+    document.querySelector('#dcp-mapel').value = d.mapel || '';
+    
+    // Format CP elements back to text
+    const cpText = (d.elemen_cp || []).map(el => 
+      `Elemen: ${el.elemen}\nDeskripsi: ${el.deskripsi}`
+    ).join('\n\n');
+    
+    document.querySelector('#dcp-list-cp').value = cpText;
+
+    document.querySelector('[data-tab="cp-form"]').click();
+    showToast('✅ Data CP dimuat untuk diedit!');
+  } catch (error) {
+    console.error('Error loading data CP:', error);
+    showToast('❌ Gagal memuat data!', 'error');
+  }
+};
+
+window.deleteDataCP = async function(id) {
+  if (!confirm('⚠️ Yakin hapus Data CP ini?')) return;
+  
+  try {
+    await deleteDoc(doc(db, 'data_cp', id));
+    showToast('✅ Data CP berhasil dihapus!');
+  } catch (error) {
+    console.error('Error deleting:', error);
+    showToast('❌ Gagal menghapus!', 'error');
+  }
+};
+
+function handleExportCP(container) {
+  const filterFase = container.querySelector('#filter-cp-fase')?.value || 'Semua';
+  const filterMapel = container.querySelector('#filter-cp-mapel')?.value || 'Semua';
+  
+  const items = container.querySelectorAll('#dcp-list-container .dtp-item');
+  if (items.length === 0) {
+    showToast('⚠️ Tidak ada data untuk diexport!', 'error');
+    return;
+  }
+
+  let html = `
+    <html><head><meta charset="utf-8"><title>Master Data CP</title>
+    <style>
+      body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
+      h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
+      h2 { font-size: 13pt; border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 20px; }
+      .item { margin-bottom: 25px; page-break-inside: avoid; border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+      .item-header { font-weight: bold; font-size: 12pt; margin-bottom: 10px; color: #7c3aed; }
+      .elemen { margin: 10px 0; padding: 10px; background: #f3f0ff; border-left: 4px solid #8b5cf6; border-radius: 4px; }
+      .elemen strong { display: block; margin-bottom: 5px; color: #6d28d9; }
+      .elemen p { margin: 0; color: #5b21b6; }
+    </style></head><body>
+    <h1>MASTER DATA CAPAIAN PEMBELAJARAN (CP)</h1>
+    <p style="text-align: center;">SDN 139 LAMANDA | Filter: Fase ${filterFase} | Mapel ${filterMapel}</p>
+    <hr>
+  `;
+
+  items.forEach(item => {
+    const header = item.querySelector('.dtp-item-title').textContent;
+    const elemenBlocks = item.querySelectorAll('.dtp-cp-elemen');
+    
+    html += `
+      <div class="item">
+        <div class="item-header">${header}</div>
+    `;
+    
+    elemenBlocks.forEach(el => {
+      const strong = el.querySelector('strong').textContent;
+      const p = el.querySelector('p').textContent;
+      html += `
+        <div class="elemen">
+          <strong>${strong}</strong>
+          <p>${p}</p>
+        </div>
+      `;
+    });
+    
+    html += `</div>`;
+  });
+
+  html += `</body></html>`;
+
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `Master_Data_CP_Fase${filterFase}_${filterMapel}.doc`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  showToast(' Word berhasil diunduh!');
 }
 
 function showToast(msg, type = 'success') {
