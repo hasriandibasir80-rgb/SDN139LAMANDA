@@ -3,7 +3,7 @@
 // FITUR: RPM SPESIFIK (Rencana Pembelajaran Mendalam)
 // TEMPLATE KHUSUS PER METODE PEMBELAJARAN
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
-// UPDATE: Penambahan Target Peserta Didik & Sarana Prasarana
+// UPDATE: 3 Opsi untuk CP & TP (Master Data, AI, Manual)
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -34,15 +34,15 @@ const DEFAULT_TTD = {
 // Fallback Data Mapel
 const FALLBACK_MAPEL = [
   { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
-  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
   { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '️' },
   { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
 ];
 
@@ -219,13 +219,16 @@ function loadCSS() {
     .metode-info { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 15px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 20px; }
     .metode-info h4 { margin: 0 0 8px 0; color: #92400e; }
     .metode-info p { margin: 0; color: #78350f; font-size: 14px; }
+    .method-options { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+    .method-option { font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
+    .tp-method-content, .cp-method-content { margin-top: 10px; }
     @media (max-width: 768px) { .rpm-form-grid { grid-template-columns: 1fr; } .rpm-actions { flex-direction: column; } .rpm-btn { width: 100%; justify-content: center; } }
   `;
   document.head.appendChild(style);
 }
 
 function renderUI(container) {
-  const aiReady = groqApiKey ? '✅ AI Siap' : '⚠️ API Key Belum Aktif';
+  const aiReady = groqApiKey ? '✅ AI Siap' : '️ API Key Belum Aktif';
   const aiStatusClass = groqApiKey ? 'rpm-badge-spesifik' : '';
   
   let mapelOptions = '<option value="">-- Pilih Mapel --</option>';
@@ -248,8 +251,8 @@ function renderUI(container) {
       </div>
 
       <div class="rpm-tabs">
-        <button class="rpm-tab active" data-tab="form">📝 Buat/Edit RPM</button>
-        <button class="rpm-tab" data-tab="list">📚 RPM Tersimpan</button>
+        <button class="rpm-tab active" data-tab="form"> Buat/Edit RPM</button>
+        <button class="rpm-tab" data-tab="list"> RPM Tersimpan</button>
       </div>
 
       <div id="rpm-form-section">
@@ -257,11 +260,11 @@ function renderUI(container) {
           <h3 class="rpm-section-title">📋 1. Identitas Dokumen</h3>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>🏫 Sekolah</label>
+              <label> Sekolah</label>
               <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
             </div>
             <div class="rpm-form-group">
-              <label>👩‍🏫 Nama Guru</label>
+              <label>👩🏫 Nama Guru</label>
               <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
           </div>
@@ -285,22 +288,21 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>📝 Topik / Materi</label>
+              <label> Topik / Materi</label>
               <input type="text" id="rpm-topik" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
             </div>
             <div class="rpm-form-group">
-              <label>⏰ Alokasi Waktu</label>
+              <label> Alokasi Waktu</label>
               <input type="text" id="rpm-alokasi" class="rpm-form-control" placeholder="Contoh: 4 Pertemuan (8 x 35 Menit)">
             </div>
           </div>
           <div class="rpm-form-group">
-            <label>🎨 Metode Pembelajaran</label>
+            <label> Metode Pembelajaran</label>
             <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
           </div>
           <div id="metode-info-container"></div>
         </div>
 
-        <!-- ⭐ BAGIAN BARU: Target & Sarana Prasarana -->
         <div class="rpm-section">
           <h3 class="rpm-section-title">🎯 1.5 Target & Sarana Prasarana</h3>
           <div class="rpm-form-group">
@@ -314,7 +316,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
+          <h3 class="rpm-section-title"> 2. Analisis Kesiapan Murid</h3>
           <div class="rpm-form-group">
             <label>🔴 Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
@@ -333,14 +335,80 @@ function renderUI(container) {
           <h3 class="rpm-section-title">📖 3. Tujuan & Profil Lulusan</h3>
           <div class="rpm-form-group">
             <label>📖 Capaian Pembelajaran (CP)</label>
-            <textarea id="rpm-cp" class="rpm-form-control" rows="3" placeholder="Paste CP dari kurikulum..."></textarea>
+            <div class="method-options">
+              <label class="method-option">
+                <input type="radio" name="cpMethod" value="master" checked> 1. Master Data
+              </label>
+              <label class="method-option">
+                <input type="radio" name="cpMethod" value="ai"> 2. Generate AI
+              </label>
+              <label class="method-option">
+                <input type="radio" name="cpMethod" value="manual"> 3. Input Manual
+              </label>
+            </div>
+
+            <!-- Opsi 1: Master Data CP -->
+            <div id="cpMethodMaster" class="cp-method-content">
+              <button type="button" id="btnLoadMasterCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                🔄 Muat CP dari Master Data (Berdasarkan Mapel & Fase di atas)
+              </button>
+              <select id="selectMasterCP" class="rpm-form-control" multiple size="3" style="min-height: 120px; display: none;"></select>
+              <small id="masterCPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu elemen CP.</small>
+            </div>
+
+            <!-- Opsi 2: AI -->
+            <div id="cpMethodAI" class="cp-method-content" style="display: none;">
+              <button type="button" id="btnGenerateCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                ✨ Generate CP dengan AI
+              </button>
+              <textarea id="inpCpAI" class="rpm-form-control" rows="4" readonly placeholder="CP akan muncul di sini setelah di-generate..."></textarea>
+            </div>
+
+            <!-- Opsi 3: Manual -->
+            <div id="cpMethodManual" class="cp-method-content" style="display: none;">
+              <textarea id="inpCpManual" class="rpm-form-control" rows="4" placeholder="Paste CP dari kurikulum..."></textarea>
+            </div>
           </div>
+
           <div class="rpm-form-group">
-            <label>✅ Tujuan Pembelajaran (satu per baris)</label>
-            <textarea id="rpm-tp" class="rpm-form-control" rows="4" placeholder="1. Siswa mampu...&#10;2. Siswa dapat..."></textarea>
+            <label>✅ Tujuan Pembelajaran</label>
+            <div class="method-options">
+              <label class="method-option">
+                <input type="radio" name="tpMethod" value="master" checked> 1. Master Data
+              </label>
+              <label class="method-option">
+                <input type="radio" name="tpMethod" value="ai"> 2. Generate AI
+              </label>
+              <label class="method-option">
+                <input type="radio" name="tpMethod" value="manual"> 3. Input Manual
+              </label>
+            </div>
+
+            <!-- Opsi 1: Master Data TP -->
+            <div id="tpMethodMaster" class="tp-method-content">
+              <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas & Topik di atas)
+              </button>
+              <select id="selectMasterTP" class="rpm-form-control" multiple size="4" style="min-height: 100px; display: none;"></select>
+              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu TP.</small>
+            </div>
+
+            <!-- Opsi 2: AI -->
+            <div id="tpMethodAI" class="tp-method-content" style="display: none;">
+              <button type="button" id="btnGenerateTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                ✨ Generate TP dengan AI
+              </button>
+              <textarea id="inpTujuanAI" class="rpm-form-control" rows="4" readonly placeholder="TP akan muncul di sini setelah di-generate..."></textarea>
+            </div>
+
+            <!-- Opsi 3: Manual -->
+            <div id="tpMethodManual" class="tp-method-content" style="display: none;">
+              <textarea id="inpTujuanManual" class="rpm-form-control" rows="4" placeholder="1. Siswa mampu...&#10;2. Siswa dapat..."></textarea>
+            </div>
           </div>
+
           <div class="rpm-form-group">
-            <label>🌟 Profil Lulusan yang Disasar (pilih 3-4)</label>
+            <label> Profil Lulusan yang Disasar (pilih 3-4)</label>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
               <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Keimanan dan Ketakwaan"> Keimanan & Ketakwaan</label>
               <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kewargaan"> Kewargaan</label>
@@ -380,7 +448,7 @@ function renderUI(container) {
         </div>
 
         <div class="rpm-section">
-          <h3 class="rpm-section-title">🎨 6. Diferensiasi</h3>
+          <h3 class="rpm-section-title"> 6. Diferensiasi</h3>
           <div class="rpm-form-group">
             <label>🔴 Remedial (Belum Siap)</label>
             <textarea id="rpm-remedial" class="rpm-form-control" rows="2"></textarea>
@@ -433,7 +501,7 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👩‍🏫 Nama Guru Pengampu</label>
+              <label>👩‍ Nama Guru Pengampu</label>
               <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
             <div class="rpm-form-group">
@@ -445,7 +513,7 @@ function renderUI(container) {
 
         <div class="rpm-actions">
           <button class="rpm-btn rpm-btn-primary" id="btn-generate-ai">✨ Generate dengan AI</button>
-          <button class="rpm-btn rpm-btn-success" id="btn-simpan">💾 Simpan ke Database</button>
+          <button class="rpm-btn rpm-btn-success" id="btn-simpan"> Simpan ke Database</button>
           <button class="rpm-btn rpm-btn-warning" id="btn-export">📥 Export Word</button>
           <button class="rpm-btn rpm-btn-secondary" id="btn-reset">🔄 Reset Form</button>
         </div>
@@ -455,7 +523,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
           <div id="rpm-list-container">
-            <div class="rpm-loading">⏳ Memuat data...</div>
+            <div class="rpm-loading"> Memuat data...</div>
           </div>
         </div>
       </div>
@@ -472,6 +540,28 @@ function attachEvents(container) {
       const target = tab.dataset.tab;
       container.querySelector('#rpm-form-section').style.display = target === 'form' ? 'block' : 'none';
       container.querySelector('#rpm-list-section').style.display = target === 'list' ? 'block' : 'none';
+    });
+  });
+
+  // CP Method switching
+  container.querySelectorAll('input[name="cpMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+      const method = e.target.value;
+      if (method === 'master') container.querySelector('#cpMethodMaster').style.display = 'block';
+      else if (method === 'ai') container.querySelector('#cpMethodAI').style.display = 'block';
+      else if (method === 'manual') container.querySelector('#cpMethodManual').style.display = 'block';
+    });
+  });
+
+  // TP Method switching
+  container.querySelectorAll('input[name="tpMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+      const method = e.target.value;
+      if (method === 'master') container.querySelector('#tpMethodMaster').style.display = 'block';
+      else if (method === 'ai') container.querySelector('#tpMethodAI').style.display = 'block';
+      else if (method === 'manual') container.querySelector('#tpMethodManual').style.display = 'block';
     });
   });
 
@@ -520,16 +610,333 @@ function attachEvents(container) {
         } else if (el.id === 'rpm-sekolah') {
           el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
         } else {
-          el.value = ''; // Ini otomatis mengosongkan textarea baru juga
+          el.value = '';
         }
       });
       container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
       container.querySelector('#rpm-metode').value = '';
       container.querySelector('#metode-info-container').innerHTML = '';
       container.querySelector('#rpm-pertemuan-container').innerHTML = '';
+      // Reset CP method ke default (Master Data)
+      container.querySelector('input[name="cpMethod"][value="master"]').checked = true;
+      container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+      container.querySelector('#cpMethodMaster').style.display = 'block';
+      // Reset TP method ke default (Master Data)
+      container.querySelector('input[name="tpMethod"][value="master"]').checked = true;
+      container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+      container.querySelector('#tpMethodMaster').style.display = 'block';
       showToast('✅ Form direset!');
     }
   });
+
+  // Event listener untuk tombol CP
+  container.querySelector('#btnLoadMasterCP').addEventListener('click', () => loadMasterCP(container));
+  container.querySelector('#btnGenerateCP').addEventListener('click', () => generateCPWithAI(container));
+  
+  // Event listener untuk tombol TP
+  container.querySelector('#btnLoadMasterTP').addEventListener('click', () => loadMasterTP(container));
+  container.querySelector('#btnGenerateTP').addEventListener('click', () => generateTPWithAI(container));
+}
+
+// ========== FUNGSI CP: LOAD DARI MASTER DATA ==========
+async function loadMasterCP(container) {
+  const mapelInput = container.querySelector('#rpm-mapel').value.trim();
+  const kelasFull = container.querySelector('#rpm-kelas').value;
+  const fase = kelasFull ? kelasFull.split('|')[1] : '';
+
+  if (!mapelInput || !fase) {
+    showToast('️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnLoadMasterCP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Memuat...';
+
+  try {
+    const q = query(
+      collection(db, 'data_cp'),
+      where('userId', '==', currentUser.uid),
+      where('fase', '==', fase)
+    );
+    
+    const snapshot = await getDocs(q);
+    const select = container.querySelector('#selectMasterCP');
+    select.innerHTML = '';
+
+    if (snapshot.empty) {
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada CP di Master Data untuk Fase ini. Coba Opsi 2 atau 3.</option>';
+      select.style.display = 'block';
+      container.querySelector('#masterCPHint').style.display = 'none';
+    } else {
+      let foundCount = 0;
+      
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const dbMapel = (data.mapel || '').toLowerCase();
+        const mapelLower = mapelInput.toLowerCase();
+        
+        // Fuzzy matching untuk mapel
+        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
+
+        if (matchMapel) {
+          if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
+            data.elemen_cp.forEach((elemen) => {
+              const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
+              const option = document.createElement('option');
+              option.value = cpText;
+              option.textContent = `${elemen.elemen}`;
+              option.title = elemen.deskripsi;
+              option.selected = true;
+              select.appendChild(option);
+              foundCount++;
+            });
+          }
+        }
+      });
+
+      if (foundCount === 0) {
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.style.display = 'block';
+        container.querySelector('#masterCPHint').style.display = 'none';
+      } else {
+        select.style.display = 'block';
+        container.querySelector('#masterCPHint').style.display = 'block';
+        showToast(`✅ Ditemukan ${foundCount} elemen CP yang cocok!`);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading Master CP:', error);
+    showToast('❌ Gagal memuat Master Data CP: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ========== FUNGSI CP: GENERATE DENGAN AI ==========
+async function generateCPWithAI(container) {
+  if (!groqApiKey) {
+    showToast('⚠️ API Key tidak tersedia.', 'error');
+    return;
+  }
+  const mapel = container.querySelector('#rpm-mapel').value;
+  const kelas = container.querySelector('#rpm-kelas').value;
+  const [kelasNum, fase] = kelas.split('|');
+
+  if (!mapel || !fase) {
+    showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnGenerateCP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ AI sedang berpikir...';
+  const outputArea = container.querySelector('#inpCpAI');
+  outputArea.value = 'Sedang generate...';
+
+  try {
+    const prompt = `Buatkan Capaian Pembelajaran (CP) untuk Fase ${fase} (Kelas ${kelasNum}) mata pelajaran ${mapel} sesuai Kurikulum Merdeka.
+
+Format output: Tulis dalam format "Elemen: [nama elemen]" diikuti "Deskripsi: [deskripsi capaian]" untuk setiap elemen CP. Pisahkan setiap elemen dengan baris kosong.
+
+Contoh:
+Elemen: Pemahaman Konsep
+Deskripsi: Siswa mampu memahami dan menjelaskan konsep dasar...
+
+Elemen: Keterampilan Proses
+Deskripsi: Siswa mampu menerapkan keterampilan proses...`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1500
+      })
+    });
+
+    if (!response.ok) throw new Error('Gagal menghubungi API');
+    const result = await response.json();
+    outputArea.value = result.choices[0].message.content.trim();
+  } catch (error) {
+    showToast('❌ Gagal generate CP: ' + error.message, 'error');
+    outputArea.value = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ========== FUNGSI TP: LOAD DARI MASTER DATA ==========
+async function loadMasterTP(container) {
+  const mapelInput = container.querySelector('#rpm-mapel').value.trim();
+  const kelasFull = container.querySelector('#rpm-kelas').value;
+  const kelas = kelasFull ? kelasFull.split('|')[0] : ''; 
+  const topikInput = container.querySelector('#rpm-topik').value.trim();
+
+  if (!mapelInput || !kelas || !topikInput) {
+    showToast('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Topik terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnLoadMasterTP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ Memuat...';
+
+  try {
+    const q = query(
+      collection(db, 'data_tp'),
+      where('userId', '==', currentUser.uid),
+      where('kelas', '==', kelas)
+    );
+    
+    const snapshot = await getDocs(q);
+    const select = container.querySelector('#selectMasterTP');
+    select.innerHTML = '';
+
+    if (snapshot.empty) {
+      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data untuk Kelas ini. Coba Opsi 2 atau 3.</option>';
+      select.style.display = 'block';
+      container.querySelector('#masterTPHint').style.display = 'none';
+    } else {
+      let foundCount = 0;
+      
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const dbMapel = (data.mapel || '').toLowerCase();
+        const dbTopik = (data.topik || '').toLowerCase();
+        const mapelLower = mapelInput.toLowerCase();
+        const topikLower = topikInput.toLowerCase();
+        
+        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
+        
+        const inputTopikWords = topikLower.split(/\s+/).filter(w => w.length > 2);
+        const matchTopik = inputTopikWords.some(word => dbTopik.includes(word)) || 
+                           dbTopik.includes(topikLower) || 
+                           topikLower.includes(dbTopik);
+
+        if (matchMapel && matchTopik) {
+          if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
+            data.tujuan_pembelajaran.forEach((tp) => {
+              const option = document.createElement('option');
+              option.value = tp;
+              option.textContent = tp;
+              option.selected = true;
+              select.appendChild(option);
+              foundCount++;
+            });
+          }
+        }
+      });
+
+      if (foundCount === 0) {
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Topik: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.style.display = 'block';
+        container.querySelector('#masterTPHint').style.display = 'none';
+      } else {
+        select.style.display = 'block';
+        container.querySelector('#masterTPHint').style.display = 'block';
+        showToast(`✅ Ditemukan ${foundCount} TP yang cocok!`);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading Master TP:', error);
+    showToast('❌ Gagal memuat Master Data TP: ' + error.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ========== FUNGSI TP: GENERATE DENGAN AI ==========
+async function generateTPWithAI(container) {
+  if (!groqApiKey) {
+    showToast('⚠️ API Key tidak tersedia.', 'error');
+    return;
+  }
+  const mapel = container.querySelector('#rpm-mapel').value;
+  const kelas = container.querySelector('#rpm-kelas').value;
+  const topik = container.querySelector('#rpm-topik').value;
+
+  if (!mapel || !topik) {
+    showToast('⚠️ Mohon isi Mata Pelajaran dan Topik terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnGenerateTP');
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '⏳ AI sedang berpikir...';
+  const outputArea = container.querySelector('#inpTujuanAI');
+  outputArea.value = 'Sedang generate...';
+
+  try {
+    const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
+- Mata Pelajaran: ${mapel}
+- Kelas: ${kelas}
+- Topik: ${topik}
+
+Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan kalimat "Siswa mampu...". Jangan berikan penjelasan lain.`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) throw new Error('Gagal menghubungi API');
+    const result = await response.json();
+    outputArea.value = result.choices[0].message.content.trim();
+  } catch (error) {
+    showToast('❌ Gagal generate TP: ' + error.message, 'error');
+    outputArea.value = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+// ========== FUNGSI: AMBIL CP DARI OPSI AKTIF ==========
+function getActiveCP(container) {
+  const activeMethod = container.querySelector('input[name="cpMethod"]:checked')?.value || 'manual';
+  
+  if (activeMethod === 'master') {
+    const select = container.querySelector('#selectMasterCP');
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+  } else if (activeMethod === 'ai') {
+    const aiText = container.querySelector('#inpCpAI').value.trim();
+    return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
+  } else {
+    const manualText = container.querySelector('#inpCpManual').value.trim();
+    return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
+  }
+}
+
+// ========== FUNGSI: AMBIL TP DARI OPSI AKTIF ==========
+function getActiveTP(container) {
+  const activeMethod = container.querySelector('input[name="tpMethod"]:checked')?.value || 'manual';
+  
+  if (activeMethod === 'master') {
+    const select = container.querySelector('#selectMasterTP');
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+  } else if (activeMethod === 'ai') {
+    const aiText = container.querySelector('#inpTujuanAI').value.trim();
+    return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
+  } else {
+    const manualText = container.querySelector('#inpTujuanManual').value.trim();
+    return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
+  }
 }
 
 function loadTemplatePertemuan(metode) {
@@ -618,6 +1025,13 @@ async function handleGenerateAI(container) {
 
   const [kelasNum, fase] = kelas.split('|');
   
+  // Ambil CP dan TP dari opsi aktif
+  const cpList = getActiveCP(container);
+  const tpList = getActiveTP(container);
+  
+  const cpText = cpList.length > 0 ? cpList.join('\n') : '(Belum ada CP - akan di-generate oleh AI)';
+  const tpText = tpList.length > 0 ? tpList.join('\n') : '(Belum ada TP - akan di-generate oleh AI)';
+  
   const prompt = `Bertindaklah sebagai Ahli Kurikulum Merdeka dan Pengembang RPM profesional dengan keahlian khusus dalam metode ${metode}.
 
 Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} dengan format JSON valid berdasarkan data:
@@ -626,6 +1040,12 @@ Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} deng
 - Topik: ${topik}
 - Metode: ${metode}
 - Sekolah: SDN 139 LAMANDA
+- Target Peserta Didik: ${container.querySelector('#rpm-target-peserta-didik').value || '-'}
+- Sarana Prasarana: ${container.querySelector('#rpm-sarana-prasarana').value || '-'}
+- Capaian Pembelajaran (CP) yang sudah dipilih:
+${cpText}
+- Tujuan Pembelajaran (TP) yang sudah dipilih:
+${tpText}
 
 WAJIB output dalam format JSON berikut (tanpa markdown tambahan):
 {
@@ -673,7 +1093,8 @@ PENTING:
 - Integrasi 3 Prinsip: Mindful, Meaningful, Joyful
 - Pilih 3-4 Profil Lulusan yang paling relevan
 - Gunakan bahasa Indonesia formal dan edukatif
-- Jumlah pertemuan sesuai kompleksitas topik (biasanya 4-5 pertemuan)`;
+- Jumlah pertemuan sesuai kompleksitas topik (biasanya 4-5 pertemuan)
+- Pertimbangkan CP dan TP yang sudah ada di atas saat menyusun langkah pembelajaran`;
 
   try {
     const response = await fetch(GROQ_API_URL, {
@@ -706,7 +1127,7 @@ PENTING:
       parsed = JSON.parse(aiText);
     }
 
-    // ⭐ Mapping data baru dari AI
+    // Mapping data baru dari AI
     if (parsed.target_peserta_didik) container.querySelector('#rpm-target-peserta-didik').value = parsed.target_peserta_didik;
     if (parsed.sarana_prasarana) container.querySelector('#rpm-sarana-prasarana').value = parsed.sarana_prasarana;
 
@@ -715,9 +1136,23 @@ PENTING:
       container.querySelector('#rpm-siap').value = parsed.analisis_kesiapan.siap || '';
       container.querySelector('#rpm-mahir').value = parsed.analisis_kesiapan.mahir || '';
     }
-    if (parsed.cp) container.querySelector('#rpm-cp').value = parsed.cp;
+    if (parsed.cp) {
+      // Jika ada CP dari AI, tampilkan di area yang sesuai dengan metode aktif
+      const activeCPMethod = container.querySelector('input[name="cpMethod"]:checked').value;
+      if (activeCPMethod === 'ai') {
+        container.querySelector('#inpCpAI').value = parsed.cp;
+      } else if (activeCPMethod === 'manual') {
+        container.querySelector('#inpCpManual').value = parsed.cp;
+      }
+    }
     if (parsed.tujuan_pembelajaran) {
-      container.querySelector('#rpm-tp').value = parsed.tujuan_pembelajaran.join('\n');
+      // Jika ada TP dari AI, tampilkan di area yang sesuai dengan metode aktif
+      const activeTPMethod = container.querySelector('input[name="tpMethod"]:checked').value;
+      if (activeTPMethod === 'ai') {
+        container.querySelector('#inpTujuanAI').value = parsed.tujuan_pembelajaran.join('\n');
+      } else if (activeTPMethod === 'manual') {
+        container.querySelector('#inpTujuanManual').value = parsed.tujuan_pembelajaran.join('\n');
+      }
     }
     if (parsed.profil_lulusan) {
       container.querySelectorAll('.rpm-profil').forEach(cb => {
@@ -786,7 +1221,7 @@ async function handleSimpan(container) {
   const metode = container.querySelector('#rpm-metode').value;
 
   if (!sekolah || !guru || !mapel || !kelas || !topik || !metode) {
-    showToast('⚠️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
+    showToast('️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
     return;
   }
 
@@ -805,6 +1240,15 @@ async function handleSimpan(container) {
     });
   });
 
+  // Ambil CP dan TP dari opsi aktif
+  const capaianPembelajaran = getActiveCP(container);
+  const tujuanPembelajaran = getActiveTP(container);
+  
+  if (tujuanPembelajaran.length === 0) {
+    showToast('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!', 'error');
+    return;
+  }
+
   const dataRPM = {
     jenis: 'spesifik',
     metode_pembelajaran: metode,
@@ -815,7 +1259,6 @@ async function handleSimpan(container) {
       topik,
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
-    // ⭐ Data baru ditambahkan di sini
     target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
     sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
     analisis_kesiapan: {
@@ -824,8 +1267,8 @@ async function handleSimpan(container) {
       mahir: container.querySelector('#rpm-mahir').value
     },
     tujuan_dan_profil: {
-      cp: container.querySelector('#rpm-cp').value,
-      tujuan_pembelajaran: container.querySelector('#rpm-tp').value.split('\n').filter(t => t.trim()),
+      cp: capaianPembelajaran.join('\n'),
+      tujuan_pembelajaran: tujuanPembelajaran,
       profil_lulusan: profilLulusan
     },
     langkah_pembelajaran: langkahPembelajaran,
@@ -922,7 +1365,7 @@ function loadRPMList(container) {
     if (error.code === 'failed-precondition') {
       listContainer.innerHTML = '<div class="rpm-empty">⚠️ Index Firestore sedang diproses. Silakan tunggu beberapa menit.</div>';
     } else {
-      listContainer.innerHTML = '<div class="rpm-empty">❌ Gagal memuat data</div>';
+      listContainer.innerHTML = '<div class="rpm-empty"> Gagal memuat data</div>';
     }
   });
 }
@@ -951,7 +1394,7 @@ window.editRPM = async function(id) {
     
     document.querySelector('#rpm-metode').dispatchEvent(new Event('change'));
 
-    // ⭐ Load data baru saat edit
+    // Load data Target & Sarana
     document.querySelector('#rpm-target-peserta-didik').value = d.target_peserta_didik || '';
     document.querySelector('#rpm-sarana-prasarana').value = d.sarana_prasarana || '';
 
@@ -959,8 +1402,19 @@ window.editRPM = async function(id) {
     document.querySelector('#rpm-siap').value = d.analisis_kesiapan?.siap || '';
     document.querySelector('#rpm-mahir').value = d.analisis_kesiapan?.mahir || '';
 
-    document.querySelector('#rpm-cp').value = d.tujuan_dan_profil?.cp || '';
-    document.querySelector('#rpm-tp').value = (d.tujuan_dan_profil?.tujuan_pembelajaran || []).join('\n');
+    // Load CP ke opsi Manual
+    const cpText = d.tujuan_dan_profil?.cp || '';
+    document.querySelector('input[name="cpMethod"][value="manual"]').checked = true;
+    document.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+    document.querySelector('#cpMethodManual').style.display = 'block';
+    document.querySelector('#inpCpManual').value = cpText;
+    
+    // Load TP ke opsi Manual
+    const tpList = d.tujuan_dan_profil?.tujuan_pembelajaran || [];
+    document.querySelector('input[name="tpMethod"][value="manual"]').checked = true;
+    document.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+    document.querySelector('#tpMethodManual').style.display = 'block';
+    document.querySelector('#inpTujuanManual').value = tpList.join('\n');
     
     document.querySelectorAll('.rpm-profil').forEach(cb => {
       cb.checked = (d.tujuan_dan_profil?.profil_lulusan || []).includes(cb.value);
@@ -1036,7 +1490,7 @@ window.deleteRPM = async function(id) {
 function handleExportWord(container) {
   const data = gatherFormData(container);
   if (!data.identitas.topik) {
-    showToast('⚠️ Isi data terlebih dahulu!', 'error');
+    showToast('️ Isi data terlebih dahulu!', 'error');
     return;
   }
 
@@ -1163,6 +1617,10 @@ function gatherFormData(container) {
     });
   });
 
+  // Ambil CP dan TP dari opsi aktif
+  const capaianPembelajaran = getActiveCP(container);
+  const tujuanPembelajaran = getActiveTP(container);
+
   return {
     identitas: {
       sekolah: container.querySelector('#rpm-sekolah').value,
@@ -1174,7 +1632,6 @@ function gatherFormData(container) {
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
     metode_pembelajaran: container.querySelector('#rpm-metode').value,
-    // ⭐ Data baru ditambahkan di sini agar terbaca oleh Export Word
     target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
     sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
     analisis_kesiapan: {
@@ -1183,8 +1640,8 @@ function gatherFormData(container) {
       mahir: container.querySelector('#rpm-mahir').value
     },
     tujuan_dan_profil: {
-      cp: container.querySelector('#rpm-cp').value,
-      tujuan_pembelajaran: container.querySelector('#rpm-tp').value.split('\n').filter(t => t.trim()),
+      cp: capaianPembelajaran.join('\n'),
+      tujuan_pembelajaran: tujuanPembelajaran,
       profil_lulusan: profilLulusan
     },
     langkah_pembelajaran: langkahPembelajaran,
