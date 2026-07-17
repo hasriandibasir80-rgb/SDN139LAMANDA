@@ -36,11 +36,11 @@ const MENU_ITEMS = [
     status: 'soon'
   },
   { 
-    id: 'modul-ajar', 
+    id: 'coming soon', 
     icon: '📖', 
     title: 'Modul Ajar', 
     path: './features/modul-ajar.js',
-    status: 'ready'
+    status: 'soon'
   },
   { 
     id: 'jurnal', 
@@ -82,7 +82,7 @@ const MENU_ITEMS = [
     icon: '📆', 
     title: 'Kalender Pendidikan', 
     path: './features/kalender.js',
-    status: 'ready'
+    status: 'soon'
   },
   { 
     id: 'jadwal', 
@@ -128,11 +128,11 @@ const MENU_ITEMS = [
   },
   // ⭐ 2 SUB-FITUR BARU: RPM (Rencana Pembelajaran Mendalam)
   { 
-    id: 'rpm-standar', 
+    id: 'coming soon', 
     icon: '📝', 
     title: 'RPM Standar', 
     path: './features/rpm-standar.js',
-    status: 'ready'
+    status: 'soon'
   },
   { 
     id: 'rpm-spesifik', 
