@@ -29,13 +29,21 @@ function renderForm() {
     container.appendChild(emptyMsg);
   } else {
     userData.forEach((item, index) => {
-      tambahRow(item.nama, item.email, item.password, item.role, item.status, index);
+      tambahRow(
+        item.nama, 
+        item.email, 
+        item.password, 
+        item.role, 
+        item.status, 
+        item.hakAkses || [], 
+        index
+      );
     });
   }
 }
 
-// 4. Fungsi Tambah Baris (Menggunakan Class CSS agar rapi)
-function tambahRow(nama = '', email = '', password = '', role = 'guru', status = 'aktif', index = null) {
+// 4. Fungsi Tambah Baris (dengan field Hak Akses)
+function tambahRow(nama = '', email = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], index = null) {
   const row = document.createElement('div');
   row.className = 'user-row';
   
@@ -43,8 +51,13 @@ function tambahRow(nama = '', email = '', password = '', role = 'guru', status =
     ? `<button type="button" class="btn-hapus-user" data-index="${index}">✕</button>`
     : '';
 
+  // Convert array hakAkses menjadi string (satu per baris) untuk textarea
+  const hakAksesText = Array.isArray(hakAkses) ? hakAkses.join('\n') : '';
+
   row.innerHTML = `
     ${deleteBtn}
+    
+    <!-- Baris 1: Nama & Email -->
     <div class="user-row-grid-2">
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Nama Lengkap *</label>
@@ -56,6 +69,7 @@ function tambahRow(nama = '', email = '', password = '', role = 'guru', status =
       </div>
     </div>
     
+    <!-- Baris 2: Password, Role, Status -->
     <div class="user-row-grid-3">
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Password</label>
@@ -79,6 +93,15 @@ function tambahRow(nama = '', email = '', password = '', role = 'guru', status =
           <option value="non-aktif" ${status === 'non-aktif' ? 'selected' : ''}>⛔ Non-Aktif</option>
         </select>
       </div>
+    </div>
+
+    <!-- Baris 3: Hak Akses (Textarea Manual) -->
+    <div class="hak-akses-section">
+      <div class="hak-akses-header">
+        <label>🔐 Hak Akses Fitur (Input Manual)</label>
+        <span class="hak-akses-hint">Satu fitur per baris. Kosongkan = tidak ada akses.</span>
+      </div>
+      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:&#10;Admin Pembelajaran&#10;LKPD&#10;RPM Spesifik&#10;Global Monitoring">${hakAksesText}</textarea>
     </div>
   `;
 
@@ -127,12 +150,25 @@ btnSimpan.addEventListener('click', async () => {
     const role = row.querySelector('.input-role').value;
     const status = row.querySelector('.input-status').value;
     
+    // Ambil hak akses dari textarea (split per baris, filter yang kosong)
+    const hakAksesText = row.querySelector('.input-hak-akses').value.trim();
+    const hakAkses = hakAksesText 
+      ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0)
+      : [];
+    
     if (!nama || !email) {
       isValid = false;
-      row.style.border = '2px solid #ef4444'; // Highlight error merah
+      row.style.border = '2px solid #ef4444';
     } else {
-      row.style.border = '1px solid #e2e8f0'; // Reset border normal
-      newData.push({ nama, email, password, role, status });
+      row.style.border = '1px solid #e2e8f0';
+      newData.push({ 
+        nama, 
+        email, 
+        password, 
+        role, 
+        status,
+        hakAkses  // Array fitur yang bisa diakses
+      });
     }
   });
 
@@ -143,7 +179,7 @@ btnSimpan.addEventListener('click', async () => {
 
   // UI Loading State
   btnSimpan.disabled = true;
-  btnSimpan.innerHTML = '⏳ Menyimpan...';
+  btnSimpan.innerHTML = ' Menyimpan...';
   statusEl.className = 'admin-status';
   statusEl.style.display = 'none';
 
