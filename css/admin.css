@@ -271,3 +271,62 @@
     gap: 12px;
   }
 }
+/* ========================================== */
+/* TAMBAHAN: HAK AKSES PENGGUNA */
+/* ========================================== */
+
+.hak-akses-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 2px dashed #cbd5e1;
+}
+
+.hak-akses-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.hak-akses-header label {
+  font-weight: 700;
+  color: #1e3c72;
+  font-size: 14px;
+}
+
+.hak-akses-hint {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}
+
+.admin-textarea-hak-akses {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Courier New', monospace;
+  background: #fff;
+  resize: vertical;
+  transition: all 0.2s;
+  line-height: 1.6;
+}
+
+.admin-textarea-hak-akses:focus {
+  outline: none;
+  border-color: #1e3c72;
+  box-shadow: 0 0 0 3px rgba(30, 60, 114, 0.1);
+}
+
+.badge-hak-akses {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin: 2px;
+}
