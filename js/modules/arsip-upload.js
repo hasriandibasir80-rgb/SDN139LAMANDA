@@ -90,7 +90,7 @@ window.addEventListener('message', async (event) => {
         ukuranFile: currentUploadData.file.size,
         tipeFile: currentUploadData.file.type || 'unknown',
         urlFile: result.url,
-        driveFileId: result.id,
+        driveId: result.id,
         uploaderUid: currentUser.uid,
         uploaderEmail: currentUser.email,
         tanggalUpload: serverTimestamp(),
