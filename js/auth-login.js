@@ -1,13 +1,13 @@
 /**
  * Auth Login Module - SDN 139 LAMANDA
- * Fitur: Email/Password Login, Device Session Management (RTDB), & Role Check (Firestore)
+ * Fitur: Email/Password Login, Device Session Management (RTDB), & Data Check (Firestore)
  * Compatible: ES6 Module, Firebase v10.12.2
  */
 
 import { 
   auth, 
   rtdb, 
-  db, // ✅ BARU: Instance Firestore
+  db, 
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
@@ -16,11 +16,11 @@ import {
   get,
   remove,
   onDisconnect,
-  doc,      // ✅ BARU: Untuk Firestore
-  getDoc    // ✅ BARU: Untuk Firestore
+  doc,      
+  getDoc    
 } from './firebase-config.js'; 
 
-// === SESSION MANAGEMENT: Device Limit via Realtime Database (DIPERTAHANKAN 100%) ===
+// === SESSION MANAGEMENT: Device Limit via Realtime Database ===
 async function registerSession(userId, deviceId) {
   try {
     const sessionRef = ref(rtdb, `sessions/${userId}/${deviceId}`);
@@ -29,7 +29,6 @@ async function registerSession(userId, deviceId) {
       userAgent: navigator.userAgent,
       timestamp: new Date().toISOString()
     };
-    
     await set(sessionRef, sessionData);
     onDisconnect(sessionRef).remove();
     console.log('✅ Session registered di Realtime Database:', deviceId);
@@ -40,52 +39,56 @@ async function registerSession(userId, deviceId) {
   }
 }
 
-// === ✅ BARU: Fungsi untuk membaca role user dari FIRESTORE ===
-async function getUserRole(uid) {
+// === ✅ UPDATE: Fungsi untuk membaca role DAN hakAkses user dari FIRESTORE ===
+async function getUserData(uid) {
   try {
-    const userDocRef = doc(db, "users", uid); // ✅ Firestore, bukan RTDB!
+    const userDocRef = doc(db, "users", uid); 
     const userSnap = await getDoc(userDocRef);
     
     if (userSnap.exists()) {
-      const role = userSnap.data().role;
-      console.log('✅ Role user ditemukan di Firestore:', role);
-      return role || "user";
+      const data = userSnap.data();
+      console.log('✅ Data user ditemukan di Firestore:', data);
+      return {
+        role: data.role || "user",
+        hakAkses: data.hakAkses || [] // ✅ BARU: Ambil array hak akses
+      };
     } else {
       console.log('ℹ️ Dokumen user belum ada di Firestore, default ke "user"');
-      return "user"; // Fallback aman jika admin belum membuat dokumen user
+      return { role: "user", hakAkses: [] }; 
     }
   } catch (error) {
-    console.warn('⚠️ Gagal membaca role dari Firestore:', error);
-    return "user"; // Fallback agar aplikasi tidak crash
+    console.warn('⚠️ Gagal membaca data dari Firestore:', error);
+    return { role: "user", hakAkses: [] }; 
   }
 }
 
-// === 1. Handle Email/Password Login (REAL FIREBASE ONLY) ===
+// === 1. Handle Email/Password Login ===
 async function handleEmailLogin(email, password) {
   try {
-    // LANGSUNG KE FIREBASE AUTH. TIDAK ADA SIMULASI.
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     
     console.log('✅ Firebase login BERHASIL untuk:', user.email);
     console.log('✅ UID Asli dari Firebase:', user.uid);
     
-    // ✅ BARU: Baca role user dari Firestore (bukan RTDB)
-    const userRole = await getUserRole(user.uid);
-    console.log('✅ Role user:', userRole);
+    // ✅ BARU: Baca role DAN hakAkses user dari Firestore
+    const userData = await getUserData(user.uid);
+    console.log('✅ Role user:', userData.role, '| Hak Akses:', userData.hakAkses);
     
-    // Simpan data user ASLI dari Firebase ke localStorage agar dashboard bisa membacanya
+    // Simpan data user ASLI dari Firebase ke localStorage
     localStorage.setItem('currentUser', JSON.stringify({
       uid: user.uid, 
       email: user.email,
       displayName: user.displayName || email.split('@')[0],
-      role: userRole
+      role: userData.role,
+      hakAkses: userData.hakAkses // ✅ BARU: Simpan array hak akses
     }));
     
-    // ✅ BARU: Simpan role secara terpisah untuk akses cepat oleh dashboard.js
-    localStorage.setItem('userRole', userRole);
+    // Simpan secara terpisah untuk akses cepat oleh dashboard.js
+    localStorage.setItem('userRole', userData.role);
+    localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses)); // ✅ BARU: Simpan sebagai string JSON
     
-    // Register session device di Realtime Database (DIPERTAHANKAN)
+    // Register session device di Realtime Database
     const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
     localStorage.setItem('deviceId', deviceId);
     await registerSession(user.uid, deviceId);
@@ -110,13 +113,12 @@ async function handleEmailLogin(email, password) {
   }
 }
 
-// === 2. Handle Logout (REAL) ===
+// === 2. Handle Logout ===
 async function handleLogout() {
   try {
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     const deviceId = localStorage.getItem('deviceId');
     
-    // Hapus session di Realtime Database (DIPERTAHANKAN)
     if (currentUser.uid && deviceId) {
       try {
         const sessionRef = ref(rtdb, `sessions/${currentUser.uid}/${deviceId}`);
@@ -128,7 +130,8 @@ async function handleLogout() {
     
     await signOut(auth);
     localStorage.removeItem('currentUser');
-    localStorage.removeItem('userRole'); // ✅ BARU: Hapus role saat logout
+    localStorage.removeItem('userRole'); 
+    localStorage.removeItem('userHakAkses'); // ✅ BARU: Hapus hak akses saat logout
     
     console.log('✅ Logout berhasil');
     window.location.href = './index.html';
@@ -157,4 +160,4 @@ if (typeof window !== 'undefined') {
   console.log('✅ Auth functions (REAL) exposed to window');
 }
 
-console.log('🔐 auth-login.js (REAL VERSION) loaded');
+console.log('🔐 auth-login.js (UPDATED WITH HAK AKSES) loaded');
