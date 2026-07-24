@@ -1,32 +1,48 @@
-import { rtdb } from './firebase-config.js';
-import { ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { db } from './firebase-config.js';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc,
+  serverTimestamp,
+  query,
+  orderBy
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// 1. Validasi Admin
+// ==========================================
+// 1. VALIDASI & KONFIGURASI
+// ==========================================
 const userRole = localStorage.getItem('userRole');
 if (userRole !== 'admin') {
   alert('⛔ Akses Ditolak: Halaman ini hanya untuk Administrator.');
   window.location.href = '../dashboard.html'; 
 }
 
-// 2. Konfigurasi Standarisasi (BARU)
 const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
 const PASSWORD_DEFAULT = 'sdn139lamanda2024';
 const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
 const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/profil-user.html';
+const USERS_COLLECTION = 'users'; // Nama collection di Firestore
 
-// 3. Inisialisasi Elemen DOM
+// ==========================================
+// 2. INISIALISASI DOM & STATE
+// ==========================================
 const container = document.getElementById('daftarUserContainer');
 const btnTambah = document.getElementById('btnTambahUser');
 const btnSimpan = document.getElementById('btnSimpanUser');
 const statusEl = document.getElementById('adminStatus');
-const userRef = ref(rtdb, 'config/users');
 
 let userData = [];
+let unsubscribe = null; // Untuk menghentikan listener saat halaman ditutup
 
-// 4. Fungsi Format Nomor WA (BARU)
+// ==========================================
+// 3. FUNGSI HELPER
+// ==========================================
 function formatNomorWA(nomor) {
   if (!nomor) return '';
-  let clean = nomor.replace(/\D/g, ''); // Hapus semua karakter selain angka
+  let clean = nomor.replace(/\D/g, '');
   if (clean.startsWith('0')) {
     clean = '62' + clean.substring(1);
   } else if (!clean.startsWith('62')) {
@@ -35,7 +51,15 @@ function formatNomorWA(nomor) {
   return clean;
 }
 
-// 5. Fungsi Render
+function formatTanggal(timestamp) {
+  if (!timestamp) return '-';
+  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+  return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ==========================================
+// 4. FUNGSI RENDER
+// ==========================================
 function renderForm() {
   container.innerHTML = '';
   if (userData.length === 0) {
@@ -48,32 +72,34 @@ function renderForm() {
   } else {
     userData.forEach((item, index) => {
       tambahRow(
-        item.nama, 
-        item.email, 
-        item.noWA || '',             // <-- TAMBAHAN: Ambil noWA
-        item.password, 
-        item.role, 
-        item.status, 
-        item.hakAkses || [], 
-        item.passwordChanged || false, // <-- TAMBAHAN: Ambil status passwordChanged
+        item.id,
+        item.nama || '',
+        item.email || '',
+        item.noWA || '',
+        item.role || 'guru',
+        item.status || 'aktif',
+        item.hakAkses || [],
+        item.passwordChanged || false,
+        item.createdAt,
         index
       );
     });
   }
 }
 
-// 6. Fungsi Tambah Baris
-function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], passwordChanged = false, index = null) {
+// ==========================================
+// 5. FUNGSI TAMBAH BARIS (CORE UI)
+// ==========================================
+function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChanged, createdAt, index) {
   const row = document.createElement('div');
   row.className = 'user-row';
   
-  const deleteBtn = index !== null 
-    ? `<button type="button" class="btn-hapus-user" data-index="${index}">✕</button>`
+  // Gunakan ID untuk hapus, bukan index
+  const deleteBtn = id && !id.startsWith('temp_')
+    ? `<button type="button" class="btn-hapus-user" data-id="${id}">✕</button>`
     : '';
 
   const hakAksesText = Array.isArray(hakAkses) ? hakAkses.join('\n') : '';
-  
-  // Indikator Status Password (BARU)
   const statusBadge = passwordChanged 
     ? '<span style="color: #16a34a; font-weight: 600; font-size: 12px;">✅ Password Sudah Diganti</span>'
     : '<span style="color: #dc2626; font-weight: 600; font-size: 12px;">⚠️ Masih Password Default</span>';
@@ -81,16 +107,17 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
   row.innerHTML = `
     ${deleteBtn}
     
-    <!-- Header Baris: Nama, Email & Status Password -->
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px dashed #cbd5e1;">
       <div>
-        <strong style="color: #1e3c72; font-size: 15px;">${nama || 'Nama belum diisi'}</strong>
-        <div style="font-size: 12px; color: #64748b;">${email || 'Email belum diisi'}</div>
+        <strong style="color: #1e3c72; font-size: 15px;" class="label-nama">${nama || 'Nama belum diisi'}</strong>
+        <div style="font-size: 12px; color: #64748b;" class="label-email">${email || 'Email belum diisi'}</div>
       </div>
-      <div>${statusBadge}</div>
+      <div style="text-align: right;">
+        <div style="margin-bottom: 4px;">${statusBadge}</div>
+        <div style="font-size: 11px; color: #94a3b8;">Dibuat: ${formatTanggal(createdAt)}</div>
+      </div>
     </div>
     
-    <!-- Baris 1: Nama & Email -->
     <div class="user-row-grid-2">
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Nama Lengkap *</label>
@@ -102,7 +129,6 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
     
-    <!-- Baris 2: No. WhatsApp, Role, Status (DIUBAH: Password diganti No. WA) -->
     <div class="user-row-grid-3">
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Nomor WhatsApp *</label>
@@ -128,7 +154,6 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
 
-    <!-- Baris 3: Info Password & Tombol Kirim WA (BARU) -->
     <div style="display: flex; gap: 16px; margin-top: 12px; align-items: flex-end; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 200px;">
         <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #334155;">Password Default</label>
@@ -142,43 +167,65 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
 
-    <!-- Baris 4: Hak Akses (Textarea Manual) -->
     <div class="hak-akses-section">
       <div class="hak-akses-header">
         <label>🔐 Hak Akses Fitur (Input Manual)</label>
         <span class="hak-akses-hint">Satu fitur per baris. Kosongkan = tidak ada akses.</span>
       </div>
-      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:&#10;Admin Pembelajaran&#10;LKPD&#10;RPM Spesifik&#10;Global Monitoring">${hakAksesText}</textarea>
+      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:\nAdmin Pembelajaran\nLKPD">${hakAksesText}</textarea>
     </div>
   `;
 
   container.appendChild(row);
 
-  // Event listener untuk tombol hapus
-  if (index !== null) {
-    row.querySelector('.btn-hapus-user').addEventListener('click', () => {
-      if(confirm('Yakin ingin menghapus pengguna ini?')) {
-        userData.splice(index, 1);
-        renderForm();
+  // --- LOGIKA SYNC DATA REAL-TIME ---
+  const syncData = () => {
+    if (index !== null && userData[index]) {
+      userData[index].nama = row.querySelector('.input-nama').value.trim();
+      userData[index].email = row.querySelector('.input-email').value.trim();
+      userData[index].noWA = row.querySelector('.input-nowa').value.trim();
+      userData[index].role = row.querySelector('.input-role').value;
+      userData[index].status = row.querySelector('.input-status').value;
+      
+      const haText = row.querySelector('.input-hak-akses').value.trim();
+      userData[index].hakAkses = haText ? haText.split('\n').map(h => h.trim()).filter(h => h.length > 0) : [];
+      
+      row.querySelector('.label-nama').textContent = userData[index].nama || 'Nama belum diisi';
+      row.querySelector('.label-email').textContent = userData[index].email || 'Email belum diisi';
+    }
+  };
+
+  row.querySelectorAll('input, select, textarea').forEach(element => {
+    element.addEventListener('input', syncData);
+    element.addEventListener('change', syncData);
+  });
+
+  // --- EVENT LISTENER: HAPUS (Menggunakan ID Dokumen) ---
+  if (id && !id.startsWith('temp_')) {
+    row.querySelector('.btn-hapus-user').addEventListener('click', async () => {
+      if(confirm('Yakin ingin menghapus pengguna ini dari database?')) {
+        try {
+          await deleteDoc(doc(db, USERS_COLLECTION, id));
+          // Data akan otomatis ter-update via onSnapshot
+        } catch (error) {
+          console.error('Error deleting user:', error);
+          alert('❌ Gagal menghapus pengguna!');
+        }
       }
     });
   }
 
-  // Event listener untuk tombol Kirim WhatsApp (BARU)
+  // --- EVENT LISTENER: KIRIM WHATSAPP ---
   row.querySelector('.btn-kirim-wa').addEventListener('click', () => {
-    const namaUser = row.querySelector('.input-nama').value.trim();
-    const emailUser = row.querySelector('.input-email').value.trim();
-    const noWAUser = row.querySelector('.input-nowa').value.trim();
-    const roleUser = row.querySelector('.input-role').value;
-    const hakAksesText = row.querySelector('.input-hak-akses').value.trim();
-    const hakAksesList = hakAksesText ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0) : [];
+    syncData(); 
+    const user = userData[index];
 
-    if (!namaUser || !emailUser || !noWAUser) {
+    if (!user.nama || !user.email || !user.noWA) {
       alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi sebelum mengirim undangan!');
       return;
     }
 
-    const nomorWA = formatNomorWA(noWAUser);
+    const nomorWA = formatNomorWA(user.noWA);
     if (nomorWA.length < 10) {
       alert('⚠️ Nomor WhatsApp tidak valid! Pastikan minimal 10 digit.');
       return;
@@ -187,138 +234,154 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
     const roleLabels = {
       admin: 'Administrator',
       kepsek: 'Kepala Sekolah',
-      guru: 'Guru',
+      guru: 'Guru / Pendidik',
       staf: 'Staf / Tata Usaha',
       siswa: 'Peserta Didik',
       ortu: 'Orang Tua'
     };
 
-    // Template Pesan WhatsApp (BARU)
-    let pesan = `Assalamu'alaikum Wr. Wb.\n\n`;
-    pesan += `Yth. Bapak/Ibu *${namaUser}*,\n\n`;
-    pesan += `Dengan hormat, kami mengundang Anda untuk bergabung di sistem informasi *${NAMA_SEKOLAH}*.\n\n`;
-    pesan += `Berikut detail akun Anda:\n`;
-    pesan += `━━━━━━━━━━━━━━━━━━\n`;
-    pesan += `👤 Nama: ${namaUser}\n`;
-    pesan += `📧 Email: ${emailUser}\n`;
-    pesan += `🔑 Password: ${PASSWORD_DEFAULT}\n`;
-    pesan += `🎯 Peran: ${roleLabels[roleUser] || roleUser}\n`;
-    if (hakAksesList.length > 0) {
-      pesan += `🔐 Hak Akses:\n`;
-      hakAksesList.forEach((hak, idx) => {
-        pesan += `   ${idx + 1}. ${hak}\n`;
-      });
+    const roleNama = roleLabels[user.role] || user.role;
+    const hakAksesFormat = user.hakAkses.length > 0 ? user.hakAkses.map(h => `- ${h}`).join('\n') : '- Tidak ada akses spesifik';
+
+    const pesan = `Halo *${user.nama}*,\n\nAnda telah didaftarkan sebagai *${roleNama}* di platform digital *${NAMA_SEKOLAH}*.\n\nBerikut adalah informasi akun Anda:\n📧 Email: ${user.email}\n🔑 Password Default: *${PASSWORD_DEFAULT}*\n\n🔐 *Hak Akses Fitur:*\n${hakAksesFormat}\n\nSilakan masuk ke akun Anda melalui tautan berikut:\n🔗 ${LOGIN_URL}\n\n*PENTING:* Demi keamanan, mohon segera ubah password default Anda pada halaman profil setelah berhasil masuk:\n🔗 ${PROFIL_URL}\n\nTerima kasih.`;
+
+    const encodedPesan = encodeURIComponent(pesan);
+    window.open(`https://wa.me/${nomorWA}?text=${encodedPesan}`, '_blank');
+  });
+}
+
+// ==========================================
+// 6. EVENT LISTENER: TAMBAH USER BARU
+// ==========================================
+if (btnTambah) {
+  btnTambah.addEventListener('click', () => {
+    // Tambahkan objek sementara ke array agar langsung ter-render
+    userData.unshift({
+      id: `temp_${Date.now()}`, // ID sementara
+      nama: '',
+      email: '',
+      noWA: '',
+      role: 'guru',
+      status: 'aktif',
+      hakAkses: [],
+      passwordChanged: false,
+      createdAt: new Date()
+    });
+    renderForm();
+  });
+}
+
+// ==========================================
+// 7. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN
+// ==========================================
+if (btnSimpan) {
+  btnSimpan.addEventListener('click', async () => {
+    const rows = container.querySelectorAll('.user-row');
+    let isValid = true;
+    let hasChanges = false;
+
+    // Validasi UI terlebih dahulu
+    rows.forEach((row, index) => {
+      const nama = row.querySelector('.input-nama').value.trim();
+      const email = row.querySelector('.input-email').value.trim();
+      const noWA = row.querySelector('.input-nowa').value.trim();
+      
+      if (!nama || !email || !noWA) {
+        isValid = false;
+        row.style.border = '2px solid #ef4444';
+      } else {
+        row.style.border = '1px solid #e2e8f0';
+      }
+    });
+
+    if (!isValid) {
+      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
+      return;
     }
-    pesan += `━━━━━━━━━━━━━━━━━━\n\n`;
-    pesan += `🔗 Link Login:\n${LOGIN_URL}\n\n`;
-    pesan += `⚠️ *PENTING - WAJIB DILAKUKAN:*\n`;
-    pesan += `1. Login dengan email dan password di atas\n`;
-    pesan += `2. Setelah login, buka menu "Profil Saya"\n`;
-    pesan += `3. Ganti password default dengan password pribadi Anda\n`;
-    pesan += `4. Password baru minimal 6 karakter\n\n`;
-    pesan += `🔗 Link Profil & Ganti Password:\n${PROFIL_URL}\n\n`;
-    pesan += `Jika mengalami kendala, silakan hubungi Administrator.\n\n`;
-    pesan += `Terima kasih atas perhatian dan kerjasamanya.\n\n`;
-    pesan += `Wassalamu'alaikum Wr. Wb.\n\n`;
-    pesan += `Hormat kami,\n*Administrator ${NAMA_SEKOLAH}*`;
 
-    const pesanEncoded = encodeURIComponent(pesan);
-    const waURL = `https://wa.me/${nomorWA}?text=${pesanEncoded}`;
+    btnSimpan.disabled = true;
+    btnSimpan.innerHTML = '⏳ Menyimpan...';
+    statusEl.className = 'admin-status';
+    statusEl.style.display = 'none';
 
-    if (confirm(`Kirim undangan WhatsApp ke:\n\n📱 ${noWAUser}\n👤 ${namaUser}\n\nWhatsApp akan terbuka dengan pesan yang sudah terisi.`)) {
-      window.open(waURL, '_blank');
+    try {
+      // Proses simpan ke Firestore
+      for (let index = 0; index < rows.length; index++) {
+        const row = rows[index];
+        const user = userData[index];
+        
+        const dataToSave = {
+          nama: user.nama,
+          email: user.email,
+          noWA: user.noWA,
+          role: user.role,
+          status: user.status,
+          hakAkses: user.hakAkses,
+          password: PASSWORD_DEFAULT,
+          passwordChanged: user.passwordChanged,
+          updatedAt: serverTimestamp()
+        };
+
+        // Jika ID dimulai dengan 'temp_', berarti ini user baru -> addDoc
+        if (user.id && user.id.startsWith('temp_')) {
+          dataToSave.createdAt = serverTimestamp();
+          const docRef = await addDoc(collection(db, USERS_COLLECTION), dataToSave);
+          user.id = docRef.id; // Update ID sementara menjadi ID asli dari Firestore
+        } 
+        // Jika sudah punya ID asli -> updateDoc
+        else if (user.id) {
+          await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
+        }
+        
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        statusEl.textContent = '✅ Data pengguna berhasil disimpan ke Firestore!';
+        statusEl.className = 'admin-status success';
+        statusEl.style.display = 'block';
+      } else {
+        statusEl.textContent = 'ℹ️ Tidak ada perubahan yang perlu disimpan.';
+        statusEl.className = 'admin-status';
+        statusEl.style.display = 'block';
+      }
+
+    } catch (error) {
+      console.error('Error saving to Firestore:', error);
+      statusEl.textContent = '❌ Gagal menyimpan. Periksa konsol untuk detail error.';
+      statusEl.className = 'admin-status error';
+      statusEl.style.display = 'block';
+    } finally {
+      btnSimpan.disabled = false;
+      btnSimpan.innerHTML = '💾 Simpan Semua Perubahan';
     }
   });
 }
 
-// 7. Event Listeners
-btnTambah.addEventListener('click', () => {
-  if (userData.length === 0) {
-    container.innerHTML = '';
-  }
-  tambahRow();
-});
-
-// 8. Realtime Listener
-onValue(userRef, (snapshot) => {
-  const data = snapshot.val();
-  if (data && data.daftar && Array.isArray(data.daftar)) {
-    userData = data.daftar;
-  } else {
-    userData = [];
-  }
-  renderForm();
-});
-
-// 9. Fungsi Simpan
-btnSimpan.addEventListener('click', async () => {
-  const rows = container.querySelectorAll('.user-row');
-  const newData = [];
-  let isValid = true;
+// ==========================================
+// 8. REALTIME LISTENER (FIRESTORE)
+// ==========================================
+function startListening() {
+  const q = query(collection(db, USERS_COLLECTION), orderBy('createdAt', 'desc'));
   
-  rows.forEach((row, index) => {
-    const nama = row.querySelector('.input-nama').value.trim();
-    const email = row.querySelector('.input-email').value.trim();
-    const noWA = row.querySelector('.input-nowa').value.trim(); // <-- TAMBAHAN: Ambil No WA
-    const role = row.querySelector('.input-role').value;
-    const status = row.querySelector('.input-status').value;
-    
-    const hakAksesText = row.querySelector('.input-hak-akses').value.trim();
-    const hakAkses = hakAksesText 
-      ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0)
-      : [];
-    
-    // Pertahankan flag passwordChanged jika user sudah ada
-    const existingData = userData[index] || {};
-    const passwordChanged = existingData.passwordChanged || false;
-
-    // Validasi: Nama, Email, DAN No WA wajib diisi
-    if (!nama || !email || !noWA) {
-      isValid = false;
-      row.style.border = '2px solid #ef4444';
-    } else {
-      row.style.border = '1px solid #e2e8f0';
-      newData.push({ 
-        nama, 
-        email, 
-        noWA,                          // <-- TAMBAHAN: Simpan No WA
-        password: PASSWORD_DEFAULT,    // <-- TAMBAHAN: Paksa password default
-        passwordChanged: passwordChanged, // <-- TAMBAHAN: Simpan flag status
-        role, 
-        status,
-        hakAkses
-      });
-    }
+  unsubscribe = onSnapshot(q, (snapshot) => {
+    userData = snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    }));
+    renderForm();
+  }, (error) => {
+    console.error('Error listening to users:', error);
+    container.innerHTML = '<div class="helper-text" style="text-align: center; padding: 20px; color: #dc2626;">❌ Gagal memuat data. Periksa koneksi atau aturan Firestore.</div>';
   });
+}
 
-  if (!isValid) {
-    alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
-    return;
-  }
+// Mulai listening saat halaman dimuat
+startListening();
 
-  // UI Loading State
-  btnSimpan.disabled = true;
-  btnSimpan.innerHTML = '⏳ Menyimpan...';
-  statusEl.className = 'admin-status';
-  statusEl.style.display = 'none';
-
-  try {
-    await set(userRef, {
-      aktif: true,
-      daftar: newData
-    });
-
-    userData = newData;
-    statusEl.textContent = `✅ Berhasil menyimpan ${newData.length} data pengguna secara real-time!`;
-    statusEl.className = 'admin-status success';
-    statusEl.style.display = 'block';
-  } catch (error) {
-    console.error('Error saving to RTDB:', error);
-    statusEl.textContent = '❌ Gagal menyimpan. Periksa koneksi internet Anda.';
-    statusEl.className = 'admin-status error';
-    statusEl.style.display = 'block';
-  } finally {
-    btnSimpan.disabled = false;
-    btnSimpan.innerHTML = '💾 Simpan Semua Perubahan';
+// Bersihkan listener saat halaman ditutup untuk mencegah memory leak
+window.addEventListener('beforeunload', () => {
+  if (unsubscribe) {
+    unsubscribe();
   }
 });
