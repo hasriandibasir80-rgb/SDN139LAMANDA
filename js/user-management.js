@@ -7,7 +7,8 @@ import {
   initializeApp, 
   getAuth, 
   createUserWithEmailAndPassword, 
-  setDoc 
+  setDoc,
+  doc
 } from './firebase-config.js';
 
 import { 
@@ -15,7 +16,6 @@ import {
   onSnapshot, 
   updateDoc, 
   deleteDoc, 
-  doc,
   serverTimestamp,
   query,
   orderBy
@@ -269,7 +269,6 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 // ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
-    // ✅ BARU: Langsung masukkan 6 fitur utama sebagai default
     const defaultHakAkses = [
       'Layanan Portal',
       'Dokumen Arsip',
@@ -286,7 +285,7 @@ if (btnTambah) {
       noWA: '',
       role: 'guru',
       status: 'aktif',
-      hakAkses: defaultHakAkses, // <-- 6 Fitur utama langsung terisi
+      hakAkses: defaultHakAkses,
       passwordChanged: false,
       createdAt: new Date()
     });
@@ -295,7 +294,7 @@ if (btnTambah) {
 }
 
 // ==========================================
-// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN
+// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN (LOGIKA CREATE & UPDATE DIPERBAIKI)
 // ==========================================
 if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
@@ -317,7 +316,7 @@ if (btnSimpan) {
     });
 
     if (!isValid) {
-      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
+      alert('️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
       return;
     }
 
@@ -330,46 +329,56 @@ if (btnSimpan) {
       // 2. Loop untuk memproses setiap baris
       for (let index = 0; index < rows.length; index++) {
         const user = userData[index];
+        let isUserNew = false; // Penanda untuk membedakan Create vs Update
         
-        // JIKA USER BARU (ID sementara), DAFTARKAN KE FIREBASE AUTH TERLEBIH DAHULU
+        // LANGKAH A: Jika User Baru (ID masih temp_), daftarkan ke Auth dulu
         if (user.id && user.id.startsWith('temp_')) {
           try {
+            console.log('🔄 Mendaftarkan user baru ke Auth:', user.email);
             const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, PASSWORD_DEFAULT);
             const newUid = userCredential.user.uid; 
+            
+            // Update ID user menjadi UID asli
             user.id = newUid; 
-            console.log('✅ User berhasil didaftarkan di Firebase Auth:', user.email);
+            isUserNew = true; // Tandai sebagai user baru untuk langkah Firestore nanti
+            console.log('✅ User berhasil didaftarkan di Auth dengan UID:', newUid);
             
           } catch (authError) {
             if (authError.code === 'auth/email-already-in-use') {
-              alert(`⚠️ Email "${user.email}" sudah terdaftar di sistem. Gunakan email lain.`);
+              alert(`⚠️ Email "${user.email}" sudah terdaftar di sistem.`);
               throw new Error('Email sudah digunakan');
             }
             throw authError;
           }
         }
 
-        // 3. SIMPAN/UPDATE KE FIRESTORE
+        // LANGKAH B: Siapkan Data untuk Firestore
         const dataToSave = {
           nama: user.nama,
           email: user.email,
           noWA: user.noWA,
           role: user.role,
           status: user.status,
-          hakAkses: user.hakAkses || [], // <-- Menyimpan array hak akses (termasuk 6 fitur utama + sub fitur)
+          hakAkses: user.hakAkses || [],
           password: PASSWORD_DEFAULT,
           passwordChanged: user.passwordChanged || false,
           updatedAt: serverTimestamp()
         };
 
-        if (user.id && user.id.startsWith('temp_')) {
+        // LANGKAH C: Simpan ke Firestore (PILIHAN CREATE ATAU UPDATE)
+        if (isUserNew) {
+          // OPSI 1: CREATE (Gunakan setDoc untuk user baru)
           dataToSave.createdAt = serverTimestamp();
           await setDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
+          console.log('✅ CREATE: Dokumen user baru dibuat di Firestore.');
         } else if (user.id) {
+          // OPSI 2: UPDATE (Gunakan updateDoc untuk user lama)
           await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
+          console.log('✅ UPDATE: Dokumen user lama diperbarui di Firestore.');
         }
       }
 
-      statusEl.textContent = '✅ User berhasil didaftarkan di Auth & disimpan di Firestore!';
+      statusEl.textContent = '✅ Semua perubahan berhasil disimpan (Create/Update)!';
       statusEl.className = 'admin-status success';
       statusEl.style.display = 'block';
 
