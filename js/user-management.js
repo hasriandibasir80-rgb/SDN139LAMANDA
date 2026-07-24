@@ -1,5 +1,5 @@
 // ==========================================
-// 1. IMPORTS (Ditambahkan firebaseConfig, initializeApp, getAuth, createUserWithEmailAndPassword, setDoc)
+// 1. IMPORTS
 // ==========================================
 import { 
   db, 
@@ -24,7 +24,6 @@ import {
 // ==========================================
 // 2. SECONDARY APP SETUP (Agar Admin Tidak Logout)
 // ==========================================
-// Kita buat instance Firebase terpisah khusus untuk mendaftarkan user baru
 const secondaryApp = initializeApp(firebaseConfig, "SecondaryAdminApp");
 const secondaryAuth = getAuth(secondaryApp);
 
@@ -185,16 +184,16 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 
     <div class="hak-akses-section">
       <div class="hak-akses-header">
-        <label>🔐 Hak Akses Fitur (Input Manual)</label>
-        <span class="hak-akses-hint">Satu fitur per baris. Kosongkan = tidak ada akses.</span>
+        <label>🔐 Hak Akses Fitur</label>
+        <span class="hak-akses-hint">6 Fitur utama sudah terisi. Tambahkan sub-fitur di baris baru jika perlu. Hapus baris jika tidak diizinkan.</span>
       </div>
-      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:\nAdmin Pembelajaran\nLKPD">${hakAksesText}</textarea>
+      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Layanan Portal&#10;Dokumen Arsip&#10;Data Statistik&#10;Administrasi Pembelajaran&#10;Kolaborasi&#10;Global Monitoring">${hakAksesText}</textarea>
     </div>
   `;
 
   container.appendChild(row);
 
-  // --- LOGIKA SYNC DATA REAL-TIME (Pertahankan logika cerdas Anda) ---
+  // --- LOGIKA SYNC DATA REAL-TIME ---
   const syncData = () => {
     if (index !== null && userData[index]) {
       userData[index].nama = row.querySelector('.input-nama').value.trim();
@@ -266,10 +265,20 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 }
 
 // ==========================================
-// 8. EVENT LISTENER: TAMBAH USER BARU
+// 8. EVENT LISTENER: TAMBAH USER BARU (DENGAN 6 FITUR UTAMA DEFAULT)
 // ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
+    // ✅ BARU: Langsung masukkan 6 fitur utama sebagai default
+    const defaultHakAkses = [
+      'Layanan Portal',
+      'Dokumen Arsip',
+      'Data Statistik',
+      'Administrasi Pembelajaran',
+      'Kolaborasi',
+      'Global Monitoring'
+    ];
+
     userData.unshift({
       id: `temp_${Date.now()}`,
       nama: '',
@@ -277,7 +286,7 @@ if (btnTambah) {
       noWA: '',
       role: 'guru',
       status: 'aktif',
-      hakAkses: [],
+      hakAkses: defaultHakAkses, // <-- 6 Fitur utama langsung terisi
       passwordChanged: false,
       createdAt: new Date()
     });
@@ -286,7 +295,7 @@ if (btnTambah) {
 }
 
 // ==========================================
-// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN (DENGAN INTEGRASI AUTH)
+// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN
 // ==========================================
 if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
@@ -325,11 +334,8 @@ if (btnSimpan) {
         // JIKA USER BARU (ID sementara), DAFTARKAN KE FIREBASE AUTH TERLEBIH DAHULU
         if (user.id && user.id.startsWith('temp_')) {
           try {
-            // Gunakan secondaryAuth agar sesi Admin utama TIDAK terganggu/logout
             const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, PASSWORD_DEFAULT);
-            const newUid = userCredential.user.uid; // Ambil UID asli dari Firebase Auth
-            
-            // Update ID sementara menjadi UID asli agar bisa di-save ke Firestore
+            const newUid = userCredential.user.uid; 
             user.id = newUid; 
             console.log('✅ User berhasil didaftarkan di Firebase Auth:', user.email);
             
@@ -349,18 +355,16 @@ if (btnSimpan) {
           noWA: user.noWA,
           role: user.role,
           status: user.status,
-          hakAkses: user.hakAkses || [],
+          hakAkses: user.hakAkses || [], // <-- Menyimpan array hak akses (termasuk 6 fitur utama + sub fitur)
           password: PASSWORD_DEFAULT,
           passwordChanged: user.passwordChanged || false,
           updatedAt: serverTimestamp()
         };
 
         if (user.id && user.id.startsWith('temp_')) {
-          // Untuk user baru: Gunakan setDoc agar Document ID = UID dari Firebase Auth
           dataToSave.createdAt = serverTimestamp();
           await setDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
         } else if (user.id) {
-          // Untuk user yang sudah ada: Gunakan updateDoc seperti biasa
           await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
         }
       }
