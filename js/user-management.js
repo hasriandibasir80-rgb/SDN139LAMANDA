@@ -37,7 +37,7 @@ if (userRole !== 'admin') {
 }
 
 const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
-const PASSWORD_DEFAULT = 'sdn139lamanda2024';
+const PASSWORD_DEFAULT = 'bilal2011';
 const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
 const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/profil-user.html';
 const USERS_COLLECTION = 'users';
