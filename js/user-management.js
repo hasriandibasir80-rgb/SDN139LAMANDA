@@ -8,7 +8,7 @@ if (userRole !== 'admin') {
   window.location.href = '../dashboard.html'; 
 }
 
-// 2. Konfigurasi Tambahan (BARU)
+// 2. Konfigurasi Standarisasi (BARU)
 const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
 const PASSWORD_DEFAULT = 'sdn139lamanda2024';
 const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
@@ -50,11 +50,12 @@ function renderForm() {
       tambahRow(
         item.nama, 
         item.email, 
-        item.noWA || '',       // <-- TAMBAHAN: Ambil noWA
+        item.noWA || '',             // <-- TAMBAHAN: Ambil noWA
         item.password, 
         item.role, 
         item.status, 
         item.hakAkses || [], 
+        item.passwordChanged || false, // <-- TAMBAHAN: Ambil status passwordChanged
         index
       );
     });
@@ -62,7 +63,7 @@ function renderForm() {
 }
 
 // 6. Fungsi Tambah Baris
-function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], index = null) {
+function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], passwordChanged = false, index = null) {
   const row = document.createElement('div');
   row.className = 'user-row';
   
@@ -71,9 +72,23 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
     : '';
 
   const hakAksesText = Array.isArray(hakAkses) ? hakAkses.join('\n') : '';
+  
+  // Indikator Status Password (BARU)
+  const statusBadge = passwordChanged 
+    ? '<span style="color: #16a34a; font-weight: 600; font-size: 12px;">✅ Password Sudah Diganti</span>'
+    : '<span style="color: #dc2626; font-weight: 600; font-size: 12px;">⚠️ Masih Password Default</span>';
 
   row.innerHTML = `
     ${deleteBtn}
+    
+    <!-- Header Baris: Nama, Email & Status Password -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px dashed #cbd5e1;">
+      <div>
+        <strong style="color: #1e3c72; font-size: 15px;">${nama || 'Nama belum diisi'}</strong>
+        <div style="font-size: 12px; color: #64748b;">${email || 'Email belum diisi'}</div>
+      </div>
+      <div>${statusBadge}</div>
+    </div>
     
     <!-- Baris 1: Nama & Email -->
     <div class="user-row-grid-2">
@@ -87,7 +102,7 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
     
-    <!-- Baris 2: No. WhatsApp, Role, Status (DIUBAH dari Password) -->
+    <!-- Baris 2: No. WhatsApp, Role, Status (DIUBAH: Password diganti No. WA) -->
     <div class="user-row-grid-3">
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Nomor WhatsApp *</label>
@@ -117,8 +132,8 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
     <div style="display: flex; gap: 16px; margin-top: 12px; align-items: flex-end; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 200px;">
         <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #334155;">Password Default</label>
-        <input type="text" class="admin-input" value="${PASSWORD_DEFAULT}" readonly style="background: #f1f5f9; cursor: not-allowed;">
-        <p class="helper-text">User wajib ganti setelah login pertama</p>
+        <input type="text" class="admin-input" value="${PASSWORD_DEFAULT}" readonly style="background: #f1f5f9; cursor: not-allowed; color: #64748b;">
+        <p class="helper-text">Tidak dapat diubah manual di sini</p>
       </div>
       <div style="flex: 2; min-width: 250px;">
         <button type="button" class="btn-kirim-wa" style="width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
@@ -165,7 +180,7 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
 
     const nomorWA = formatNomorWA(noWAUser);
     if (nomorWA.length < 10) {
-      alert('⚠️ Nomor WhatsApp tidak valid!');
+      alert('⚠️ Nomor WhatsApp tidak valid! Pastikan minimal 10 digit.');
       return;
     }
 
@@ -178,6 +193,7 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       ortu: 'Orang Tua'
     };
 
+    // Template Pesan WhatsApp (BARU)
     let pesan = `Assalamu'alaikum Wr. Wb.\n\n`;
     pesan += `Yth. Bapak/Ibu *${namaUser}*,\n\n`;
     pesan += `Dengan hormat, kami mengundang Anda untuk bergabung di sistem informasi *${NAMA_SEKOLAH}*.\n\n`;
@@ -240,10 +256,10 @@ btnSimpan.addEventListener('click', async () => {
   const newData = [];
   let isValid = true;
   
-  rows.forEach(row => {
+  rows.forEach((row, index) => {
     const nama = row.querySelector('.input-nama').value.trim();
     const email = row.querySelector('.input-email').value.trim();
-    const noWA = row.querySelector('.input-nowa').value.trim(); // <-- TAMBAHAN: Ambil nilai No WA
+    const noWA = row.querySelector('.input-nowa').value.trim(); // <-- TAMBAHAN: Ambil No WA
     const role = row.querySelector('.input-role').value;
     const status = row.querySelector('.input-status').value;
     
@@ -252,6 +268,10 @@ btnSimpan.addEventListener('click', async () => {
       ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0)
       : [];
     
+    // Pertahankan flag passwordChanged jika user sudah ada
+    const existingData = userData[index] || {};
+    const passwordChanged = existingData.passwordChanged || false;
+
     // Validasi: Nama, Email, DAN No WA wajib diisi
     if (!nama || !email || !noWA) {
       isValid = false;
@@ -261,8 +281,9 @@ btnSimpan.addEventListener('click', async () => {
       newData.push({ 
         nama, 
         email, 
-        noWA,                // <-- TAMBAHAN: Simpan No WA ke database
-        password: PASSWORD_DEFAULT, // Password otomatis default
+        noWA,                          // <-- TAMBAHAN: Simpan No WA
+        password: PASSWORD_DEFAULT,    // <-- TAMBAHAN: Paksa password default
+        passwordChanged: passwordChanged, // <-- TAMBAHAN: Simpan flag status
         role, 
         status,
         hakAkses
