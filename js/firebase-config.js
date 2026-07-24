@@ -6,10 +6,10 @@
 
 // ✅ Import Firebase App
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"; // Ditambahkan untuk secondary app
 
 // ✅ Import Firebase Auth + Functions
 import { 
-  getAuth, 
   signInWithEmailAndPassword, 
   signInWithPopup,
   GoogleAuthProvider,
@@ -122,6 +122,11 @@ try {
 // ✅ EXPORT SEMUA INSTANCES DAN FUNCTIONS
 // =========================================
 export { 
+  // === CONFIGURATION (BARU: Diperlukan untuk Secondary App di user-management) ===
+  firebaseConfig,
+  initializeApp,
+  getAuth,
+
   // === INSTANCES ===
   app, auth, db, rtdb, googleProvider,
   
