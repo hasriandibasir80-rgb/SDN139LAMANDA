@@ -1,8 +1,8 @@
 // js/controllers/login-controller.js
-import { auth } from '../firebase-config.js';
+import { auth, db, doc, getDoc } from '../firebase-config.js';
 
 export class LoginController {
-  // ✅ PERBAIKAN 1: Terima instance captcha dari luar
+  // ✅ Terima instance captcha dari luar
   constructor(captchaInstance) {
     this.captcha = captchaInstance; 
     this.form = document.getElementById('loginForm');
@@ -33,35 +33,61 @@ export class LoginController {
     }
 
     try {
-      // ✅ PERBAIKAN 2: Gunakan fungsi login asli dari auth-login.js 
-      // agar data user otomatis tersimpan di localStorage dan role terbaca.
+      // ✅ JALUR UTAMA: Gunakan fungsi login asli dari auth-login.js 
       if (typeof window.handleEmailLogin === 'function') {
         console.log('🔐 Menggunakan sistem login utama...');
         await window.handleEmailLogin(email, password);
+        // handleEmailLogin sudah menangani redirect ke dashboard.html secara internal
+        return; 
+      } 
+      
+      // ⚠️ JALUR FALLBACK: Jika auth-login.js tidak ter-load, lakukan login manual + ambil hakAkses
+      console.log('⚠️ Fallback login digunakan...');
+      const { signInWithEmailAndPassword } = await import('../firebase-config.js');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // ✅ PERBAIKAN: Ambil role & hakAkses dari Firestore agar data akses tidak hilang
+      let role = 'user';
+      let hakAkses = [];
+      try {
+        const userDocRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userDocRef);
         
-        // Beri jeda sedikit agar localStorage sempat tersimpan oleh auth-login.js
-        setTimeout(() => {
-          window.location.href = 'dashboard.html'; 
-        }, 500);
-      } else {
-        // Fallback jika auth-login.js tidak ter-load (Basic Firebase Login)
-        console.log('⚠️ Fallback login digunakan...');
-        const { signInWithEmailAndPassword } = await import('../firebase-config.js');
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
-        
-        localStorage.setItem('currentUser', JSON.stringify({
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          isDemo: false,
-          isCustomId: false
-        }));
-        window.location.href = 'dashboard.html';
+        if (userSnap.exists()) {
+          const data = userSnap.data();
+          role = data.role || 'user';
+          hakAkses = data.hakAkses || [];
+        }
+      } catch (err) {
+        console.warn('⚠️ Gagal ambil data user di fallback:', err);
       }
+
+      // ✅ SIMPAN LENGKAP ke localStorage (termasuk role dan hakAkses)
+      localStorage.setItem('currentUser', JSON.stringify({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email.split('@')[0],
+        role: role,
+        hakAkses: hakAkses
+      }));
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('userHakAkses', JSON.stringify(hakAkses));
+      
+      window.location.href = 'dashboard.html';
+
     } catch (error) {
       console.error('Login failed:', error);
-      alert('❌ Login gagal: ' + error.message);
+      
+      const messages = {
+        'auth/invalid-email': 'Format email tidak valid.',
+        'auth/user-disabled': 'Akun ini telah dinonaktifkan.',
+        'auth/user-not-found': 'Email tidak terdaftar.',
+        'auth/wrong-password': 'Password salah.',
+        'auth/invalid-credential': 'Email atau password salah.'
+      };
+      
+      alert('❌ Login gagal: ' + (messages[error.code] || error.message));
       this.captcha.refresh();
       this.showLoading(false);
     }
