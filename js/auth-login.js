@@ -1,6 +1,6 @@
 /**
  * Auth Login Module - SDN 139 LAMANDA
- * Fitur: Email/Password Login, Device Session Management (RTDB), & Data Check (Firestore)
+ * Fitur: Email/Password Login, Device Session Management (RTDB), Data Check (Firestore), & Auto-Login Sync
  * Compatible: ES6 Module, Firebase v10.12.2
  */
 
@@ -39,7 +39,7 @@ async function registerSession(userId, deviceId) {
   }
 }
 
-// === ✅ UPDATE: Fungsi untuk membaca role DAN hakAkses user dari FIRESTORE ===
+// === ✅ FUNGSI: Membaca role DAN hakAkses user dari FIRESTORE ===
 async function getUserData(uid) {
   try {
     const userDocRef = doc(db, "users", uid); 
@@ -50,7 +50,7 @@ async function getUserData(uid) {
       console.log('✅ Data user ditemukan di Firestore:', data);
       return {
         role: data.role || "user",
-        hakAkses: data.hakAkses || [] // ✅ BARU: Ambil array hak akses
+        hakAkses: data.hakAkses || [] 
       };
     } else {
       console.log('ℹ️ Dokumen user belum ada di Firestore, default ke "user"');
@@ -71,22 +71,22 @@ async function handleEmailLogin(email, password) {
     console.log('✅ Firebase login BERHASIL untuk:', user.email);
     console.log('✅ UID Asli dari Firebase:', user.uid);
     
-    // ✅ BARU: Baca role DAN hakAkses user dari Firestore
+    // Baca role DAN hakAkses user dari Firestore
     const userData = await getUserData(user.uid);
     console.log('✅ Role user:', userData.role, '| Hak Akses:', userData.hakAkses);
     
-    // Simpan data user ASLI dari Firebase ke localStorage
+    // Simpan data user ke localStorage
     localStorage.setItem('currentUser', JSON.stringify({
       uid: user.uid, 
       email: user.email,
       displayName: user.displayName || email.split('@')[0],
       role: userData.role,
-      hakAkses: userData.hakAkses // ✅ BARU: Simpan array hak akses
+      hakAkses: userData.hakAkses 
     }));
     
-    // Simpan secara terpisah untuk akses cepat oleh dashboard.js
+    // Simpan secara terpisah untuk akses cepat
     localStorage.setItem('userRole', userData.role);
-    localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses)); // ✅ BARU: Simpan sebagai string JSON
+    localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses)); 
     
     // Register session device di Realtime Database
     const deviceId = localStorage.getItem('deviceId') || crypto.randomUUID();
@@ -131,7 +131,8 @@ async function handleLogout() {
     await signOut(auth);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('userRole'); 
-    localStorage.removeItem('userHakAkses'); // ✅ BARU: Hapus hak akses saat logout
+    localStorage.removeItem('userHakAkses'); 
+    localStorage.removeItem('layananAktif'); // Reset pilihan layanan saat logout
     
     console.log('✅ Logout berhasil');
     window.location.href = './index.html';
@@ -141,23 +142,45 @@ async function handleLogout() {
   }
 }
 
-// === 3. Auth State Listener ===
-onAuthStateChanged(auth, (user) => {
+// === 3. Auth State Listener (AUTO-LOGIN & STATE SYNC) ===
+onAuthStateChanged(auth, async (user) => {
   const logoutBtn = document.getElementById('logoutBtn');
+  
   if (user) {
     console.log('🔐 Auth state: logged in as', user.email);
     if (logoutBtn) logoutBtn.classList.remove('hidden');
+    
+    // ✅ AUTO-LOGIN SYNC: Pastikan hakAkses ada di localStorage saat refresh halaman
+    const existingHakAkses = localStorage.getItem('userHakAkses');
+    if (!existingHakAkses || existingHakAkses === 'null') {
+      console.log('🔄 Menyinkronkan ulang data hak akses dari Firestore...');
+      try {
+        const userData = await getUserData(user.uid);
+        localStorage.setItem('currentUser', JSON.stringify({
+          uid: user.uid, 
+          email: user.email,
+          displayName: user.displayName || user.email.split('@')[0],
+          role: userData.role,
+          hakAkses: userData.hakAkses
+        }));
+        localStorage.setItem('userRole', userData.role);
+        localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses));
+        console.log('✅ Sinkronisasi hak akses berhasil!');
+      } catch (error) {
+        console.warn('⚠️ Gagal sinkronisasi hak akses:', error);
+      }
+    }
   } else {
     console.log('🔐 Auth state: not logged in');
     if (logoutBtn) logoutBtn.classList.add('hidden');
   }
 });
 
-// === EXPORT ke window agar bisa dipanggil script.js ===
+// === EXPORT ke window agar bisa dipanggil oleh controller lain ===
 if (typeof window !== 'undefined') {
   window.handleEmailLogin = handleEmailLogin;
   window.handleLogout = handleLogout;
   console.log('✅ Auth functions (REAL) exposed to window');
 }
 
-console.log('🔐 auth-login.js (UPDATED WITH HAK AKSES) loaded');
+console.log('🔐 auth-login.js (FINAL WITH AUTO-SYNC) loaded');
