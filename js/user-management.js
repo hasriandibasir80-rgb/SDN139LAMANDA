@@ -24,7 +24,7 @@ const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
 const PASSWORD_DEFAULT = 'sdn139lamanda2024';
 const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
 const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/profil-user.html';
-const USERS_COLLECTION = 'users'; // Nama collection di Firestore
+const USERS_COLLECTION = 'users';
 
 // ==========================================
 // 2. INISIALISASI DOM & STATE
@@ -35,7 +35,7 @@ const btnSimpan = document.getElementById('btnSimpanUser');
 const statusEl = document.getElementById('adminStatus');
 
 let userData = [];
-let unsubscribe = null; // Untuk menghentikan listener saat halaman ditutup
+let unsubscribe = null;
 
 // ==========================================
 // 3. FUNGSI HELPER
@@ -79,7 +79,7 @@ function renderForm() {
         item.role || 'guru',
         item.status || 'aktif',
         item.hakAkses || [],
-        item.passwordChanged || false,
+        item.passwordChanged || false, // <-- PASTIKAN TIDAK UNDEFINED
         item.createdAt,
         index
       );
@@ -88,13 +88,12 @@ function renderForm() {
 }
 
 // ==========================================
-// 5. FUNGSI TAMBAH BARIS (CORE UI)
+// 5. FUNGSI TAMBAH BARIS
 // ==========================================
 function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChanged, createdAt, index) {
   const row = document.createElement('div');
   row.className = 'user-row';
   
-  // Gunakan ID untuk hapus, bukan index
   const deleteBtn = id && !id.startsWith('temp_')
     ? `<button type="button" class="btn-hapus-user" data-id="${id}">✕</button>`
     : '';
@@ -178,7 +177,6 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 
   container.appendChild(row);
 
-  // --- LOGIKA SYNC DATA REAL-TIME ---
   const syncData = () => {
     if (index !== null && userData[index]) {
       userData[index].nama = row.querySelector('.input-nama').value.trim();
@@ -200,13 +198,11 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
     element.addEventListener('change', syncData);
   });
 
-  // --- EVENT LISTENER: HAPUS (Menggunakan ID Dokumen) ---
   if (id && !id.startsWith('temp_')) {
     row.querySelector('.btn-hapus-user').addEventListener('click', async () => {
       if(confirm('Yakin ingin menghapus pengguna ini dari database?')) {
         try {
           await deleteDoc(doc(db, USERS_COLLECTION, id));
-          // Data akan otomatis ter-update via onSnapshot
         } catch (error) {
           console.error('Error deleting user:', error);
           alert('❌ Gagal menghapus pengguna!');
@@ -215,7 +211,6 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
     });
   }
 
-  // --- EVENT LISTENER: KIRIM WHATSAPP ---
   row.querySelector('.btn-kirim-wa').addEventListener('click', () => {
     syncData(); 
     const user = userData[index];
@@ -255,9 +250,8 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 // ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
-    // Tambahkan objek sementara ke array agar langsung ter-render
     userData.unshift({
-      id: `temp_${Date.now()}`, // ID sementara
+      id: `temp_${Date.now()}`,
       nama: '',
       email: '',
       noWA: '',
@@ -278,9 +272,7 @@ if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
     const rows = container.querySelectorAll('.user-row');
     let isValid = true;
-    let hasChanges = false;
 
-    // Validasi UI terlebih dahulu
     rows.forEach((row, index) => {
       const nama = row.querySelector('.input-nama').value.trim();
       const email = row.querySelector('.input-email').value.trim();
@@ -305,7 +297,6 @@ if (btnSimpan) {
     statusEl.style.display = 'none';
 
     try {
-      // Proses simpan ke Firestore
       for (let index = 0; index < rows.length; index++) {
         const row = rows[index];
         const user = userData[index];
@@ -316,39 +307,28 @@ if (btnSimpan) {
           noWA: user.noWA,
           role: user.role,
           status: user.status,
-          hakAkses: user.hakAkses,
+          hakAkses: user.hakAkses || [],
           password: PASSWORD_DEFAULT,
-          passwordChanged: user.passwordChanged,
+          passwordChanged: user.passwordChanged || false, // <-- PASTIKAN TIDAK UNDEFINED
           updatedAt: serverTimestamp()
         };
 
-        // Jika ID dimulai dengan 'temp_', berarti ini user baru -> addDoc
         if (user.id && user.id.startsWith('temp_')) {
           dataToSave.createdAt = serverTimestamp();
           const docRef = await addDoc(collection(db, USERS_COLLECTION), dataToSave);
-          user.id = docRef.id; // Update ID sementara menjadi ID asli dari Firestore
-        } 
-        // Jika sudah punya ID asli -> updateDoc
-        else if (user.id) {
+          user.id = docRef.id;
+        } else if (user.id) {
           await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
         }
-        
-        hasChanges = true;
       }
 
-      if (hasChanges) {
-        statusEl.textContent = '✅ Data pengguna berhasil disimpan ke Firestore!';
-        statusEl.className = 'admin-status success';
-        statusEl.style.display = 'block';
-      } else {
-        statusEl.textContent = 'ℹ️ Tidak ada perubahan yang perlu disimpan.';
-        statusEl.className = 'admin-status';
-        statusEl.style.display = 'block';
-      }
+      statusEl.textContent = '✅ Data pengguna berhasil disimpan ke Firestore!';
+      statusEl.className = 'admin-status success';
+      statusEl.style.display = 'block';
 
     } catch (error) {
       console.error('Error saving to Firestore:', error);
-      statusEl.textContent = '❌ Gagal menyimpan. Periksa konsol untuk detail error.';
+      statusEl.textContent = '❌ Gagal menyimpan: ' + error.message;
       statusEl.className = 'admin-status error';
       statusEl.style.display = 'block';
     } finally {
@@ -376,10 +356,8 @@ function startListening() {
   });
 }
 
-// Mulai listening saat halaman dimuat
 startListening();
 
-// Bersihkan listener saat halaman ditutup untuk mencegah memory leak
 window.addEventListener('beforeunload', () => {
   if (unsubscribe) {
     unsubscribe();
