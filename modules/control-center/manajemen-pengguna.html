@@ -21,14 +21,15 @@
 
       <div style="margin-bottom: 20px;">
         <p class="helper-text" style="margin-bottom: 16px; font-size: 14px;">
-          ℹ️ Kelola akun pengguna sistem. Password default untuk pengguna baru adalah <strong>123456</strong>. 
-          Pastikan email yang dimasukkan valid.
+          ℹ️ Kelola akun pengguna sistem. Password default untuk pengguna baru adalah <strong>sdn139lamanda2024</strong>. 
+          Pastikan email dan nomor WhatsApp valid agar undangan dapat dikirim.
         </p>
-        <button type="button" id="btnTambahUser" class="btn-admin-secondary" style="margin-bottom: 16px; background: #e2e8f0; color: #334155; border: none; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+        <button type="button" id="btnTambahUser" class="btn-admin-secondary" style="margin-bottom: 16px;">
           ➕ Tambah Pengguna Baru
         </button>
       </div>
 
+      <!-- Container untuk daftar user (diisi secara dinamis oleh JS) -->
       <div id="daftarUserContainer"></div>
 
       <button type="button" id="btnSimpanUser" class="btn-admin-save" style="margin-top: 24px;">
@@ -41,6 +42,7 @@
     </div>
   </div>
 
+  <!-- Menghubungkan ke file JS Manajemen Pengguna (Versi Firestore) -->
   <script type="module" src="../../js/user-management.js"></script>
 </body>
 </html>
