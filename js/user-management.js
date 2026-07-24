@@ -1,8 +1,18 @@
-import { db } from './firebase-config.js';
+// ==========================================
+// 1. IMPORTS (Ditambahkan firebaseConfig, initializeApp, getAuth, createUserWithEmailAndPassword, setDoc)
+// ==========================================
+import { 
+  db, 
+  firebaseConfig, 
+  initializeApp, 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  setDoc 
+} from './firebase-config.js';
+
 import { 
   collection, 
   onSnapshot, 
-  addDoc, 
   updateDoc, 
   deleteDoc, 
   doc,
@@ -12,7 +22,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ==========================================
-// 1. VALIDASI & KONFIGURASI
+// 2. SECONDARY APP SETUP (Agar Admin Tidak Logout)
+// ==========================================
+// Kita buat instance Firebase terpisah khusus untuk mendaftarkan user baru
+const secondaryApp = initializeApp(firebaseConfig, "SecondaryAdminApp");
+const secondaryAuth = getAuth(secondaryApp);
+
+// ==========================================
+// 3. VALIDASI & KONFIGURASI
 // ==========================================
 const userRole = localStorage.getItem('userRole');
 if (userRole !== 'admin') {
@@ -27,7 +44,7 @@ const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/
 const USERS_COLLECTION = 'users';
 
 // ==========================================
-// 2. INISIALISASI DOM & STATE
+// 4. INISIALISASI DOM & STATE
 // ==========================================
 const container = document.getElementById('daftarUserContainer');
 const btnTambah = document.getElementById('btnTambahUser');
@@ -38,7 +55,7 @@ let userData = [];
 let unsubscribe = null;
 
 // ==========================================
-// 3. FUNGSI HELPER
+// 5. FUNGSI HELPER
 // ==========================================
 function formatNomorWA(nomor) {
   if (!nomor) return '';
@@ -58,7 +75,7 @@ function formatTanggal(timestamp) {
 }
 
 // ==========================================
-// 4. FUNGSI RENDER
+// 6. FUNGSI RENDER
 // ==========================================
 function renderForm() {
   container.innerHTML = '';
@@ -79,7 +96,7 @@ function renderForm() {
         item.role || 'guru',
         item.status || 'aktif',
         item.hakAkses || [],
-        item.passwordChanged || false, // <-- PASTIKAN TIDAK UNDEFINED
+        item.passwordChanged || false,
         item.createdAt,
         index
       );
@@ -88,7 +105,7 @@ function renderForm() {
 }
 
 // ==========================================
-// 5. FUNGSI TAMBAH BARIS
+// 7. FUNGSI TAMBAH BARIS
 // ==========================================
 function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChanged, createdAt, index) {
   const row = document.createElement('div');
@@ -177,6 +194,7 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 
   container.appendChild(row);
 
+  // --- LOGIKA SYNC DATA REAL-TIME (Pertahankan logika cerdas Anda) ---
   const syncData = () => {
     if (index !== null && userData[index]) {
       userData[index].nama = row.querySelector('.input-nama').value.trim();
@@ -198,6 +216,7 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
     element.addEventListener('change', syncData);
   });
 
+  // --- EVENT LISTENER: HAPUS ---
   if (id && !id.startsWith('temp_')) {
     row.querySelector('.btn-hapus-user').addEventListener('click', async () => {
       if(confirm('Yakin ingin menghapus pengguna ini dari database?')) {
@@ -211,6 +230,7 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
     });
   }
 
+  // --- EVENT LISTENER: KIRIM WHATSAPP ---
   row.querySelector('.btn-kirim-wa').addEventListener('click', () => {
     syncData(); 
     const user = userData[index];
@@ -246,7 +266,7 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 }
 
 // ==========================================
-// 6. EVENT LISTENER: TAMBAH USER BARU
+// 8. EVENT LISTENER: TAMBAH USER BARU
 // ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
@@ -266,14 +286,15 @@ if (btnTambah) {
 }
 
 // ==========================================
-// 7. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN
+// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN (DENGAN INTEGRASI AUTH)
 // ==========================================
 if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
     const rows = container.querySelectorAll('.user-row');
     let isValid = true;
 
-    rows.forEach((row, index) => {
+    // 1. Validasi UI
+    rows.forEach((row) => {
       const nama = row.querySelector('.input-nama').value.trim();
       const email = row.querySelector('.input-email').value.trim();
       const noWA = row.querySelector('.input-nowa').value.trim();
@@ -292,15 +313,36 @@ if (btnSimpan) {
     }
 
     btnSimpan.disabled = true;
-    btnSimpan.innerHTML = '⏳ Menyimpan...';
+    btnSimpan.innerHTML = '⏳ Mendaftarkan & Menyimpan...';
     statusEl.className = 'admin-status';
     statusEl.style.display = 'none';
 
     try {
+      // 2. Loop untuk memproses setiap baris
       for (let index = 0; index < rows.length; index++) {
-        const row = rows[index];
         const user = userData[index];
         
+        // JIKA USER BARU (ID sementara), DAFTARKAN KE FIREBASE AUTH TERLEBIH DAHULU
+        if (user.id && user.id.startsWith('temp_')) {
+          try {
+            // Gunakan secondaryAuth agar sesi Admin utama TIDAK terganggu/logout
+            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, PASSWORD_DEFAULT);
+            const newUid = userCredential.user.uid; // Ambil UID asli dari Firebase Auth
+            
+            // Update ID sementara menjadi UID asli agar bisa di-save ke Firestore
+            user.id = newUid; 
+            console.log('✅ User berhasil didaftarkan di Firebase Auth:', user.email);
+            
+          } catch (authError) {
+            if (authError.code === 'auth/email-already-in-use') {
+              alert(`⚠️ Email "${user.email}" sudah terdaftar di sistem. Gunakan email lain.`);
+              throw new Error('Email sudah digunakan');
+            }
+            throw authError;
+          }
+        }
+
+        // 3. SIMPAN/UPDATE KE FIRESTORE
         const dataToSave = {
           nama: user.nama,
           email: user.email,
@@ -309,26 +351,27 @@ if (btnSimpan) {
           status: user.status,
           hakAkses: user.hakAkses || [],
           password: PASSWORD_DEFAULT,
-          passwordChanged: user.passwordChanged || false, // <-- PASTIKAN TIDAK UNDEFINED
+          passwordChanged: user.passwordChanged || false,
           updatedAt: serverTimestamp()
         };
 
         if (user.id && user.id.startsWith('temp_')) {
+          // Untuk user baru: Gunakan setDoc agar Document ID = UID dari Firebase Auth
           dataToSave.createdAt = serverTimestamp();
-          const docRef = await addDoc(collection(db, USERS_COLLECTION), dataToSave);
-          user.id = docRef.id;
+          await setDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
         } else if (user.id) {
+          // Untuk user yang sudah ada: Gunakan updateDoc seperti biasa
           await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
         }
       }
 
-      statusEl.textContent = '✅ Data pengguna berhasil disimpan ke Firestore!';
+      statusEl.textContent = '✅ User berhasil didaftarkan di Auth & disimpan di Firestore!';
       statusEl.className = 'admin-status success';
       statusEl.style.display = 'block';
 
     } catch (error) {
-      console.error('Error saving to Firestore:', error);
-      statusEl.textContent = '❌ Gagal menyimpan: ' + error.message;
+      console.error('Error saving:', error);
+      statusEl.textContent = '❌ Gagal: ' + error.message;
       statusEl.className = 'admin-status error';
       statusEl.style.display = 'block';
     } finally {
@@ -339,7 +382,7 @@ if (btnSimpan) {
 }
 
 // ==========================================
-// 8. REALTIME LISTENER (FIRESTORE)
+// 10. REALTIME LISTENER (FIRESTORE)
 // ==========================================
 function startListening() {
   const q = query(collection(db, USERS_COLLECTION), orderBy('createdAt', 'desc'));
