@@ -8,13 +8,7 @@ if (userRole !== 'admin') {
   window.location.href = '../dashboard.html'; 
 }
 
-// 2. Konfigurasi
-const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
-const PASSWORD_DEFAULT = 'sdn139lamanda2024';
-const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
-const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/profil-user.html';
-
-// 3. Inisialisasi Elemen DOM
+// 2. Inisialisasi Elemen DOM
 const container = document.getElementById('daftarUserContainer');
 const btnTambah = document.getElementById('btnTambahUser');
 const btnSimpan = document.getElementById('btnSimpanUser');
@@ -23,19 +17,7 @@ const userRef = ref(rtdb, 'config/users');
 
 let userData = [];
 
-// 4. Fungsi Format Nomor WA
-function formatNomorWA(nomor) {
-  if (!nomor) return '';
-  let clean = nomor.replace(/\D/g, ''); // Hapus semua non-angka
-  if (clean.startsWith('0')) {
-    clean = '62' + clean.substring(1);
-  } else if (!clean.startsWith('62')) {
-    clean = '62' + clean;
-  }
-  return clean;
-}
-
-// 5. Fungsi Render
+// 3. Fungsi Render
 function renderForm() {
   container.innerHTML = '';
   if (userData.length === 0) {
@@ -50,7 +32,6 @@ function renderForm() {
       tambahRow(
         item.nama, 
         item.email, 
-        item.noWA || '',       // <-- TAMBAHAN: Field No WA
         item.password, 
         item.role, 
         item.status, 
@@ -61,8 +42,8 @@ function renderForm() {
   }
 }
 
-// 6. Fungsi Tambah Baris (dengan field No. WA & Tombol WA)
-function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], index = null) {
+// 4. Fungsi Tambah Baris (dengan field Hak Akses)
+function tambahRow(nama = '', email = '', password = '', role = 'guru', status = 'aktif', hakAkses = [], index = null) {
   const row = document.createElement('div');
   row.className = 'user-row';
   
@@ -70,6 +51,7 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
     ? `<button type="button" class="btn-hapus-user" data-index="${index}">✕</button>`
     : '';
 
+  // Convert array hakAkses menjadi string (satu per baris) untuk textarea
   const hakAksesText = Array.isArray(hakAkses) ? hakAkses.join('\n') : '';
 
   row.innerHTML = `
@@ -87,11 +69,11 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
     
-    <!-- Baris 2: No. WhatsApp, Role, Status -->
+    <!-- Baris 2: Password, Role, Status -->
     <div class="user-row-grid-3">
       <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Nomor WhatsApp *</label>
-        <input type="tel" class="admin-input input-nowa" value="${noWA}" placeholder="08123456789">
+        <label>Password</label>
+        <input type="text" class="admin-input input-password" value="${password || '123456'}" placeholder="Default: 123456">
       </div>
       <div class="admin-form-group" style="margin-bottom: 0;">
         <label>Peran (Role)</label>
@@ -113,27 +95,13 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       </div>
     </div>
 
-    <!-- Baris 3: Info Password & Tombol Kirim WA -->
-    <div style="display: flex; gap: 16px; margin-top: 12px; align-items: flex-end; flex-wrap: wrap;">
-      <div style="flex: 1; min-width: 200px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #334155;">Password Default</label>
-        <input type="text" class="admin-input" value="${PASSWORD_DEFAULT}" readonly style="background: #f1f5f9; cursor: not-allowed;">
-        <p class="helper-text">User wajib ganti setelah login pertama</p>
-      </div>
-      <div style="flex: 2; min-width: 250px;">
-        <button type="button" class="btn-kirim-wa" style="width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-          📱 Kirim Undangan via WhatsApp
-        </button>
-      </div>
-    </div>
-
-    <!-- Baris 4: Hak Akses (Textarea Manual) -->
+    <!-- Baris 3: Hak Akses (Textarea Manual) -->
     <div class="hak-akses-section">
       <div class="hak-akses-header">
         <label>🔐 Hak Akses Fitur (Input Manual)</label>
         <span class="hak-akses-hint">Satu fitur per baris. Kosongkan = tidak ada akses.</span>
       </div>
-      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:&#10;Admin Pembelajaran&#10;LKPD&#10;RPM Spesifik">${hakAksesText}</textarea>
+      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Contoh:&#10;Admin Pembelajaran&#10;LKPD&#10;RPM Spesifik&#10;Global Monitoring">${hakAksesText}</textarea>
     </div>
   `;
 
@@ -148,74 +116,9 @@ function tambahRow(nama = '', email = '', noWA = '', password = '', role = 'guru
       }
     });
   }
-
-  // Event listener untuk tombol Kirim WhatsApp
-  row.querySelector('.btn-kirim-wa').addEventListener('click', () => {
-    const namaUser = row.querySelector('.input-nama').value.trim();
-    const emailUser = row.querySelector('.input-email').value.trim();
-    const noWAUser = row.querySelector('.input-nowa').value.trim();
-    const roleUser = row.querySelector('.input-role').value;
-    const hakAksesText = row.querySelector('.input-hak-akses').value.trim();
-    const hakAksesList = hakAksesText ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0) : [];
-
-    if (!namaUser || !emailUser || !noWAUser) {
-      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi sebelum mengirim undangan!');
-      return;
-    }
-
-    const nomorWA = formatNomorWA(noWAUser);
-    if (nomorWA.length < 10) {
-      alert('⚠️ Nomor WhatsApp tidak valid!');
-      return;
-    }
-
-    const roleLabels = {
-      admin: 'Administrator',
-      kepsek: 'Kepala Sekolah',
-      guru: 'Guru',
-      staf: 'Staf / Tata Usaha',
-      siswa: 'Peserta Didik',
-      ortu: 'Orang Tua'
-    };
-
-    let pesan = `Assalamu'alaikum Wr. Wb.\n\n`;
-    pesan += `Yth. Bapak/Ibu *${namaUser}*,\n\n`;
-    pesan += `Dengan hormat, kami mengundang Anda untuk bergabung di sistem informasi *${NAMA_SEKOLAH}*.\n\n`;
-    pesan += `Berikut detail akun Anda:\n`;
-    pesan += `━━━━━━━━━━━━━━━━━━\n`;
-    pesan += `👤 Nama: ${namaUser}\n`;
-    pesan += `📧 Email: ${emailUser}\n`;
-    pesan += `🔑 Password: ${PASSWORD_DEFAULT}\n`;
-    pesan += `🎯 Peran: ${roleLabels[roleUser] || roleUser}\n`;
-    if (hakAksesList.length > 0) {
-      pesan += `🔐 Hak Akses:\n`;
-      hakAksesList.forEach((hak, idx) => {
-        pesan += `   ${idx + 1}. ${hak}\n`;
-      });
-    }
-    pesan += `━━━━━━━━━━━━━━━━━━\n\n`;
-    pesan += `🔗 Link Login:\n${LOGIN_URL}\n\n`;
-    pesan += `⚠️ *PENTING - WAJIB DILAKUKAN:*\n`;
-    pesan += `1. Login dengan email dan password di atas\n`;
-    pesan += `2. Setelah login, buka menu "Profil Saya"\n`;
-    pesan += `3. Ganti password default dengan password pribadi Anda\n`;
-    pesan += `4. Password baru minimal 6 karakter\n\n`;
-    pesan += `🔗 Link Profil & Ganti Password:\n${PROFIL_URL}\n\n`;
-    pesan += `Jika mengalami kendala, silakan hubungi Administrator.\n\n`;
-    pesan += `Terima kasih atas perhatian dan kerjasamanya.\n\n`;
-    pesan += `Wassalamu'alaikum Wr. Wb.\n\n`;
-    pesan += `Hormat kami,\n*Administrator ${NAMA_SEKOLAH}*`;
-
-    const pesanEncoded = encodeURIComponent(pesan);
-    const waURL = `https://wa.me/${nomorWA}?text=${pesanEncoded}`;
-
-    if (confirm(`Kirim undangan WhatsApp ke:\n\n📱 ${noWAUser}\n👤 ${namaUser}\n\nWhatsApp akan terbuka dengan pesan yang sudah terisi.`)) {
-      window.open(waURL, '_blank');
-    }
-  });
 }
 
-// 7. Event Listeners
+// 5. Event Listeners
 btnTambah.addEventListener('click', () => {
   if (userData.length === 0) {
     container.innerHTML = '';
@@ -223,7 +126,7 @@ btnTambah.addEventListener('click', () => {
   tambahRow();
 });
 
-// 8. Realtime Listener
+// 6. Realtime Listener
 onValue(userRef, (snapshot) => {
   const data = snapshot.val();
   if (data && data.daftar && Array.isArray(data.daftar)) {
@@ -234,7 +137,7 @@ onValue(userRef, (snapshot) => {
   renderForm();
 });
 
-// 9. Fungsi Simpan
+// 7. Fungsi Simpan
 btnSimpan.addEventListener('click', async () => {
   const rows = container.querySelectorAll('.user-row');
   const newData = [];
@@ -243,17 +146,17 @@ btnSimpan.addEventListener('click', async () => {
   rows.forEach(row => {
     const nama = row.querySelector('.input-nama').value.trim();
     const email = row.querySelector('.input-email').value.trim();
-    const noWA = row.querySelector('.input-nowa').value.trim(); // <-- TAMBAHAN: Ambil No WA
+    const password = row.querySelector('.input-password').value.trim();
     const role = row.querySelector('.input-role').value;
     const status = row.querySelector('.input-status').value;
     
+    // Ambil hak akses dari textarea (split per baris, filter yang kosong)
     const hakAksesText = row.querySelector('.input-hak-akses').value.trim();
     const hakAkses = hakAksesText 
       ? hakAksesText.split('\n').map(h => h.trim()).filter(h => h.length > 0)
       : [];
     
-    // Validasi: Nama, Email, DAN No WA wajib diisi
-    if (!nama || !email || !noWA) {
+    if (!nama || !email) {
       isValid = false;
       row.style.border = '2px solid #ef4444';
     } else {
@@ -261,23 +164,22 @@ btnSimpan.addEventListener('click', async () => {
       newData.push({ 
         nama, 
         email, 
-        noWA,                // <-- TAMBAHAN: Simpan No WA
-        password: PASSWORD_DEFAULT, // Password otomatis default
+        password, 
         role, 
         status,
-        hakAkses
+        hakAkses  // Array fitur yang bisa diakses
       });
     }
   });
 
   if (!isValid) {
-    alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
+    alert('⚠️ Nama dan Email wajib diisi untuk semua pengguna!');
     return;
   }
 
   // UI Loading State
   btnSimpan.disabled = true;
-  btnSimpan.innerHTML = '⏳ Menyimpan...';
+  btnSimpan.innerHTML = ' Menyimpan...';
   statusEl.className = 'admin-status';
   statusEl.style.display = 'none';
 
