@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR 6 SUB-FITUR MONITORING (Ditambahkan Data TP)
+// ✅ DAFTAR 6 SUB-FITUR MONITORING
 const MENU_ITEMS = [
   { 
     id: 'data-peserta-didik', 
@@ -49,7 +49,6 @@ const MENU_ITEMS = [
     path: './features/evaluasi-mandiri.js',
     status: 'soon'
   },
-  // ⭐ SUB-FITUR BARU: MASTER DATA TUJUAN PEMBELAJARAN
   { 
     id: 'data-tp', 
     icon: '🎯', 
@@ -59,9 +58,32 @@ const MENU_ITEMS = [
   }
 ];
 
-// ✅ INISIALISASI
+// ✅ INISIALISASI DENGAN AUTO-LOAD DARI URL PARAMETER
 document.addEventListener('DOMContentLoaded', () => {
-  renderMenu();
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetFiturId = urlParams.get('fitur'); // Contoh: ?fitur=data-tp
+
+  if (targetFiturId) {
+    // Cari fitur yang cocok di MENU_ITEMS
+    const targetItem = MENU_ITEMS.find(item => item.id === targetFiturId);
+    
+    if (targetItem) {
+      // Sembunyikan menu grid dan tombol kembali sejak awal
+      const menuContainer = document.getElementById('subMenuContainer');
+      const btnBack = document.getElementById('btnBackToMenu');
+      if (menuContainer) menuContainer.style.display = 'none';
+      if (btnBack) btnBack.style.display = 'inline-block';
+      
+      // Langsung load fitur tersebut
+      loadFeature(targetItem, null);
+    } else {
+      // Jika ID tidak ditemukan, tampilkan menu biasa
+      renderMenu();
+    }
+  } else {
+    // Jika tidak ada parameter, tampilkan menu biasa
+    renderMenu();
+  }
 });
 
 // ✅ RENDER MENU GRID
