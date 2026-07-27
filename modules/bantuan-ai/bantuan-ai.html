@@ -9,6 +9,58 @@
   <link rel="stylesheet" href="../../css/core/reset.css">
   <link rel="stylesheet" href="../../css/layouts/main-layout.css">
   <link rel="stylesheet" href="style.css">
+  
+  <!-- Tambahan CSS kecil agar toolbar multi-modal terlihat rapi -->
+  <style>
+    .input-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .tool-btn {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: #334155;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .tool-btn:hover {
+      background: #e2e8f0;
+      border-color: #94a3b8;
+    }
+    .tool-btn.listening {
+      background: #fee2e2;
+      border-color: #ef4444;
+      color: #dc2626;
+      animation: pulse 1.5s infinite;
+    }
+    .url-input {
+      flex: 1;
+      padding: 6px 10px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      min-width: 150px;
+    }
+    .url-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -21,21 +73,44 @@
     <!-- Chat Container -->
     <div id="chatContainer" class="chat-container">
       <div class="message ai">
-        Halo, saya asisten AI. silahkan beri perintah atau pertanyaan
+        Halo, saya asisten AI. Silakan beri perintah atau pertanyaan.<br><br>
+        💡 <b>Fitur yang tersedia:</b><br>
+        • Ketik teks langsung<br>
+        • 📷 Upload <b>Gambar</b> untuk dianalisis<br>
+        • 🎥 Upload <b>Video</b> untuk feedback<br>
+        • 🔗 Masukkan <b>Link/URL</b> untuk analisis konten<br>
+        • 🎤 Gunakan tombol <b>Suara</b> untuk input voice
       </div>
     </div>
 
     <!-- Input Area -->
     <div class="input-area">
+      
+      <!-- ✅ BARU: Toolbar untuk Multi-Modal Input -->
+      <div class="input-toolbar">
+        <label for="imageInput" class="tool-btn" title="Upload Gambar">📷 Gambar</label>
+        <input type="file" id="imageInput" accept="image/*" hidden>
+        
+        <label for="videoInput" class="tool-btn" title="Upload Video">🎥 Video</label>
+        <input type="file" id="videoInput" accept="video/*" hidden>
+        
+        <button id="btnVoice" class="tool-btn" title="Input Suara (Klik untuk mulai/berhenti)">🎤 Suara</button>
+        
+        <div style="flex: 1; display: flex; gap: 4px; min-width: 200px;">
+          <input type="url" id="urlInput" class="url-input" placeholder="Paste link untuk analisis...">
+          <button id="btnSendLink" class="tool-btn" title="Analisis Link" style="padding: 6px 10px;">🔗</button>
+        </div>
+      </div>
+
+      <!-- Input Box Utama -->
       <div class="input-box">
         <textarea id="userInput" class="chat-input" placeholder="Ketik pertanyaan atau perintah Anda..." rows="2"></textarea>
         <button id="btnSend" class="btn-send">➤</button>
       </div>
       
       <div class="input-footer">
-        <!-- Tombol Atur API Key sudah dihapus -->
-        <button id="btnClearChat" class="link-btn">️ Hapus Chat</button>
-        <span class="model-info">AI Assistant v1.0</span>
+        <button id="btnClearChat" class="link-btn">🗑️ Hapus Chat</button>
+        <span class="model-info">AI Assistant Multi-Modal v2.0</span>
       </div>
     </div>
   </div>
