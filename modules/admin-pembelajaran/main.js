@@ -23,20 +23,20 @@ const MENU_ITEMS = [
   },
   { 
     id: 'prota', 
-    icon: '📅', 
+    icon: '', 
     title: 'Program Tahunan', 
     path: './features/prota.js',
     status: 'soon'
   },
   { 
     id: 'promes', 
-    icon: '🗓️', 
+    icon: '️', 
     title: 'Program Semester', 
     path: './features/promes.js',
     status: 'soon'
   },
   { 
-    id: 'coming soon', 
+    id: 'modul-ajar', 
     icon: '📖', 
     title: 'Modul Ajar', 
     path: './features/modul-ajar.js',
@@ -86,7 +86,7 @@ const MENU_ITEMS = [
   },
   { 
     id: 'jadwal', 
-    icon: '🕐', 
+    icon: '⏰', 
     title: 'Jadwal Pembelajaran', 
     path: './features/jadwal.js',
     status: 'ready'
@@ -126,9 +126,8 @@ const MENU_ITEMS = [
     path: './features/kisi-kisi.js',
     status: 'ready'
   },
-  // ⭐ 2 SUB-FITUR BARU: RPM (Rencana Pembelajaran Mendalam)
   { 
-    id: 'coming soon', 
+    id: 'rpm-standar', 
     icon: '📝', 
     title: 'RPM Standar', 
     path: './features/rpm-standar.js',
@@ -143,9 +142,32 @@ const MENU_ITEMS = [
   }
 ];
 
-// ✅ INISIALISASI
+// ✅ INISIALISASI DENGAN AUTO-LOAD DARI URL PARAMETER
 document.addEventListener('DOMContentLoaded', () => {
-  renderMenu();
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetFiturId = urlParams.get('fitur'); // Contoh: ?fitur=lkpd
+
+  if (targetFiturId) {
+    // Cari fitur yang cocok di MENU_ITEMS
+    const targetItem = MENU_ITEMS.find(item => item.id === targetFiturId);
+    
+    if (targetItem) {
+      // Sembunyikan menu grid dan tombol kembali sejak awal
+      const menuContainer = document.getElementById('subMenuContainer');
+      const btnBack = document.getElementById('btnBackToMenu');
+      if (menuContainer) menuContainer.style.display = 'none';
+      if (btnBack) btnBack.style.display = 'inline-block';
+      
+      // Langsung load fitur tersebut
+      loadFeature(targetItem, null);
+    } else {
+      // Jika ID tidak ditemukan, tampilkan menu biasa
+      renderMenu();
+    }
+  } else {
+    // Jika tidak ada parameter, tampilkan menu biasa
+    renderMenu();
+  }
 });
 
 // ✅ RENDER MENU GRID
@@ -202,7 +224,7 @@ async function loadFeature(feature, clickedBtn) {
     console.error(`Gagal memuat ${feature.title}:`, error);
     contentDiv.innerHTML = `
       <div class="empty-state">
-        <h3>❌ Gagal Memuat Modul</h3>
+        <h3> Gagal Memuat Modul</h3>
         <p>Tidak dapat memuat fitur "${feature.title}".</p>
         <p style="font-size:12px; color:#ef4444; margin-top:10px;">Error: ${error.message}</p>
       </div>
