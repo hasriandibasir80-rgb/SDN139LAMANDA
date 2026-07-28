@@ -12,6 +12,9 @@
   
   <!-- ✅ CSS Dashboard (Spesifik untuk halaman ini) -->
   <link rel="stylesheet" href="css/dashboard.css">
+  
+  <!-- ✅ CSS Profil User (BARU - Ditambahkan untuk fitur profil) -->
+  <link rel="stylesheet" href="css/modules/profil-user.css">
 </head>
 <body>
   <div class="container">
@@ -23,7 +26,7 @@
       
       <!-- Fallback jika logo gagal dimuat -->
       <h1 id="fallback-title" style="display:none; text-align:center; margin-bottom:24px; color:#2c3e50; font-size:1.8rem;">
-        🏠 Beranda SDN 139 LAMANDA
+         Beranda SDN 139 LAMANDA
       </h1>
     </div>
 
@@ -32,7 +35,7 @@
       <strong>👤 User:</strong>
       <div id="userDetail">Memuat...</div>
     </div>
-    <button id="logoutBtn" class="btn-logout">🚪 Keluar (Logout)</button>
+    <button id="logoutBtn" class="btn-logout"> Keluar (Logout)</button>
 
     <hr class="divider" />
 
@@ -75,6 +78,21 @@
     });
   </script>
 
+  <!-- ✅ PROFIL USER MODULE (BARU - Fitur Edit Profil & Ubah Password) -->
+  <script type="module">
+    import { init as initProfil, showEditProfileButtons } from './modules/profil-user/profil-user.js';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      // Init modul profil
+      initProfil();
+      
+      // Tampilkan tombol edit profil setelah user info dimuat
+      setTimeout(() => {
+        showEditProfileButtons();
+      }, 800);
+    });
+  </script>
+
   <!-- ✅ AUTH CHECK & LOGOUT HANDLER -->
   <script>
     function checkLoginState() {
@@ -87,7 +105,7 @@
       let info = `<div>🆔 UID: <strong>${currentUser.uid}</strong></div>`;
       if (currentUser.displayName) info += `<div>👤 Nama: <strong>${currentUser.displayName}</strong></div>`;
       if (currentUser.email) info += `<div>📧 Email: <strong>${currentUser.email}</strong></div>`;
-      if (currentUser.isDemo) info += `<div>🎭 Mode: <strong>Demo</strong></div>`;
+      if (currentUser.isDemo) info += `<div> Mode: <strong>Demo</strong></div>`;
       if (currentUser.isCustomId) info += `<div>🔑 Mode: <strong>Custom ID</strong></div>`;
       userDetail.innerHTML = info;
       return true;
