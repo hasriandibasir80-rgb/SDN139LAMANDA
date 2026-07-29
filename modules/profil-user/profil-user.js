@@ -1,49 +1,42 @@
 // modules/profil-user/profil-user.js
 // =========================================
-// FITUR: PROFIL USER - MODULAR & BERDIRI SENDIRI
+// FITUR: PROFIL USER - DENGAN DATA LENGKAP & MODE EDIT
 // =========================================
 
-import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const auth = getAuth();
-let currentUserData = null;
+const db = getDatabase();
+let currentUserData = {};
+let isEditing = false;
 
-/**
- * Init Modul
- */
 export async function init() {
-  console.log(' Modul Profil User initialized');
+  console.log('🚀 Modul Profil User initialized');
   loadCSS();
   
-  auth.onAuthStateChanged((user) => {
+  auth.onAuthStateChanged(async (user) => {
     if (user) {
-      currentUserData = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName || ''
-      };
-      console.log('✅ User data loaded:', currentUserData.displayName);
+      currentUserData.uid = user.uid;
+      currentUserData.email = user.email;
+      currentUserData.displayName = user.displayName || '';
+      
+      // Ambil data tambahan dari Firebase RTDB
+      await loadUserData(user.uid);
       renderProfilButton();
     }
   });
 }
 
-/**
- * Cleanup
- */
 export function cleanup() {
   const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) btnContainer.remove();
-  
   const profilView = document.getElementById('profilViewContainer');
   if (profilView) profilView.remove();
 }
 
-/**
- * Load CSS
- */
 function loadCSS() {
+  if (document.getElementById('profil-user-css')) return;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = 'css/modules/profil-user.css';
@@ -51,9 +44,18 @@ function loadCSS() {
   document.head.appendChild(link);
 }
 
-/**
- * Render tombol profil dengan nama user
- */
+async function loadUserData(uid) {
+  try {
+    const snapshot = await get(ref(db, `users/${uid}`));
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      currentUserData = { ...currentUserData, ...data };
+    }
+  } catch (error) {
+    console.warn('⚠️ Gagal memuat data user dari DB, menggunakan default:', error);
+  }
+}
+
 function renderProfilButton() {
   if (document.getElementById('profilBtnContainer')) return;
   
@@ -74,19 +76,16 @@ function renderProfilButton() {
   if (logoutBtn) {
     logoutBtn.parentNode.insertBefore(btnContainer, logoutBtn);
   }
-  
-  console.log('✅ Tombol profil dirender:', displayName);
 }
 
-/**
- * Tampilkan tampilan profil
- */
 function showProfilView() {
   const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) btnContainer.style.display = 'none';
   
   const oldView = document.getElementById('profilViewContainer');
   if (oldView) oldView.remove();
+  
+  isEditing = false; // Reset ke mode lihat
   
   const profilView = document.createElement('div');
   profilView.id = 'profilViewContainer';
@@ -95,195 +94,173 @@ function showProfilView() {
       <h2>👤 Profil User</h2>
       
       <div class="profil-section">
-        <h3>📋 Informasi Akun</h3>
+        <h3>📋 Informasi Akun & Data Diri</h3>
+        
         <div class="form-group">
-          <label>🆔 UID</label>
-          <input type="text" class="form-control" value="${currentUserData.uid}" disabled>
+          <label>🆔 UID (Tidak dapat diubah)</label>
+          <input type="text" id="profilUid" class="form-control" value="${currentUserData.uid}" disabled>
         </div>
         <div class="form-group">
-          <label>📧 Email</label>
-          <input type="email" class="form-control" value="${currentUserData.email}" disabled>
+          <label>📧 Email (Tidak dapat diubah)</label>
+          <input type="email" id="profilEmail" class="form-control" value="${currentUserData.email}" disabled>
         </div>
         <div class="form-group">
           <label>👤 Nama Lengkap</label>
-          <input type="text" id="profilNamaInput" class="form-control" value="${currentUserData.displayName || ''}" placeholder="Masukkan nama lengkap">
-        </div>
-        <div class="profil-actions">
-          <button class="btn-profil-save" onclick="window.profilSaveProfile()">💾 Simpan Perubahan</button>
-          <button class="btn-profil-close" onclick="window.profilHideView()">✖️ Tutup</button>
-        </div>
-      </div>
-      
-      <div class="profil-section password-section">
-        <h3> Ubah Password</h3>
-        <div class="alert alert-info">🔒 Untuk keamanan, masukkan password lama Anda sebelum mengubah password.</div>
-        <div class="form-group">
-          <label>🔑 Password Lama</label>
-          <input type="password" id="oldPassword" class="form-control" placeholder="Masukkan password lama">
+          <input type="text" id="profilNama" class="form-control" value="${currentUserData.displayName || ''}" disabled>
         </div>
         <div class="form-group">
-          <label>🔑 Password Baru</label>
-          <input type="password" id="newPassword" class="form-control" placeholder="Min. 6 karakter">
+          <label>🏫 Nama Sekolah</label>
+          <input type="text" id="profilSekolah" class="form-control" value="${currentUserData.sekolah || ''}" disabled>
         </div>
         <div class="form-group">
-          <label> Konfirmasi Password Baru</label>
-          <input type="password" id="confirmPassword" class="form-control" placeholder="Ulangi password baru">
+          <label>🎓 Kelas / Fase</label>
+          <input type="text" id="profilKelas" class="form-control" value="${currentUserData.kelas || ''}" disabled>
         </div>
-        <div class="profil-actions">
-          <button class="btn-profil-save" onclick="window.profilChangePassword()"> Ubah Password</button>
+        <div class="form-group">
+          <label>🔢 NIP / NUPTK</label>
+          <input type="text" id="profilNip" class="form-control" value="${currentUserData.nip || ''}" disabled>
+        </div>
+        <div class="form-group">
+          <label>📱 Kontak / No. WhatsApp</label>
+          <input type="text" id="profilKontak" class="form-control" value="${currentUserData.kontak || ''}" disabled>
+        </div>
+
+        <!-- Tombol Aksi -->
+        <div class="profil-actions" id="viewModeButtons">
+          <button class="btn-profil-edit" onclick="window.toggleEditMode(true)">✏️ Edit Data</button>
+        </div>
+        
+        <div class="profil-actions" id="editModeButtons" style="display: none;">
+          <button class="btn-profil-save" onclick="window.saveProfileData()">💾 Simpan Perubahan</button>
+          <button class="btn-profil-close" onclick="window.toggleEditMode(false)">❌ Batal</button>
         </div>
       </div>
     </div>
   `;
   
-  if (btnContainer) {
-    btnContainer.parentNode.insertBefore(profilView, btnContainer.nextSibling);
+  const currentBtnContainer = document.getElementById('profilBtnContainer');
+  if (currentBtnContainer) {
+    currentBtnContainer.parentNode.insertBefore(profilView, currentBtnContainer.nextSibling);
   }
   
   profilView.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  console.log('✅ Tampilan profil dibuka');
 }
 
-/**
- * Sembunyikan tampilan profil
- */
-function hideProfilView() {
+// --- FUNGSI GLOBAL UNTUK ONCLICK ---
+
+window.toggleEditMode = function(enable) {
+  isEditing = enable;
+  const inputs = document.querySelectorAll('#profilViewContainer .form-control:not([id="profilUid"]):not([id="profilEmail"])');
+  const viewBtns = document.getElementById('viewModeButtons');
+  const editBtns = document.getElementById('editModeButtons');
+  
+  inputs.forEach(input => {
+    input.disabled = !enable;
+    if (enable) input.style.background = '#ffffff';
+    else input.style.background = '#f1f5f9';
+  });
+  
+  if (enable) {
+    viewBtns.style.display = 'none';
+    editBtns.style.display = 'flex';
+    document.getElementById('profilNama').focus();
+  } else {
+    viewBtns.style.display = 'flex';
+    editBtns.style.display = 'none';
+    // Reset nilai ke data asli jika batal
+    document.getElementById('profilNama').value = currentUserData.displayName || '';
+    document.getElementById('profilSekolah').value = currentUserData.sekolah || '';
+    document.getElementById('profilKelas').value = currentUserData.kelas || '';
+    document.getElementById('profilNip').value = currentUserData.nip || '';
+    document.getElementById('profilKontak').value = currentUserData.kontak || '';
+  }
+};
+
+window.saveProfileData = async function() {
+  const user = auth.currentUser;
+  if (!user) {
+    showToast('❌ User tidak login!', 'error');
+    return;
+  }
+  
+  const nama = document.getElementById('profilNama').value.trim();
+  const sekolah = document.getElementById('profilSekolah').value.trim();
+  const kelas = document.getElementById('profilKelas').value.trim();
+  const nip = document.getElementById('profilNip').value.trim();
+  const kontak = document.getElementById('profilKontak').value.trim();
+  
+  if (!nama) {
+    showToast('⚠️ Nama lengkap wajib diisi!', 'error');
+    return;
+  }
+  
+  try {
+    // 1. Update Firebase Auth (untuk nama)
+    if (nama !== user.displayName) {
+      await updateProfile(user, { displayName: nama });
+    }
+    
+    // 2. Update Firebase Realtime Database
+    const newData = {
+      uid: user.uid,
+      email: user.email,
+      displayName: nama,
+      sekolah: sekolah,
+      kelas: kelas,
+      nip: nip,
+      kontak: kontak,
+      updatedAt: Date.now()
+    };
+    
+    await set(ref(db, `users/${user.uid}`), newData);
+    
+    // 3. Update LocalStorage agar dashboard langsung update
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    Object.assign(currentUser, newData);
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    
+    // 4. Update state lokal
+    currentUserData = { ...currentUserData, ...newData };
+    
+    showToast('✅ Data profil berhasil diperbarui!', 'success');
+    
+    // 5. Kembali ke mode lihat
+    window.toggleEditMode(false);
+    
+    // 6. Refresh tombol di dashboard agar nama baru muncul
+    setTimeout(() => {
+      const btn = document.querySelector('#profilBtnContainer .profil-btn');
+      if (btn) btn.innerHTML = `👤 ${nama}`;
+    }, 500);
+    
+  } catch (error) {
+    console.error('❌ Gagal update profil:', error);
+    showToast('❌ Gagal menyimpan: ' + error.message, 'error');
+  }
+};
+
+window.profilHideView = function() {
   const profilView = document.getElementById('profilViewContainer');
   if (profilView) profilView.remove();
   
   const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) btnContainer.style.display = 'block';
-  
-  console.log('✅ Tampilan profil ditutup');
-}
+};
 
-/**
- * Simpan perubahan profil
- */
-async function saveProfile() {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('❌ User tidak login!', 'error');
-    return;
-  }
-  
-  const nama = document.getElementById('profilNamaInput').value.trim();
-  
-  if (!nama) {
-    showToast('️ Nama lengkap harus diisi!', 'error');
-    return;
-  }
-  
-  try {
-    await updateProfile(user, { displayName: nama });
-    
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    currentUser.displayName = nama;
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    
-    currentUserData.displayName = nama;
-    
-    showToast('✅ Profil berhasil diupdate!', 'success');
-    setTimeout(() => location.reload(), 1500);
-    
-  } catch (error) {
-    console.error('❌ Gagal update profil:', error);
-    showToast('❌ Gagal update profil: ' + error.message, 'error');
-  }
-}
-
-/**
- * Ubah password
- */
-async function changePassword() {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('❌ User tidak login!', 'error');
-    return;
-  }
-  
-  if (!user.email) {
-    showToast('❌ Email user tidak ditemukan!', 'error');
-    return;
-  }
-  
-  const oldPassword = document.getElementById('oldPassword').value;
-  const newPassword = document.getElementById('newPassword').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
-  
-  if (!oldPassword || !newPassword || !confirmPassword) {
-    showToast('⚠️ Semua field harus diisi!', 'error');
-    return;
-  }
-  
-  if (newPassword.length < 6) {
-    showToast('⚠️ Password baru minimal 6 karakter!', 'error');
-    return;
-  }
-  
-  if (newPassword !== confirmPassword) {
-    showToast('❌ Password baru tidak cocok!', 'error');
-    return;
-  }
-  
-  try {
-    const credential = EmailAuthProvider.credential(user.email, oldPassword);
-    await reauthenticateWithCredential(user, credential);
-    await updatePassword(user, newPassword);
-    
-    showToast('✅ Password berhasil diubah! Silakan login ulang.', 'success');
-    
-    document.getElementById('oldPassword').value = '';
-    document.getElementById('newPassword').value = '';
-    document.getElementById('confirmPassword').value = '';
-    
-    setTimeout(async () => {
-      await auth.signOut();
-      window.location.href = 'index.html';
-    }, 2000);
-    
-  } catch (error) {
-    console.error('❌ Gagal ubah password:', error);
-    
-    if (error.code === 'auth/wrong-password') {
-      showToast(' Password lama salah!', 'error');
-    } else if (error.code === 'auth/weak-password') {
-      showToast('⚠️ Password terlalu lemah!', 'error');
-    } else {
-      showToast('❌ Gagal ubah password: ' + error.message, 'error');
-    }
-  }
-}
-
-/**
- * ⭐ EXPORT: Sembunyikan profil saat layanan aktif
- */
 export function hideOnServiceActive() {
   const btnContainer = document.getElementById('profilBtnContainer');
   const profilView = document.getElementById('profilViewContainer');
-  
   if (btnContainer) btnContainer.style.display = 'none';
   if (profilView) profilView.style.display = 'none';
-  
-  console.log('🔒 Profil disembunyikan (layanan aktif)');
 }
 
-/**
- * ⭐ EXPORT: Tampilkan profil saat tidak ada layanan
- */
 export function showOnNoService() {
   const btnContainer = document.getElementById('profilBtnContainer');
   const profilView = document.getElementById('profilViewContainer');
-  
   if (btnContainer) btnContainer.style.display = 'block';
   if (profilView) profilView.style.display = 'none';
-  
-  console.log('🔓 Profil ditampilkan (tidak ada layanan)');
 }
 
-/**
- * Toast notification
- */
 function showToast(message, type = 'success') {
   const existing = document.querySelector('.toast-notification');
   if (existing) existing.remove();
@@ -294,8 +271,3 @@ function showToast(message, type = 'success') {
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
-
-// Expose functions ke window
-window.profilSaveProfile = saveProfile;
-window.profilChangePassword = changePassword;
-window.profilHideView = hideProfilView;
