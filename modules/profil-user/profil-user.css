@@ -1,9 +1,9 @@
 /* =========================================
-   PROFIL USER - STYLING
-   Tema: Modern & Clean
+   PROFIL USER - STYLING LENGKAP
+   Tema: Modern, Clean, & Responsif
    ========================================= */
 
-/* Tombol Profil di Dashboard */
+/* 1. Tombol Profil di Dashboard */
 .profil-btn {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
@@ -13,7 +13,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -29,14 +29,14 @@
   transform: translateY(0);
 }
 
-/* Container Profil Khusus */
+/* 2. Container Utama Profil */
 .profil-container {
   background: white;
   border-radius: 16px;
   padding: 30px;
   margin: 20px 0;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-  animation: fadeIn 0.4s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  animation: fadeIn 0.4s ease-out;
 }
 
 @keyframes fadeIn {
@@ -50,8 +50,10 @@
   border-bottom: 3px solid #fce7f3;
   padding-bottom: 12px;
   font-size: 22px;
+  font-weight: 700;
 }
 
+/* 3. Section/Form Group */
 .profil-section {
   background: #f8fafc;
   border-radius: 12px;
@@ -67,10 +69,6 @@
   font-weight: 700;
 }
 
-.profil-section.password-section {
-  border-left-color: #f59e0b;
-}
-
 .profil-section .form-group {
   margin-bottom: 15px;
 }
@@ -83,6 +81,7 @@
   color: #475569;
 }
 
+/* 4. Form Input Controls */
 .profil-section .form-control {
   width: 100%;
   padding: 12px 16px;
@@ -90,27 +89,51 @@
   border-radius: 8px;
   font-size: 15px;
   box-sizing: border-box;
-  transition: all 0.2s;
-  background: white;
+  transition: all 0.3s ease;
+  background: #f1f5f9; /* Warna default saat disabled */
+  color: #1e293b;
 }
 
 .profil-section .form-control:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  background: #ffffff; /* Warna putih saat aktif/diedit */
 }
 
 .profil-section .form-control:disabled {
   background: #f1f5f9;
   cursor: not-allowed;
   color: #64748b;
+  border-color: #e2e8f0;
 }
 
+/* 5. Action Buttons (Edit, Simpan, Batal) */
 .profil-actions {
   display: flex;
   gap: 10px;
-  margin-top: 15px;
+  margin-top: 20px;
   flex-wrap: wrap;
+}
+
+.btn-profil-edit {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-profil-edit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 .btn-profil-save {
@@ -122,7 +145,7 @@
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -134,7 +157,7 @@
 }
 
 .btn-profil-close {
-  background: #64748b;
+  background: #ef4444;
   color: white;
   border: none;
   padding: 12px 24px;
@@ -142,13 +165,19 @@
   font-weight: 600;
   font-size: 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .btn-profil-close:hover {
-  background: #475569;
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
+/* 6. Alert Messages */
 .alert {
   padding: 12px 16px;
   border-radius: 8px;
@@ -163,7 +192,7 @@
   border-left: 4px solid #3b82f6;
 }
 
-/* Toast Notification */
+/* 7. Toast Notifications */
 .toast-notification {
   position: fixed;
   top: 20px;
@@ -174,8 +203,8 @@
   font-weight: 600;
   font-size: 14px;
   z-index: 10001;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  animation: slideIn 0.3s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease-out;
 }
 
 .toast-notification.success {
@@ -191,11 +220,29 @@
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* Responsive */
+/* 8. Responsive Design (Mobile Friendly) */
 @media (max-width: 600px) {
-  .profil-container { padding: 20px; }
-  .profil-container h2 { font-size: 18px; }
-  .profil-actions { flex-direction: column; }
-  .btn-profil-save, .btn-profil-close { width: 100%; justify-content: center; }
-  .profil-btn { width: 100%; justify-content: center; }
+  .profil-container {
+    padding: 20px;
+  }
+  
+  .profil-container h2 {
+    font-size: 18px;
+  }
+  
+  .profil-actions {
+    flex-direction: column;
+  }
+  
+  .btn-profil-edit, 
+  .btn-profil-save, 
+  .btn-profil-close {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .profil-btn {
+    width: 100%;
+    justify-content: center;
+  }
 }
