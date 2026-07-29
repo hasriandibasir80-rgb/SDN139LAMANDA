@@ -1,28 +1,21 @@
 // modules/profil-user/profil-user.js
 // =========================================
 // FITUR: PROFIL USER - MODULAR & BERDIRI SENDIRI
-// - Tampil sebagai "layanan khusus" di dashboard
-// - Edit nama profil
-// - Ubah password
-// - Auto hide saat layanan lain aktif
 // =========================================
 
 import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const auth = getAuth();
-
-const CSS_PATH = '../../css/modules/profil-user.css';
-const CSS_ID = 'profil-user-css';
-
-// State
 let currentUserData = null;
 
+/**
+ * Init Modul
+ */
 export async function init() {
-  console.log('🚀 Modul Profil User initialized');
+  console.log(' Modul Profil User initialized');
   loadCSS();
   
-  // Tunggu auth state ready
   auth.onAuthStateChanged((user) => {
     if (user) {
       currentUserData = {
@@ -32,38 +25,29 @@ export async function init() {
       };
       console.log('✅ User data loaded:', currentUserData.displayName);
       renderProfilButton();
-    } else {
-      console.warn('⚠️ User tidak login');
     }
   });
 }
 
+/**
+ * Cleanup
+ */
 export function cleanup() {
-  // Hapus CSS
-  const css = document.getElementById(CSS_ID);
-  if (css) css.remove();
-  
-  // Hapus tombol profil
   const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) btnContainer.remove();
   
-  // Hapus container profil
   const profilView = document.getElementById('profilViewContainer');
   if (profilView) profilView.remove();
 }
 
+/**
+ * Load CSS
+ */
 function loadCSS() {
-  if (document.getElementById(CSS_ID)) return;
-  
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = CSS_PATH;
-  link.id = CSS_ID;
-  
-  link.onerror = () => {
-    console.warn('⚠️ CSS profil-user gagal dimuat');
-  };
-  
+  link.href = 'css/modules/profil-user.css';
+  link.id = 'profil-user-css';
   document.head.appendChild(link);
 }
 
@@ -71,7 +55,6 @@ function loadCSS() {
  * Render tombol profil dengan nama user
  */
 function renderProfilButton() {
-  // Jangan render 2x
   if (document.getElementById('profilBtnContainer')) return;
   
   const displayName = currentUserData.displayName || currentUserData.email || 'User';
@@ -87,32 +70,24 @@ function renderProfilButton() {
   
   btnContainer.appendChild(btn);
   
-  // Insert setelah userInfo (atau di awal container jika userInfo dihapus)
-  const userInfo = document.getElementById('userInfo');
   const logoutBtn = document.getElementById('logoutBtn');
-  
-  if (userInfo) {
-    userInfo.parentNode.insertBefore(btnContainer, logoutBtn);
-  } else if (logoutBtn) {
+  if (logoutBtn) {
     logoutBtn.parentNode.insertBefore(btnContainer, logoutBtn);
   }
   
-  console.log('✅ Tombol profil dirender dengan nama:', displayName);
+  console.log('✅ Tombol profil dirender:', displayName);
 }
 
 /**
- * Tampilkan tampilan profil khusus
+ * Tampilkan tampilan profil
  */
 function showProfilView() {
-  // Sembunyikan tombol profil
   const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) btnContainer.style.display = 'none';
   
-  // Hapus container lama jika ada
   const oldView = document.getElementById('profilViewContainer');
   if (oldView) oldView.remove();
   
-  // Buat container profil baru
   const profilView = document.createElement('div');
   profilView.id = 'profilViewContainer';
   profilView.innerHTML = `
@@ -140,7 +115,7 @@ function showProfilView() {
       </div>
       
       <div class="profil-section password-section">
-        <h3>🔑 Ubah Password</h3>
+        <h3> Ubah Password</h3>
         <div class="alert alert-info">🔒 Untuk keamanan, masukkan password lama Anda sebelum mengubah password.</div>
         <div class="form-group">
           <label>🔑 Password Lama</label>
@@ -151,7 +126,7 @@ function showProfilView() {
           <input type="password" id="newPassword" class="form-control" placeholder="Min. 6 karakter">
         </div>
         <div class="form-group">
-          <label>🔑 Konfirmasi Password Baru</label>
+          <label> Konfirmasi Password Baru</label>
           <input type="password" id="confirmPassword" class="form-control" placeholder="Ulangi password baru">
         </div>
         <div class="profil-actions">
@@ -161,15 +136,11 @@ function showProfilView() {
     </div>
   `;
   
-  // Insert setelah tombol profil
-  const btnContainer = document.getElementById('profilBtnContainer');
   if (btnContainer) {
     btnContainer.parentNode.insertBefore(profilView, btnContainer.nextSibling);
   }
   
-  // Scroll ke profil
   profilView.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  
   console.log('✅ Tampilan profil dibuka');
 }
 
@@ -206,17 +177,13 @@ async function saveProfile() {
   try {
     await updateProfile(user, { displayName: nama });
     
-    // Update localStorage
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     currentUser.displayName = nama;
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     
-    // Update state
     currentUserData.displayName = nama;
     
     showToast('✅ Profil berhasil diupdate!', 'success');
-    
-    // Refresh halaman untuk update tombol dengan nama baru
     setTimeout(() => location.reload(), 1500);
     
   } catch (error) {
@@ -266,7 +233,6 @@ async function changePassword() {
     
     showToast('✅ Password berhasil diubah! Silakan login ulang.', 'success');
     
-    // Clear form
     document.getElementById('oldPassword').value = '';
     document.getElementById('newPassword').value = '';
     document.getElementById('confirmPassword').value = '';
@@ -290,7 +256,7 @@ async function changePassword() {
 }
 
 /**
- * Sembunyikan profil saat layanan aktif
+ * ⭐ EXPORT: Sembunyikan profil saat layanan aktif
  */
 export function hideOnServiceActive() {
   const btnContainer = document.getElementById('profilBtnContainer');
@@ -299,11 +265,11 @@ export function hideOnServiceActive() {
   if (btnContainer) btnContainer.style.display = 'none';
   if (profilView) profilView.style.display = 'none';
   
-  console.log(' Profil disembunyikan (layanan aktif)');
+  console.log('🔒 Profil disembunyikan (layanan aktif)');
 }
 
 /**
- * Tampilkan profil saat tidak ada layanan
+ * ⭐ EXPORT: Tampilkan profil saat tidak ada layanan
  */
 export function showOnNoService() {
   const btnContainer = document.getElementById('profilBtnContainer');
@@ -329,7 +295,7 @@ function showToast(message, type = 'success') {
   setTimeout(() => toast.remove(), 3000);
 }
 
-// Expose functions ke window untuk onclick handler
+// Expose functions ke window
 window.profilSaveProfile = saveProfile;
 window.profilChangePassword = changePassword;
 window.profilHideView = hideProfilView;
