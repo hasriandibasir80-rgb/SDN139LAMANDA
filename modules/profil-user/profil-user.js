@@ -1,295 +1,223 @@
 // modules/profil-user/profil-user.js
 // =========================================
-// FITUR: PROFIL USER & UBAH PASSWORD
-// Versi: Simple & Robust
+// FITUR: PROFIL USER - MODULAR & BERDIRI SENDIRI
+// - Tampil sebagai "layanan khusus" di dashboard
+// - Edit nama profil
+// - Ubah password
+// - Auto hide saat layanan lain aktif
 // =========================================
 
-import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } 
+import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } 
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, set } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const auth = getAuth();
-const database = getDatabase();
+
+const CSS_PATH = '../../css/modules/profil-user.css';
+const CSS_ID = 'profil-user-css';
+
+// State
+let currentUserData = null;
 
 export async function init() {
-  console.log('✅ Modul Profil User initialized');
+  console.log('🚀 Modul Profil User initialized');
   loadCSS();
+  
+  // Tunggu auth state ready
+  auth.onAuthStateChanged((user) => {
+    if (user) {
+      currentUserData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || ''
+      };
+      console.log('✅ User data loaded:', currentUserData.displayName);
+      renderProfilButton();
+    } else {
+      console.warn('⚠️ User tidak login');
+    }
+  });
 }
 
 export function cleanup() {
-  const css = document.getElementById('profil-user-css');
+  // Hapus CSS
+  const css = document.getElementById(CSS_ID);
   if (css) css.remove();
   
-  const modal = document.getElementById('profilModal');
-  if (modal) modal.remove();
+  // Hapus tombol profil
+  const btnContainer = document.getElementById('profilBtnContainer');
+  if (btnContainer) btnContainer.remove();
+  
+  // Hapus container profil
+  const profilView = document.getElementById('profilViewContainer');
+  if (profilView) profilView.remove();
 }
 
 function loadCSS() {
-  if (document.getElementById('profil-user-css')) return;
+  if (document.getElementById(CSS_ID)) return;
   
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'css/modules/profil-user.css';
-  link.id = 'profil-user-css';
+  link.href = CSS_PATH;
+  link.id = CSS_ID;
   
   link.onerror = () => {
-    console.warn('⚠️ CSS profil-user gagal dimuat, menggunakan inline CSS');
-    const style = document.createElement('style');
-    style.id = 'profil-user-css-inline';
-    style.textContent = getInlineCSS();
-    document.head.appendChild(style);
+    console.warn('⚠️ CSS profil-user gagal dimuat');
   };
   
   document.head.appendChild(link);
 }
 
-function getInlineCSS() {
-  return `
-    .profil-btn {
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin: 5px;
-    }
-    .profil-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
-    .profil-btn.password { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-    .profil-btn.password:hover { box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4); }
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; display: flex; justify-content: center; align-items: center; }
-    .modal-content { background: white; border-radius: 16px; padding: 30px; max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-    .modal-header { font-size: 22px; font-weight: 700; color: #1e293b; margin-bottom: 20px; border-bottom: 3px solid #fce7f3; padding-bottom: 12px; }
-    .form-group { margin-bottom: 18px; }
-    .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #475569; }
-    .form-control { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
-    .form-control:focus { outline: none; border-color: #3b82f6; }
-    .form-control:disabled { background: #f1f5f9; cursor: not-allowed; }
-    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-    .btn-modal { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
-    .btn-modal-save { background: #10b981; color: white; }
-    .btn-modal-cancel { background: #64748b; color: white; }
-    .alert { padding: 12px 16px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
-    .alert-info { background: #dbeafe; color: #1e40af; border-left: 4px solid #3b82f6; }
-  `;
-}
-
 /**
- * Tampilkan Tombol Edit Profil di Dashboard
+ * Render tombol profil dengan nama user
  */
-export function showEditProfileButtons() {
-  console.log('🔍 Mencari element #userInfo...');
+function renderProfilButton() {
+  // Jangan render 2x
+  if (document.getElementById('profilBtnContainer')) return;
   
-  const userInfoBox = document.getElementById('userInfo');
+  const displayName = currentUserData.displayName || currentUserData.email || 'User';
   
-  if (!userInfoBox) {
-    console.error(' Element #userInfo TIDAK DITEMUKAN di dashboard');
-    return;
-  }
+  const btnContainer = document.createElement('div');
+  btnContainer.id = 'profilBtnContainer';
+  btnContainer.style.cssText = 'margin: 15px 0;';
   
-  console.log('✅ Element #userInfo ditemukan');
+  const btn = document.createElement('button');
+  btn.className = 'profil-btn';
+  btn.innerHTML = `👤 ${displayName}`;
+  btn.onclick = showProfilView;
   
-  // Cek apakah tombol sudah ada
-  if (document.getElementById('profilButtonsContainer')) {
-    console.log('⚠️ Tombol profil sudah ada, skip');
-    return;
-  }
+  btnContainer.appendChild(btn);
   
-  // Buat container untuk tombol
-  const buttonContainer = document.createElement('div');
-  buttonContainer.id = 'profilButtonsContainer';
-  buttonContainer.style.cssText = 'display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;';
-  
-  // Tombol Edit Profil
-  const editBtn = document.createElement('button');
-  editBtn.className = 'profil-btn';
-  editBtn.innerHTML = '✏️ Edit Profil';
-  editBtn.onclick = openEditProfileModal;
-  
-  // Tombol Ubah Password
-  const passwordBtn = document.createElement('button');
-  passwordBtn.className = 'profil-btn password';
-  passwordBtn.innerHTML = ' Ubah Password';
-  passwordBtn.onclick = openChangePasswordModal;
-  
-  buttonContainer.appendChild(editBtn);
-  buttonContainer.appendChild(passwordBtn);
-  
-  // Insert setelah userInfo, sebelum logout button
+  // Insert setelah userInfo (atau di awal container jika userInfo dihapus)
+  const userInfo = document.getElementById('userInfo');
   const logoutBtn = document.getElementById('logoutBtn');
   
-  if (logoutBtn) {
-    userInfoBox.parentNode.insertBefore(buttonContainer, logoutBtn);
-    console.log('✅ Tombol profil berhasil ditambahkan sebelum tombol Logout');
-  } else {
-    userInfoBox.parentNode.appendChild(buttonContainer);
-    console.log('✅ Tombol profil berhasil ditambahkan (fallback)');
+  if (userInfo) {
+    userInfo.parentNode.insertBefore(btnContainer, logoutBtn);
+  } else if (logoutBtn) {
+    logoutBtn.parentNode.insertBefore(btnContainer, logoutBtn);
   }
+  
+  console.log('✅ Tombol profil dirender dengan nama:', displayName);
 }
 
 /**
- * Buka Modal Edit Profil
+ * Tampilkan tampilan profil khusus
  */
-window.openEditProfileModal = function() {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('❌ User tidak login!', 'error');
-    return;
-  }
+function showProfilView() {
+  // Sembunyikan tombol profil
+  const btnContainer = document.getElementById('profilBtnContainer');
+  if (btnContainer) btnContainer.style.display = 'none';
   
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'profilModal';
+  // Hapus container lama jika ada
+  const oldView = document.getElementById('profilViewContainer');
+  if (oldView) oldView.remove();
   
-  modal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">👤 Edit Profil User</div>
-      <div class="modal-body">
-        <div class="alert alert-info">💡 Update informasi profil Anda di bawah ini.</div>
+  // Buat container profil baru
+  const profilView = document.createElement('div');
+  profilView.id = 'profilViewContainer';
+  profilView.innerHTML = `
+    <div class="profil-container">
+      <h2>👤 Profil User</h2>
+      
+      <div class="profil-section">
+        <h3>📋 Informasi Akun</h3>
         <div class="form-group">
-          <label>📧 Email (Tidak dapat diubah)</label>
-          <input type="email" id="profilEmail" class="form-control" value="${user.email}" disabled>
+          <label>🆔 UID</label>
+          <input type="text" class="form-control" value="${currentUserData.uid}" disabled>
         </div>
         <div class="form-group">
-          <label> Nama Lengkap</label>
-          <input type="text" id="profilNama" class="form-control" placeholder="Masukkan nama lengkap" value="${user.displayName || ''}">
+          <label>📧 Email</label>
+          <input type="email" class="form-control" value="${currentUserData.email}" disabled>
         </div>
         <div class="form-group">
-          <label> Nomor HP / WhatsApp</label>
-          <input type="tel" id="profilHp" class="form-control" placeholder="08xx-xxxx-xxxx">
+          <label>👤 Nama Lengkap</label>
+          <input type="text" id="profilNamaInput" class="form-control" value="${currentUserData.displayName || ''}" placeholder="Masukkan nama lengkap">
+        </div>
+        <div class="profil-actions">
+          <button class="btn-profil-save" onclick="window.profilSaveProfile()">💾 Simpan Perubahan</button>
+          <button class="btn-profil-close" onclick="window.profilHideView()">✖️ Tutup</button>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-modal btn-modal-cancel" onclick="closeModal()">Batal</button>
-        <button class="btn-modal btn-modal-save" onclick="saveProfile()">💾 Simpan Perubahan</button>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
-  
-  // Load data dari database
-  loadUserData(user.uid);
-}
-
-/**
- * Buka Modal Ubah Password
- */
-window.openChangePasswordModal = function() {
-  const user = auth.currentUser;
-  if (!user) {
-    showToast('❌ User tidak login!', 'error');
-    return;
-  }
-  
-  const modal = document.createElement('div');
-  modal.className = 'modal-overlay';
-  modal.id = 'profilModal';
-  
-  modal.innerHTML = `
-    <div class="modal-content">
-      <div class="modal-header">🔑 Ubah Password</div>
-      <div class="modal-body">
+      
+      <div class="profil-section password-section">
+        <h3>🔑 Ubah Password</h3>
         <div class="alert alert-info">🔒 Untuk keamanan, masukkan password lama Anda sebelum mengubah password.</div>
         <div class="form-group">
-          <label> Password Lama</label>
+          <label>🔑 Password Lama</label>
           <input type="password" id="oldPassword" class="form-control" placeholder="Masukkan password lama">
         </div>
         <div class="form-group">
           <label>🔑 Password Baru</label>
-          <input type="password" id="newPassword" class="form-control" placeholder="Masukkan password baru (min. 6 karakter)">
+          <input type="password" id="newPassword" class="form-control" placeholder="Min. 6 karakter">
         </div>
         <div class="form-group">
           <label>🔑 Konfirmasi Password Baru</label>
           <input type="password" id="confirmPassword" class="form-control" placeholder="Ulangi password baru">
         </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-modal btn-modal-cancel" onclick="closeModal()">Batal</button>
-        <button class="btn-modal btn-modal-save" onclick="changePassword()"> Ubah Password</button>
+        <div class="profil-actions">
+          <button class="btn-profil-save" onclick="window.profilChangePassword()"> Ubah Password</button>
+        </div>
       </div>
     </div>
   `;
   
-  document.body.appendChild(modal);
-}
-
-/**
- * Tutup Modal
- */
-window.closeModal = function() {
-  const modal = document.getElementById('profilModal');
-  if (modal) {
-    modal.remove();
-    console.log('✅ Modal ditutup');
+  // Insert setelah tombol profil
+  const btnContainer = document.getElementById('profilBtnContainer');
+  if (btnContainer) {
+    btnContainer.parentNode.insertBefore(profilView, btnContainer.nextSibling);
   }
+  
+  // Scroll ke profil
+  profilView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  
+  console.log('✅ Tampilan profil dibuka');
 }
 
 /**
- * Load Data User dari Database
+ * Sembunyikan tampilan profil
  */
-async function loadUserData(uid) {
-  try {
-    const snapshot = await get(ref(database, `users/${uid}`));
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      if (data.noHP) {
-        const hpInput = document.getElementById('profilHp');
-        if (hpInput) hpInput.value = data.noHP;
-      }
-    }
-  } catch (error) {
-    console.error(' Gagal load data user:', error);
-  }
+function hideProfilView() {
+  const profilView = document.getElementById('profilViewContainer');
+  if (profilView) profilView.remove();
+  
+  const btnContainer = document.getElementById('profilBtnContainer');
+  if (btnContainer) btnContainer.style.display = 'block';
+  
+  console.log('✅ Tampilan profil ditutup');
 }
 
 /**
- * Simpan Perubahan Profil
+ * Simpan perubahan profil
  */
-window.saveProfile = async function() {
+async function saveProfile() {
   const user = auth.currentUser;
   if (!user) {
     showToast('❌ User tidak login!', 'error');
     return;
   }
   
-  const nama = document.getElementById('profilNama').value.trim();
-  const noHP = document.getElementById('profilHp').value.trim();
+  const nama = document.getElementById('profilNamaInput').value.trim();
   
   if (!nama) {
-    showToast('⚠️ Nama lengkap harus diisi!', 'error');
+    showToast('️ Nama lengkap harus diisi!', 'error');
     return;
   }
   
   try {
-    // Update Firebase Auth Profile
-    await updateProfile(user, {
-      displayName: nama
-    });
+    await updateProfile(user, { displayName: nama });
     
-    // Update data di Realtime Database
-    await set(ref(database, `users/${user.uid}`), {
-      uid: user.uid,
-      email: user.email,
-      displayName: nama,
-      noHP: noHP,
-      updatedAt: Date.now()
-    });
+    // Update localStorage
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    currentUser.displayName = nama;
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
     
-    showToast('✅ Profil berhasil diupdate!');
-    closeModal();
+    // Update state
+    currentUserData.displayName = nama;
     
-    // Update tampilan
-    setTimeout(() => {
-      location.reload();
-    }, 1500);
+    showToast('✅ Profil berhasil diupdate!', 'success');
+    
+    // Refresh halaman untuk update tombol dengan nama baru
+    setTimeout(() => location.reload(), 1500);
     
   } catch (error) {
     console.error('❌ Gagal update profil:', error);
@@ -298,9 +226,9 @@ window.saveProfile = async function() {
 }
 
 /**
- * Ubah Password
+ * Ubah password
  */
-window.changePassword = async function() {
+async function changePassword() {
   const user = auth.currentUser;
   if (!user) {
     showToast('❌ User tidak login!', 'error');
@@ -336,8 +264,12 @@ window.changePassword = async function() {
     await reauthenticateWithCredential(user, credential);
     await updatePassword(user, newPassword);
     
-    showToast('✅ Password berhasil diubah! Silakan login ulang.');
-    closeModal();
+    showToast('✅ Password berhasil diubah! Silakan login ulang.', 'success');
+    
+    // Clear form
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
     
     setTimeout(async () => {
       await auth.signOut();
@@ -345,10 +277,10 @@ window.changePassword = async function() {
     }, 2000);
     
   } catch (error) {
-    console.error(' Gagal ubah password:', error);
+    console.error('❌ Gagal ubah password:', error);
     
     if (error.code === 'auth/wrong-password') {
-      showToast('❌ Password lama salah!', 'error');
+      showToast(' Password lama salah!', 'error');
     } else if (error.code === 'auth/weak-password') {
       showToast('⚠️ Password terlalu lemah!', 'error');
     } else {
@@ -358,41 +290,46 @@ window.changePassword = async function() {
 }
 
 /**
- * Lupa Password
+ * Sembunyikan profil saat layanan aktif
  */
-export async function forgotPassword(email) {
-  if (!email) {
-    throw new Error('Email harus diisi!');
-  }
+export function hideOnServiceActive() {
+  const btnContainer = document.getElementById('profilBtnContainer');
+  const profilView = document.getElementById('profilViewContainer');
   
-  try {
-    await sendPasswordResetEmail(auth, email);
-    return { success: true, message: 'Email reset password telah dikirim!' };
-  } catch (error) {
-    console.error('❌ Gagal kirim email reset:', error);
-    throw error;
-  }
+  if (btnContainer) btnContainer.style.display = 'none';
+  if (profilView) profilView.style.display = 'none';
+  
+  console.log(' Profil disembunyikan (layanan aktif)');
 }
 
 /**
- * Show Toast Notification
+ * Tampilkan profil saat tidak ada layanan
+ */
+export function showOnNoService() {
+  const btnContainer = document.getElementById('profilBtnContainer');
+  const profilView = document.getElementById('profilViewContainer');
+  
+  if (btnContainer) btnContainer.style.display = 'block';
+  if (profilView) profilView.style.display = 'none';
+  
+  console.log('🔓 Profil ditampilkan (tidak ada layanan)');
+}
+
+/**
+ * Toast notification
  */
 function showToast(message, type = 'success') {
-  const toast = document.createElement('div');
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: ${type === 'error' ? '#ef4444' : '#10b981'};
-    color: white;
-    padding: 14px 24px;
-    border-radius: 10px;
-    z-index: 10001;
-    font-weight: 600;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-  `;
+  const existing = document.querySelector('.toast-notification');
+  if (existing) existing.remove();
   
+  const toast = document.createElement('div');
+  toast.className = `toast-notification ${type}`;
+  toast.textContent = message;
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
 }
+
+// Expose functions ke window untuk onclick handler
+window.profilSaveProfile = saveProfile;
+window.profilChangePassword = changePassword;
+window.profilHideView = hideProfilView;
