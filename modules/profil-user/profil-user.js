@@ -1,18 +1,20 @@
 // modules/profil-user/profil-user.js
 // =========================================
-// FITUR: PROFIL USER - DENGAN DATA LENGKAP & MODE EDIT
+// FITUR: PROFIL USER - VERSI CLOUD FIRESTORE
+// Semua data user disimpan di Firestore collection 'users'
 // =========================================
 
 import { getAuth, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const auth = getAuth();
-const db = getDatabase();
+const db = getFirestore(); // ⭐ Menggunakan Firestore, bukan Realtime Database
+
 let currentUserData = {};
 let isEditing = false;
 
 export async function init() {
-  console.log('🚀 Modul Profil User initialized');
+  console.log('🚀 Modul Profil User (Firestore) initialized');
   loadCSS();
   
   auth.onAuthStateChanged(async (user) => {
@@ -21,7 +23,7 @@ export async function init() {
       currentUserData.email = user.email;
       currentUserData.displayName = user.displayName || '';
       
-      // Ambil data tambahan dari Firebase RTDB
+      // ⭐ Ambil data tambahan dari Firestore
       await loadUserData(user.uid);
       renderProfilButton();
     }
@@ -44,15 +46,20 @@ function loadCSS() {
   document.head.appendChild(link);
 }
 
+// ⭐ FUNGSI LOAD DATA DARI FIRESTORE
 async function loadUserData(uid) {
   try {
-    const snapshot = await get(ref(db, `users/${uid}`));
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      currentUserData = { ...currentUserData, ...data };
+    const docRef = doc(db, "users", uid);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      currentUserData = { ...currentUserData, ...docSnap.data() };
+      console.log('✅ Data user berhasil dimuat dari Firestore');
+    } else {
+      console.log('ℹ️ Dokumen user belum ada di Firestore, menggunakan data default Auth');
     }
   } catch (error) {
-    console.warn('⚠️ Gagal memuat data user dari DB, menggunakan default:', error);
+    console.error('❌ Gagal memuat data user dari Firestore:', error);
   }
 }
 
@@ -85,7 +92,7 @@ function showProfilView() {
   const oldView = document.getElementById('profilViewContainer');
   if (oldView) oldView.remove();
   
-  isEditing = false; // Reset ke mode lihat
+  isEditing = false; 
   
   const profilView = document.createElement('div');
   profilView.id = 'profilViewContainer';
@@ -125,7 +132,6 @@ function showProfilView() {
           <input type="text" id="profilKontak" class="form-control" value="${currentUserData.kontak || ''}" disabled>
         </div>
 
-        <!-- Tombol Aksi -->
         <div class="profil-actions" id="viewModeButtons">
           <button class="btn-profil-edit" onclick="window.toggleEditMode(true)">✏️ Edit Data</button>
         </div>
@@ -167,7 +173,6 @@ window.toggleEditMode = function(enable) {
   } else {
     viewBtns.style.display = 'flex';
     editBtns.style.display = 'none';
-    // Reset nilai ke data asli jika batal
     document.getElementById('profilNama').value = currentUserData.displayName || '';
     document.getElementById('profilSekolah').value = currentUserData.sekolah || '';
     document.getElementById('profilKelas').value = currentUserData.kelas || '';
@@ -176,6 +181,7 @@ window.toggleEditMode = function(enable) {
   }
 };
 
+// ⭐ FUNGSI SIMPAN KE FIRESTORE
 window.saveProfileData = async function() {
   const user = auth.currentUser;
   if (!user) {
@@ -195,12 +201,13 @@ window.saveProfileData = async function() {
   }
   
   try {
-    // 1. Update Firebase Auth (untuk nama)
+    // 1. Update Firebase Auth (untuk nama tampilan)
     if (nama !== user.displayName) {
       await updateProfile(user, { displayName: nama });
     }
     
-    // 2. Update Firebase Realtime Database
+    // 2. Siapkan data untuk Firestore
+    // ⚠️ Field-field ini SUDAH diizinkan oleh rules Firestore Anda (hasOnly)
     const newData = {
       uid: user.uid,
       email: user.email,
@@ -209,32 +216,36 @@ window.saveProfileData = async function() {
       kelas: kelas,
       nip: nip,
       kontak: kontak,
-      updatedAt: Date.now()
+      updatedAt: new Date().toISOString() // Format timestamp Firestore yang aman
     };
     
-    await set(ref(db, `users/${user.uid}`), newData);
+    // 3. Simpan ke Firestore dengan merge: true (update jika ada, buat jika belum)
+    const userDocRef = doc(db, "users", user.uid);
+    await setDoc(userDocRef, newData, { merge: true });
     
-    // 3. Update LocalStorage agar dashboard langsung update
+    console.log('✅ Data berhasil disimpan ke Firestore!');
+    
+    // 4. Update LocalStorage agar dashboard langsung sinkron
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     Object.assign(currentUser, newData);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
     
-    // 4. Update state lokal
+    // 5. Update state lokal
     currentUserData = { ...currentUserData, ...newData };
     
     showToast('✅ Data profil berhasil diperbarui!', 'success');
     
-    // 5. Kembali ke mode lihat
+    // 6. Kembali ke mode lihat
     window.toggleEditMode(false);
     
-    // 6. Refresh tombol di dashboard agar nama baru muncul
+    // 7. Refresh tombol di dashboard agar nama baru muncul
     setTimeout(() => {
       const btn = document.querySelector('#profilBtnContainer .profil-btn');
       if (btn) btn.innerHTML = `👤 ${nama}`;
     }, 500);
     
   } catch (error) {
-    console.error('❌ Gagal update profil:', error);
+    console.error('❌ Gagal update profil di Firestore:', error);
     showToast('❌ Gagal menyimpan: ' + error.message, 'error');
   }
 };
