@@ -151,6 +151,29 @@
     </div>
   </div>
 
+  <!-- ✅ MODAL LUPA PASSWORD (BARU - MANDIRI) -->
+  <div id="modalLupaPassword" class="modal-overlay-base">
+    <div class="modal-daftar-content" style="max-width: 400px;">
+      <button class="modal-daftar-close" id="btnCloseLupaPassword" aria-label="Tutup">&times;</button>
+      <div class="modal-daftar-header">
+        <div class="modal-daftar-icon">🔒</div>
+        <h2>Lupa Password?</h2>
+        <p style="font-size: 14px; color: #666; margin-top: 5px;">Masukkan email Anda. Kami akan mengirimkan tautan untuk mengatur ulang password.</p>
+      </div>
+      <div class="modal-daftar-body" style="padding: 20px;">
+        <div class="form-group" style="margin-bottom: 15px;">
+          <span class="form-icon">📧</span>
+          <input type="email" id="resetEmailInput" class="form-control" placeholder="Alamat Email Terdaftar" required>
+        </div>
+        <div id="lupaPasswordMessage" style="font-size: 13px; margin-bottom: 10px; display: none;"></div>
+      </div>
+      <div class="modal-daftar-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button class="btn-modal-secondary" id="btnCancelLupaPassword">Batal</button>
+        <button class="btn-modal-primary" id="btnSubmitResetEmail">Kirim Tautan</button>
+      </div>
+    </div>
+  </div>
+
   <div class="loading" id="loading"><div class="spinner"></div></div>
 
   <!-- ✅ FIREBASE & AUTH -->
@@ -164,6 +187,7 @@
     import { Sidebar } from './js/components/sidebar.js';
     import { initNavActiveState } from './js/components/nav-active-state.js';
     import { Captcha } from './js/components/captcha.js';
+    import { ForgotPasswordHandler } from './js/auth-forgot-password.js'; // ✅ IMPORT BARU
 
     // 1. Buat Captcha HANYA SATU KALI (instance tunggal)
     const captchaManager = new Captcha();
@@ -172,31 +196,28 @@
     const btnRefresh = document.getElementById('btnRefreshCaptcha');
     if (btnRefresh) btnRefresh.addEventListener('click', () => captchaManager.refresh());
 
-    // 3. Event Listener Lupa Password
-    const btnForgot = document.getElementById('btnForgotPassword');
-    if (btnForgot) {
-      btnForgot.addEventListener('click', () => {
-        alert('Silakan hubungi Admin sekolah atau Live Chat untuk reset password Anda');
-      });
-    }
+    // ✅ CATATAN: Event listener "Lupa Password" (alert) dihapus karena sekarang 
+    // ditangani sepenuhnya oleh class ForgotPasswordHandler yang mandiri.
 
-    // 4. Inisialisasi Modul Utama
+    // 3. Inisialisasi Modul Utama
     document.addEventListener('DOMContentLoaded', () => {
       // Generate captcha pertama kali
       captchaManager.generate();
       
       // ✅ PERBAIKAN: Kirim 'captchaManager' ke LoginController
-      // agar Captcha dan Login menggunakan instance yang SAMA
       const loginCtrl = new LoginController(captchaManager);
       loginCtrl.init();
       
       new AnnouncementRotator('infoBerjalan').init();
       new Sidebar().init();
       initNavActiveState();
+      
+      // ✅ INISIALISASI FITUR LUPA PASSWORD YANG MANDIRI
+      new ForgotPasswordHandler(); 
     });
   </script>
 
-  <!-- ✅ MODAL HANDLERS -->
+  <!-- ✅ MODAL HANDLERS (Eksplor & Daftar) -->
   <script>
     (function() {
       const modalEksplor = document.getElementById('modalEksplor');
@@ -226,7 +247,10 @@
       modalDaftar?.addEventListener('click', function(e) { if (e.target === modalDaftar) closeDaftar(); });
 
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { if (modalEksplor?.classList.contains('active')) closeEksplor(); if (modalDaftar?.classList.contains('active')) closeDaftar(); }
+        if (e.key === 'Escape') { 
+          if (modalEksplor?.classList.contains('active')) closeEksplor(); 
+          if (modalDaftar?.classList.contains('active')) closeDaftar(); 
+        }
       });
     })();
   </script>
