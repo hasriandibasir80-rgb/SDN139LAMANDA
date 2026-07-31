@@ -654,7 +654,37 @@ function attachEvents(container) {
   
   // Event listener untuk tombol TP
   container.querySelector('#btnLoadMasterTP').addEventListener('click', () => loadMasterTP(container));
+  setupAutoLoadMasterData(container);
   container.querySelector('#btnGenerateTP').addEventListener('click', () => generateTPWithAI(container));
+}
+
+
+let autoLoadDebounceTimer = null;
+function setupAutoLoadMasterData(container) {
+  const triggers = ['#rpm-mapel', '#rpm-kelas', '#rpm-tema', '#rpm-subtema'];
+  triggers.forEach(sel => {
+    const el = container.querySelector(sel);
+    if (el) {
+      el.addEventListener('change', () => debouncedAutoLoad(container));
+      el.addEventListener('input', () => debouncedAutoLoad(container));
+    }
+  });
+}
+function debouncedAutoLoad(container) {
+  if (autoLoadDebounceTimer) clearTimeout(autoLoadDebounceTimer);
+  autoLoadDebounceTimer = setTimeout(() => autoLoadCPandTP(container), 800);
+}
+async function autoLoadCPandTP(container) {
+  const mapel = container.querySelector('#rpm-mapel')?.value?.trim();
+  const kelasFull = container.querySelector('#rpm-kelas')?.value;
+  const { tema } = getTemaSubTema(container);
+  if (!mapel || !kelasFull) return;
+  const cpMethod = container.querySelector('input[name="cpMethod"]:checked')?.value;
+  if (cpMethod === 'master') { await loadMasterCP(container); }
+  if (tema) {
+    const tpMethod = container.querySelector('input[name="tpMethod"]:checked')?.value;
+    if (tpMethod === 'master') { await loadMasterTP(container); }
+  }
 }
 
 // ========== FUNGSI CP: LOAD DARI MASTER DATA (FUZZY MATCHING) ==========
