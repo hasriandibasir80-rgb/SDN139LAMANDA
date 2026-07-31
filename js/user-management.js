@@ -21,6 +21,9 @@ import {
   orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
+// ✅ BARU: Import konfigurasi fitur untuk membuat checkbox dinamis
+import { konfigurasiFitur, controlCenterFitur } from './config/service-menu.js';
+
 // ==========================================
 // 2. SECONDARY APP SETUP (Agar Admin Tidak Logout)
 // ==========================================
@@ -37,10 +40,14 @@ if (userRole !== 'admin') {
 }
 
 const NAMA_SEKOLAH = 'SDN 139 LAMANDA';
-const PASSWORD_DEFAULT = 'bilal2011';
+// ✅ DIPERBAIKI: Konsistensi password default
+const PASSWORD_DEFAULT = 'bilal2011'; 
 const LOGIN_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/dashboard.html';
 const PROFIL_URL = 'https://hasriandibasi80-rgb.github.io/SDN139LAMANDA/modules/profil-user.html';
 const USERS_COLLECTION = 'users';
+
+// Gabungkan semua fitur untuk referensi checkbox
+const semuaFitur = { ...konfigurasiFitur, ...controlCenterFitur };
 
 // ==========================================
 // 4. INISIALISASI DOM & STATE
@@ -71,6 +78,44 @@ function formatTanggal(timestamp) {
   if (!timestamp) return '-';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// ✅ BARU: Fungsi untuk merender Checkbox Hak Akses
+function renderHakAksesCheckboxes(hakAksesSaatIni, index) {
+  let html = '';
+  
+  for (const [fiturKey, subFiturList] of Object.entries(semuaFitur)) {
+    // Cari nama fitur utama (misal: 'admin-pembelajaran' -> 'Administrasi Pembelajaran')
+    // Kita ambil dari opsi select role atau hardcode mapping sederhana, 
+    // tapi untuk aman, kita gunakan nama yang mudah dibaca dari key atau kita buat mapping.
+    // Agar simpel, kita gunakan nama fitur dari service-menu.js jika ada, atau capitalize key.
+    const namaFiturUtama = fiturKey.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    
+    // Cek apakah SEMUA sub-fitur di kategori ini sudah diceklis
+    const semuaSubFiturTerpilih = subFiturList.every(sub => hakAksesSaatIni.includes(sub.nama));
+
+    html += `<div style="margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #ffffff;">`;
+    html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">`;
+    html += `<strong style="font-size: 14px; color: #1e3c72;">${namaFiturUtama}</strong>`;
+    html += `<label style="font-size: 12px; color: #3b82f6; cursor: pointer; display: flex; align-items: center; gap: 4px;">`;
+    html += `<input type="checkbox" class="check-all-group" data-group="${fiturKey}" ${semuaSubFiturTerpilih ? 'checked' : ''}> Pilih Semua`;
+    html += `</label>`;
+    html += `</div>`;
+    
+    html += `<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">`;
+    subFiturList.forEach(sub => {
+      const isChecked = hakAksesSaatIni.includes(sub.nama) ? 'checked' : '';
+      html += `
+        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; padding: 4px; border-radius: 4px; transition: background 0.2s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+          <input type="checkbox" class="hak-akses-cb" data-group="${fiturKey}" value="${sub.nama}" ${isChecked} style="margin-top: 3px; accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer;">
+          <span>${sub.nama}</span>
+        </label>
+      `;
+    });
+    html += `</div></div>`;
+  }
+  
+  return html;
 }
 
 // ==========================================
@@ -109,23 +154,30 @@ function renderForm() {
 function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChanged, createdAt, index) {
   const row = document.createElement('div');
   row.className = 'user-row';
+  row.style.border = '1px solid #e2e8f0';
+  row.style.borderRadius = '12px';
+  row.style.padding = '16px';
+  row.style.marginBottom = '16px';
+  row.style.background = '#ffffff';
   
   const deleteBtn = id && !id.startsWith('temp_')
-    ? `<button type="button" class="btn-hapus-user" data-id="${id}">✕</button>`
+    ? `<button type="button" class="btn-hapus-user" data-id="${id}" style="position: absolute; top: 16px; right: 16px; background: #fee2e2; color: #dc2626; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center;">✕</button>`
     : '';
 
-  const hakAksesText = Array.isArray(hakAkses) ? hakAkses.join('\n') : '';
   const statusBadge = passwordChanged 
-    ? '<span style="color: #16a34a; font-weight: 600; font-size: 12px;">✅ Password Sudah Diganti</span>'
-    : '<span style="color: #dc2626; font-weight: 600; font-size: 12px;">⚠️ Masih Password Default</span>';
+    ? '<span style="color: #16a34a; font-weight: 600; font-size: 12px; background: #dcfce7; padding: 4px 8px; border-radius: 12px;">✅ Password Sudah Diganti</span>'
+    : '<span style="color: #dc2626; font-weight: 600; font-size: 12px; background: #fee2e2; padding: 4px 8px; border-radius: 12px;">⚠️ Masih Default</span>';
+
+  // ✅ GENERATE CHECKBOX HAK AKSES
+  const checkboxHTML = renderHakAksesCheckboxes(hakAkses, index);
 
   row.innerHTML = `
     ${deleteBtn}
     
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px dashed #cbd5e1;">
       <div>
-        <strong style="color: #1e3c72; font-size: 15px;" class="label-nama">${nama || 'Nama belum diisi'}</strong>
-        <div style="font-size: 12px; color: #64748b;" class="label-email">${email || 'Email belum diisi'}</div>
+        <strong style="color: #1e3c72; font-size: 16px;" class="label-nama">${nama || 'Nama belum diisi'}</strong>
+        <div style="font-size: 13px; color: #64748b; margin-top: 4px;" class="label-email">${email || 'Email belum diisi'}</div>
       </div>
       <div style="text-align: right;">
         <div style="margin-bottom: 4px;">${statusBadge}</div>
@@ -133,25 +185,22 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
       </div>
     </div>
     
-    <div class="user-row-grid-2">
-      <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Nama Lengkap *</label>
-        <input type="text" class="admin-input input-nama" value="${nama}" placeholder="Contoh: Budi Santoso">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+      <div class="admin-form-group">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Nama Lengkap *</label>
+        <input type="text" class="admin-input input-nama" value="${nama}" placeholder="Contoh: Budi Santoso" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
       </div>
-      <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Email *</label>
-        <input type="email" class="admin-input input-email" value="${email}" placeholder="user@sekolah.id">
+      <div class="admin-form-group">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Email *</label>
+        <input type="email" class="admin-input input-email" value="${email}" placeholder="user@sekolah.id" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
+      }
+      <div class="admin-form-group">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Nomor WhatsApp *</label>
+        <input type="tel" class="admin-input input-nowa" value="${noWA}" placeholder="08123456789" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px;">
       </div>
-    </div>
-    
-    <div class="user-row-grid-3">
-      <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Nomor WhatsApp *</label>
-        <input type="tel" class="admin-input input-nowa" value="${noWA}" placeholder="08123456789">
-      </div>
-      <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Peran (Role)</label>
-        <select class="admin-input input-role" style="cursor: pointer;">
+      <div class="admin-form-group">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Peran (Role)</label>
+        <select class="admin-input input-role" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; cursor: pointer; background: white;">
           <option value="admin" ${role === 'admin' ? 'selected' : ''}>Administrator</option>
           <option value="kepsek" ${role === 'kepsek' ? 'selected' : ''}>Kepala Sekolah</option>
           <option value="guru" ${role === 'guru' ? 'selected' : ''}>Guru</option>
@@ -160,40 +209,44 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
           <option value="ortu" ${role === 'ortu' ? 'selected' : ''}>Orang Tua</option>
         </select>
       </div>
-      <div class="admin-form-group" style="margin-bottom: 0;">
-        <label>Status</label>
-        <select class="admin-input input-status" style="cursor: pointer;">
+      <div class="admin-form-group">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Status</label>
+        <select class="admin-input input-status" style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; cursor: pointer; background: white;">
           <option value="aktif" ${status === 'aktif' ? 'selected' : ''}>✅ Aktif</option>
           <option value="non-aktif" ${status === 'non-aktif' ? 'selected' : ''}>⛔ Non-Aktif</option>
         </select>
       </div>
     </div>
 
-    <div style="display: flex; gap: 16px; margin-top: 12px; align-items: flex-end; flex-wrap: wrap;">
+    <div style="display: flex; gap: 12px; margin-top: 16px; align-items: flex-end; flex-wrap: wrap;">
       <div style="flex: 1; min-width: 200px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #334155;">Password Default</label>
-        <input type="text" class="admin-input" value="${PASSWORD_DEFAULT}" readonly style="background: #f1f5f9; cursor: not-allowed; color: #64748b;">
-        <p class="helper-text">Tidak dapat diubah manual di sini</p>
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 4px;">Password Default</label>
+        <input type="text" class="admin-input" value="${PASSWORD_DEFAULT}" readonly style="width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f1f5f9; cursor: not-allowed; color: #64748b; font-size: 14px;">
+        <p class="helper-text" style="font-size: 11px; color: #64748b; margin-top: 4px;">Tidak dapat diubah manual di sini</p>
       </div>
       <div style="flex: 2; min-width: 250px;">
-        <button type="button" class="btn-kirim-wa" style="width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+        <button type="button" class="btn-kirim-wa" style="width: 100%; padding: 10px; background: #25D366; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; font-size: 14px;">
           📱 Kirim Undangan via WhatsApp
         </button>
       </div>
     </div>
 
-    <div class="hak-akses-section">
-      <div class="hak-akses-header">
-        <label>🔐 Hak Akses Fitur</label>
-        <span class="hak-akses-hint">6 Fitur utama sudah terisi. Tambahkan sub-fitur di baris baru jika perlu. Hapus baris jika tidak diizinkan.</span>
+    <div class="hak-akses-section" style="margin-top: 20px;">
+      <div class="hak-akses-header" style="margin-bottom: 12px;">
+        <label style="display: block; font-size: 15px; font-weight: 700; color: #1e3c72; margin-bottom: 4px;">🔐 Hak Akses Fitur</label>
+        <span class="hak-akses-hint" style="font-size: 12px; color: #64748b;">Ceklis sub-fitur yang diizinkan untuk diakses oleh pengguna ini.</span>
       </div>
-      <textarea class="admin-textarea-hak-akses input-hak-akses" placeholder="Layanan Portal&#10;Dokumen Arsip&#10;Data Statistik&#10;Administrasi Pembelajaran&#10;Kolaborasi&#10;Global Monitoring">${hakAksesText}</textarea>
+      
+      <!-- ✅ CONTAINER CHECKBOX DINAMIS (Scrollable di Mobile) -->
+      <div class="hak-akses-checkbox-container" style="max-height: 350px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #f8fafc;">
+        ${checkboxHTML}
+      </div>
     </div>
   `;
 
   container.appendChild(row);
 
-  // --- LOGIKA SYNC DATA REAL-TIME ---
+  // --- LOGIKA SYNC DATA REAL-TIME (DIPERBAIKI UNTUK CHECKBOX) ---
   const syncData = () => {
     if (index !== null && userData[index]) {
       userData[index].nama = row.querySelector('.input-nama').value.trim();
@@ -202,17 +255,31 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
       userData[index].role = row.querySelector('.input-role').value;
       userData[index].status = row.querySelector('.input-status').value;
       
-      const haText = row.querySelector('.input-hak-akses').value.trim();
-      userData[index].hakAkses = haText ? haText.split('\n').map(h => h.trim()).filter(h => h.length > 0) : [];
+      // ✅ BARU: Ambil semua checkbox yang DICENTANG, lalu ambil 'value'-nya
+      const checkedBoxes = row.querySelectorAll('.hak-akses-cb:checked');
+      userData[index].hakAkses = Array.from(checkedBoxes).map(cb => cb.value);
       
       row.querySelector('.label-nama').textContent = userData[index].nama || 'Nama belum diisi';
       row.querySelector('.label-email').textContent = userData[index].email || 'Email belum diisi';
     }
   };
 
-  row.querySelectorAll('input, select, textarea').forEach(element => {
+  // Attach event listener ke semua input, select, DAN checkbox
+  row.querySelectorAll('input, select').forEach(element => {
     element.addEventListener('input', syncData);
     element.addEventListener('change', syncData);
+  });
+
+  // ✅ LOGIKA "PILIH SEMUA" PER GRUP FITUR
+  row.querySelectorAll('.check-all-group').forEach(masterCb => {
+    masterCb.addEventListener('change', (e) => {
+      const groupName = e.target.dataset.group;
+      const childCbs = row.querySelectorAll(`.hak-akses-cb[data-group="${groupName}"]`);
+      childCbs.forEach(childCb => {
+        childCb.checked = e.target.checked;
+      });
+      syncData(); // Sinkronkan data setelah perubahan massal
+    });
   });
 
   // --- EVENT LISTENER: HAPUS ---
@@ -255,7 +322,14 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
     };
 
     const roleNama = roleLabels[user.role] || user.role;
-    const hakAksesFormat = user.hakAkses.length > 0 ? user.hakAkses.map(h => `- ${h}`).join('\n') : '- Tidak ada akses spesifik';
+    
+    // Format hak akses untuk pesan WA (lebih rapi)
+    let hakAksesFormat = '- Akses Penuh (Admin)';
+    if (user.role !== 'admin' && user.hakAkses.length > 0) {
+      hakAksesFormat = user.hakAkses.map(h => `  • ${h}`).join('\n');
+    } else if (user.role !== 'admin') {
+      hakAksesFormat = '- Tidak ada akses spesifik';
+    }
 
     const pesan = `Halo *${user.nama}*,\n\nAnda telah didaftarkan sebagai *${roleNama}* di platform digital *${NAMA_SEKOLAH}*.\n\nBerikut adalah informasi akun Anda:\n📧 Email: ${user.email}\n🔑 Password Default: *${PASSWORD_DEFAULT}*\n\n🔐 *Hak Akses Fitur:*\n${hakAksesFormat}\n\nSilakan masuk ke akun Anda melalui tautan berikut:\n🔗 ${LOGIN_URL}\n\n*PENTING:* Demi keamanan, mohon segera ubah password default Anda pada halaman profil setelah berhasil masuk:\n🔗 ${PROFIL_URL}\n\nTerima kasih.`;
 
@@ -265,18 +339,13 @@ function tambahRow(id, nama, email, noWA, role, status, hakAkses, passwordChange
 }
 
 // ==========================================
-// 8. EVENT LISTENER: TAMBAH USER BARU (DENGAN 6 FITUR UTAMA DEFAULT)
+// 8. EVENT LISTENER: TAMBAH USER BARU
 // ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
-    const defaultHakAkses = [
-      'Layanan Portal',
-      'Dokumen Arsip',
-      'Data Statistik',
-      'Administrasi Pembelajaran',
-      'Kolaborasi',
-      'Global Monitoring'
-    ];
+    // ✅ DEFAULT: Berikan akses ke fitur utama, atau biarkan kosong agar admin menceklis manual
+    // Kita biarkan kosong agar admin benar-benar memilih, atau beri default minimal
+    const defaultHakAkses = []; 
 
     userData.unshift({
       id: `temp_${Date.now()}`,
@@ -294,7 +363,7 @@ if (btnTambah) {
 }
 
 // ==========================================
-// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN (LOGIKA CREATE & UPDATE DIPERBAIKI)
+// 9. EVENT LISTENER: SIMPAN SEMUA PERUBAHAN
 // ==========================================
 if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
@@ -316,7 +385,7 @@ if (btnSimpan) {
     });
 
     if (!isValid) {
-      alert('️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
+      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
       return;
     }
 
@@ -329,7 +398,7 @@ if (btnSimpan) {
       // 2. Loop untuk memproses setiap baris
       for (let index = 0; index < rows.length; index++) {
         const user = userData[index];
-        let isUserNew = false; // Penanda untuk membedakan Create vs Update
+        let isUserNew = false; 
         
         // LANGKAH A: Jika User Baru (ID masih temp_), daftarkan ke Auth dulu
         if (user.id && user.id.startsWith('temp_')) {
@@ -338,9 +407,8 @@ if (btnSimpan) {
             const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, PASSWORD_DEFAULT);
             const newUid = userCredential.user.uid; 
             
-            // Update ID user menjadi UID asli
             user.id = newUid; 
-            isUserNew = true; // Tandai sebagai user baru untuk langkah Firestore nanti
+            isUserNew = true; 
             console.log('✅ User berhasil didaftarkan di Auth dengan UID:', newUid);
             
           } catch (authError) {
@@ -359,26 +427,24 @@ if (btnSimpan) {
           noWA: user.noWA,
           role: user.role,
           status: user.status,
-          hakAkses: user.hakAkses || [],
+          hakAkses: user.hakAkses || [], // ✅ Array ini sekarang berisi nama sub-fitur yang dicentang
           password: PASSWORD_DEFAULT,
           passwordChanged: user.passwordChanged || false,
           updatedAt: serverTimestamp()
         };
 
-        // LANGKAH C: Simpan ke Firestore (PILIHAN CREATE ATAU UPDATE)
+        // LANGKAH C: Simpan ke Firestore
         if (isUserNew) {
-          // OPSI 1: CREATE (Gunakan setDoc untuk user baru)
           dataToSave.createdAt = serverTimestamp();
           await setDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
           console.log('✅ CREATE: Dokumen user baru dibuat di Firestore.');
         } else if (user.id) {
-          // OPSI 2: UPDATE (Gunakan updateDoc untuk user lama)
           await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
           console.log('✅ UPDATE: Dokumen user lama diperbarui di Firestore.');
         }
       }
 
-      statusEl.textContent = '✅ Semua perubahan berhasil disimpan (Create/Update)!';
+      statusEl.textContent = '✅ Semua perubahan berhasil disimpan!';
       statusEl.className = 'admin-status success';
       statusEl.style.display = 'block';
 
