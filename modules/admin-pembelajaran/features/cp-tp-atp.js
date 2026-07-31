@@ -446,6 +446,8 @@ async function handleGenerate(container) {
     
     // ⭐ BARU: Auto-save CP ke Master Data CP
     await autoSaveCPToMasterData(parsedData, { kelas, semester, mapel, jenjang });
+    const tpCount = await autoSaveTPToMasterData(parsedData, { kelas, semester, mapel, jenjang });
+    if (tpCount > 0) { showToast(`🔄 ${tpCount} TP otomatis tersimpan ke Master Data & siap dipakai di RPM!`, 'success'); }
     
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
@@ -613,7 +615,7 @@ async function autoSaveToFirestore(container, result, metadata) {
  * ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
  * Menyimpan CP yang di-generate ke collection 'data_cp' untuk jadi referensi global
  */
-async function autoSaveCPToMasterData(result, metadata) {
+async function autoSaveCPToMasterData_OLD(result, metadata) {
   try {
     if (!result.cp || result.cp.length === 0) return;
     
@@ -762,6 +764,65 @@ async function handleSave(container) {
  * SINKRONISASI KE GLOBAL MONITORING (MASTER DATA TP)
  * Memetakan hasil generate AI ke struktur collection 'data_tp'
  */
+
+/**
+ * ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
+ */
+async function autoSaveCPToMasterData(result, metadata) {
+  try {
+    if (!result.cp || result.cp.length === 0) return;
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+    const elemenCP = result.cp.map(cpItem => ({
+      elemen: cpItem.subTema || 'Umum',
+      deskripsi: cpItem.deskripsi || ''
+    }));
+    const cpData = {
+      fase: fase,
+      mapel: metadata.mapel,
+      elemen_cp: elemenCP,
+      source: 'AI-Generator-AutoSave',
+      userId: currentUser.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    await addDoc(collection(db, 'data_cp'), cpData);
+    console.log('✅ CP auto-simpan');
+  } catch (e) { console.warn('Auto-save CP gagal', e); }
+}
+
+/**
+ * ⭐ NEW: AUTO-SAVE TP KE MASTER DATA (data_tp) - Struktur 100% kompatibel dengan data-tp.js
+ */
+async function autoSaveTPToMasterData(result, metadata) {
+  try {
+    if (!result.tp || result.tp.length === 0) return 0;
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+    const promises = result.tp.map(tpGroup => {
+      const payload = {
+        kelas: metadata.kelas,
+        fase: fase,
+        mapel: metadata.mapel,
+        semester: metadata.semester,
+        topik: tpGroup.subTema || 'Umum',
+        tujuan_pembelajaran: Array.isArray(tpGroup.items) ? tpGroup.items : [tpGroup.items],
+        atp_text: (result.atp?.find(a => a.subTema === tpGroup.subTema)?.items || []).join('\n'),
+        cp_text: (result.cp?.find(c => c.subTema === tpGroup.subTema)?.deskripsi || result.cp?.[0]?.deskripsi || ''),
+        source: 'AI-Generator-AutoSave',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        userId: currentUser.uid
+      };
+      return addDoc(collection(db, 'data_tp'), payload);
+    });
+    await Promise.all(promises);
+    return promises.length;
+  } catch (e) { console.warn('Auto-save TP gagal', e); return 0; }
+}
+
 async function handleSyncToMasterTP(container) {
   if (!lastGeneratedData || !lastGeneratedData.parsedData) {
     showToast('⚠️ Generate data terlebih dahulu sebelum menyinkronkan!', 'warning');
