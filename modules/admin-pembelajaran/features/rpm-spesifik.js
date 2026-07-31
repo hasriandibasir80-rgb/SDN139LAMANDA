@@ -7,6 +7,7 @@
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { 
   collection, addDoc, getDocs, query, where, orderBy, 
   onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
@@ -746,127 +747,77 @@ function debouncedAutoLoad(container) {
 // Untuk bagian 2. Analisis Kesiapan Murid
 // ============================================
 // OLD FETCH DISABLED
-async function fetchDaftarNamaPesertaDidik_OLD_DISABLED(kelas) {
-  const collectionsToTry = ['data_peserta_didik', 'peserta_didik', 'siswa', 'data_siswa', 'adm_kelas', 'data_kelas', 'peserta'];
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  
-  for (const colName of collectionsToTry) {
-    try {
-      const q = query(collection(db, colName), where('userId', '==', currentUser.uid));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        let allNames = [];
-        snap.forEach(docSnap => {
-          const d = docSnap.data();
-          // Cek berbagai kemungkinan field kelas
-          const docKelas = String(d.kelas || d.kelas_siswa || d.rombel || d.kelas_diampu || '').replace(/[^0-9]/g,'');
-          // Filter berdasarkan kelas jika ada, jika tidak ambil semua
-          if (!kelas || docKelas === String(kelas) || !docKelas || String(d.kelas).includes(String(kelas))) {
-            // Ambil nama dari berbagai kemungkinan field
-            const nama = d.nama || d.nama_lengkap || d.nama_siswa || d.nama_peserta || d.name;
-            if (nama) allNames.push(nama);
-            // Jika data berupa array di dalam doc
-            if (d.siswa && Array.isArray(d.siswa)) {
-              d.siswa.forEach(s => {
-                if (s.nama) allNames.push(s.nama);
-              });
-            }
-            if (d.peserta_didik && Array.isArray(d.peserta_didik)) {
-              d.peserta_didik.forEach(s => {
-                if (s.nama) allNames.push(s.nama);
-              });
-            }
-          }
-        });
-        if (allNames.length > 0) {
-          console.log(`✅ Ditemukan ${allNames.length} nama di koleksi ${colName}`);
-          return [...new Set(allNames)]; // deduplikasi
-        }
-      }
-    } catch (e) {
-      console.warn(`Koleksi ${colName} tidak ada atau no permission:`, e.message);
-    }
-  }
-  // Fallback: jika tidak ada koleksi, pakai data dummy sesuai kelas untuk demo
-  console.warn('⚠️ Tidak ada data peserta didik, pakai fallback');
-  return null;
-}
+
+
+
+
 
 
 async function fetchDaftarNamaPesertaDidik(kelas) {
-  const collectionsToTry = ['data_peserta_didik', 'peserta_didik', 'siswa', 'data_siswa', 'data_kelas', 'adm_kelas', 'peserta', 'data-siswa'];
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   const kelasStr = String(kelas).trim();
+  console.log('🔍 Mencari siswa kelas:', kelasStr, 'di Realtime Database...');
   
-  for (const colName of collectionsToTry) {
+  try {
+    const rtdb = getDatabase();
+    // Struktur di data-peserta-didik.js: siswa/{kelas}/{id} -> {nama, nisn, ...}
+    // Jadi ada node siswa/1, siswa/2, dst
+    
+    // Coba ambil spesifik kelas dulu
+    let allNames = [];
+    
+    // 1. Coba ambil hanya kelas yang diminta: siswa/1
     try {
-      // Coba 1: tanpa filter (untuk koleksi global seperti di Global Monitoring)
-      let snap;
-      try {
-        snap = await getDocs(collection(db, colName));
-      } catch(e) {
-        // Coba 2: dengan filter userId
-        try {
-          const q = query(collection(db, colName), where('userId', '==', currentUser.uid));
-          snap = await getDocs(q);
-        } catch(e2) {
-          continue;
-        }
+      const snapKelas = await get(ref(rtdb, `siswa/${kelasStr}`));
+      if (snapKelas.exists()) {
+        snapKelas.forEach(childSnap => {
+          const data = childSnap.val();
+          const nama = data.nama || data.nama_lengkap;
+          if (nama) allNames.push(nama.trim());
+        });
+        console.log(`✅ Ditemukan ${allNames.length} nama di siswa/${kelasStr}`, allNames);
+        if (allNames.length > 0) return [...new Set(allNames)];
       }
-      
-      if (!snap || snap.empty) continue;
-      
-      let allNames = [];
-      snap.forEach(docSnap => {
-        const d = docSnap.data();
-        // Cek apakah ini dokumen per siswa atau dokumen berisi array siswa
-        const docKelasRaw = d.kelas || d.kelas_siswa || d.rombel || d.kelas_diampu || '';
-        const docKelas = String(docKelasRaw).replace(/[^0-9]/g,'') || String(docKelasRaw);
-        
-        // Jika dokumen ini berisi single siswa
-        const namaSingle = d.nama || d.nama_lengkap || d.nama_siswa || d.nama_peserta || d.name || d.Nama_Lengkap;
-        if (namaSingle && typeof namaSingle === 'string') {
-          // Filter kelas: jika kelas kosong di doc, tetap ambil (mungkin semua siswa di satu doc koleksi)
-          // Jika kelas ada, cocokkan
-          if (!kelasStr || docKelas === kelasStr || String(docKelasRaw).includes(kelasStr) || !docKelasRaw) {
-            // Khusus untuk screenshot: ADILA ASSYAHIDA kelas 1 ada di koleksi yang isinya campuran kelas 2 juga, jadi harus filter ketat
-            // Tapi jika docKelasRaw kosong, kita anggap match untuk sekarang, nanti filter lagi
-            if (String(docKelasRaw) && String(docKelasRaw) !== '' && String(docKelasRaw) !== kelasStr && docKelas !== kelasStr) {
-               // skip jika kelas beda dan ada kelas
-            } else {
-               allNames.push(namaSingle.trim());
+    } catch(e) { console.warn('Gagal ambil per kelas:', e.message); }
+    
+    // 2. Jika kelas spesifik tidak ada, ambil semua kelas lalu filter
+    try {
+      const snapAll = await get(ref(rtdb, 'siswa'));
+      if (snapAll.exists()) {
+        snapAll.forEach(kelasSnap => {
+          const kelasKey = kelasSnap.key; // '1','2', etc
+          // Jika user minta kelas 1, hanya ambil kelas 1. Jika tidak, ambil semua untuk fallback
+          if (kelasStr && kelasKey !== kelasStr) {
+            // Untuk debug: di screenshot kamu kelas 1 cuma ada 1 anak (ADILA), jadi tetap kita ambil hanya yang sesuai
+            // Tapi kalau kelas 1 tidak ketemu banyak, kita akan fallback ambil semua
+          }
+          kelasSnap.forEach(siswaSnap => {
+            const data = siswaSnap.val();
+            const nama = data.nama || data.nama_lengkap;
+            if (nama) {
+              // Simpan dengan info kelas untuk filter nanti
+              allNames.push({ nama: nama.trim(), kelas: kelasKey });
             }
-          }
+          });
+        });
+        
+        // Filter sesuai kelas yang diminta
+        let filtered = allNames.filter(item => !kelasStr || item.kelas === kelasStr);
+        if (filtered.length === 0 && allNames.length > 0) {
+          console.warn(`Kelas ${kelasStr} tidak ada, menampilkan semua ${allNames.length} siswa sebagai fallback`);
+          filtered = allNames; // fallback tampilkan semua jika kelas kosong
         }
-        // Jika dokumen berisi array siswa di dalamnya
-        const arrayFields = [d.siswa, d.peserta_didik, d.data_siswa, d.list_siswa, d.students];
-        for (const arr of arrayFields) {
-          if (Array.isArray(arr)) {
-            arr.forEach(s => {
-              const n = s.nama || s.nama_lengkap || s.name;
-              const k = String(s.kelas || s.rombel || '').replace(/[^0-9]/g,'');
-              if (n && (!kelasStr || k === kelasStr || !s.kelas)) {
-                allNames.push(n.trim());
-              }
-            });
-          }
-        }
-      });
-      
-      // Deduplikasi dan bersihkan
-      allNames = [...new Set(allNames.filter(n=>n && n.length>2))];
-      
-      if (allNames.length > 0) {
-        console.log(`✅ Ditemukan ${allNames.length} nama di koleksi ${colName} untuk kelas ${kelasStr}:`, allNames);
-        // Filter lagi khusus kelas jika ternyata masih campur
-        // Untuk kelas 1, contoh ADILA ASSYAHIDA memang kelas 1, jadi harusnya keambil
-        return allNames;
+        
+        const finalNames = [...new Set(filtered.map(f=>f.nama))];
+        console.log(`✅ Total setelah filter kelas ${kelasStr}:`, finalNames.length, finalNames);
+        if (finalNames.length > 0) return finalNames;
       }
-    } catch (e) {
-      console.warn(`Koleksi ${colName} error:`, e.message);
-    }
+    } catch(e) { console.warn('Gagal ambil semua siswa:', e.message); }
+    
+  } catch (e) {
+    console.error('Error Realtime DB:', e);
   }
-  console.warn('⚠️ Tidak ada data di semua koleksi yang dicoba');
+  
+  console.warn('⚠️ Tidak ada data di Realtime Database path siswa');
   return null;
 }
 
