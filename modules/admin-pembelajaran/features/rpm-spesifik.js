@@ -23,6 +23,18 @@ const CSS_ID = 'rpm-spesifik-css';
 let currentEditId = null;
 let dataMapel = [];
 
+// Helper: Ambil nilai Tema & Sub Tema (pengganti Topik/Materi)
+function getTemaSubTema(container) {
+  const elTema = container ? container.querySelector('#rpm-tema') : document.querySelector('#rpm-tema');
+  const elSub = container ? container.querySelector('#rpm-subtema') : document.querySelector('#rpm-subtema');
+  const tema = elTema ? elTema.value.trim() : '';
+  const subTema = elSub ? elSub.value.trim() : '';
+  const combined = [tema, subTema].filter(Boolean).join(' - ');
+  const searchCombined = [tema, subTema].filter(Boolean).join(' ').trim();
+  return { tema, subTema, combined, searchCombined };
+}
+
+
 // Default Tanda Tangan
 const DEFAULT_TTD = {
   namaKepsek: 'Imam Munandar SP.d',
@@ -288,18 +300,25 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>📝 Topik / Materi</label>
-              <input type="text" id="rpm-topik" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
+              <label>📝 Tema</label>
+              <input type="text" id="rpm-tema" class="rpm-form-control" placeholder="Contoh: Tumbuhan">
             </div>
+            <div class="rpm-form-group">
+              <label>📚 Sub Tema</label>
+              <input type="text" id="rpm-subtema" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
+            </div>
+          </div>
+          <div class="rpm-form-grid">
             <div class="rpm-form-group">
               <label>⏰ Alokasi Waktu</label>
               <input type="text" id="rpm-alokasi" class="rpm-form-control" placeholder="Contoh: 4 Pertemuan (8 x 35 Menit)">
             </div>
+            <div class="rpm-form-group">
+              <label>🎨 Metode Pembelajaran</label>
+              <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
+            </div>
           </div>
-          <div class="rpm-form-group">
-            <label>🎨 Metode Pembelajaran</label>
-            <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
-          </div>
+
           <div id="metode-info-container"></div>
         </div>
 
@@ -387,7 +406,7 @@ function renderUI(container) {
             <!-- Opsi 1: Master Data TP -->
             <div id="tpMethodMaster" class="tp-method-content">
               <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-                🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas & Topik di atas)
+                🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas, Tema & Sub Tema di atas)
               </button>
               <select id="selectMasterTP" class="rpm-form-control" multiple size="4" style="min-height: 100px; display: none;"></select>
               <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu TP.</small>
@@ -786,10 +805,10 @@ async function loadMasterTP(container) {
   const mapelInput = container.querySelector('#rpm-mapel').value.trim();
   const kelasFull = container.querySelector('#rpm-kelas').value;
   const kelas = kelasFull ? kelasFull.split('|')[0] : ''; 
-  const topikInput = container.querySelector('#rpm-topik').value.trim();
+  const { tema, subTema, searchCombined: topikInput } = getTemaSubTema(container);
 
-  if (!mapelInput || !kelas || !topikInput) {
-    showToast('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Topik terlebih dahulu!', 'error');
+  if (!mapelInput || !kelas || !tema) {
+    showToast('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Tema terlebih dahulu!', 'error');
     return;
   }
 
@@ -856,7 +875,7 @@ async function loadMasterTP(container) {
       console.log('Total TP found:', foundCount);
 
       if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Kelas: ${kelas}<br>Topik: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Kelas: ${kelas}<br>Tema/Sub Tema: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
         select.style.display = 'block';
         container.querySelector('#masterTPHint').style.display = 'none';
       } else {
@@ -882,10 +901,11 @@ async function generateTPWithAI(container) {
   }
   const mapel = container.querySelector('#rpm-mapel').value;
   const kelas = container.querySelector('#rpm-kelas').value;
-  const topik = container.querySelector('#rpm-topik').value;
+  const { tema, subTema } = getTemaSubTema(container);
+  const topik = [tema, subTema].filter(Boolean).join(' - ');
 
   if (!mapel || !topik) {
-    showToast('⚠️ Mohon isi Mata Pelajaran dan Topik terlebih dahulu!', 'error');
+    showToast('⚠️ Mohon isi Mata Pelajaran dan Tema terlebih dahulu!', 'error');
     return;
   }
 
@@ -900,7 +920,9 @@ async function generateTPWithAI(container) {
     const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
 - Mata Pelajaran: ${mapel}
 - Kelas: ${kelas}
-- Topik: ${topik}
+- Tema: ${tema}
+- Sub Tema: ${subTema || '-'}
+- Topik (gabungan): ${topik}
 
 Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan kalimat "Siswa mampu...". Jangan berikan penjelasan lain.`;
 
@@ -1035,7 +1057,8 @@ async function handleGenerateAI(container) {
 
   const mapel = container.querySelector('#rpm-mapel').value;
   const kelas = container.querySelector('#rpm-kelas').value;
-  const topik = container.querySelector('#rpm-topik').value;
+  const { tema, subTema } = getTemaSubTema(container);
+  const topik = [tema, subTema].filter(Boolean).join(' - ');
   const metode = container.querySelector('#rpm-metode').value;
 
   if (!mapel || !kelas || !topik || !metode) {
@@ -1057,7 +1080,9 @@ async function handleGenerateAI(container) {
 Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} dengan format JSON valid berdasarkan data:
 - Mata Pelajaran: ${mapel}
 - Kelas: ${kelasNum} (Fase ${fase})
-- Topik: ${topik}
+- Tema: ${tema}
+- Sub Tema: ${subTema || '-'}
+- Topik Gabungan: ${topik}
 - Metode: ${metode}
 - Sekolah: SDN 139 LAMANDA
 - Target Peserta Didik: ${container.querySelector('#rpm-target-peserta-didik').value || '-'}
@@ -1237,7 +1262,8 @@ async function handleSimpan(container) {
   const guru = container.querySelector('#rpm-guru').value;
   const mapel = container.querySelector('#rpm-mapel').value;
   const kelas = container.querySelector('#rpm-kelas').value;
-  const topik = container.querySelector('#rpm-topik').value;
+  const { tema, subTema } = getTemaSubTema(container);
+  const topik = [tema, subTema].filter(Boolean).join(' - ');
   const metode = container.querySelector('#rpm-metode').value;
 
   if (!sekolah || !guru || !mapel || !kelas || !topik || !metode) {
@@ -1276,6 +1302,9 @@ async function handleSimpan(container) {
       sekolah, guru, mapel,
       kelas: kelasNum,
       fase,
+      tema,
+      sub_tema: subTema,
+      subtema: subTema,
       topik,
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
@@ -1372,7 +1401,7 @@ function loadRPMList(container) {
         <div class="rpm-item">
           <div class="rpm-item-header">
             <div>
-              <div class="rpm-item-title">${d.identitas?.mapel || '-'} - ${d.identitas?.topik || '-'}</div>
+              <div class="rpm-item-title">${d.identitas?.mapel || '-'} - ${d.identitas?.tema || d.identitas?.topik || '-'}${d.identitas?.sub_tema || d.identitas?.subtema ? ' - ' + (d.identitas?.sub_tema || d.identitas?.subtema) : ''}</div>
               <div class="rpm-item-meta">Kelas ${d.identitas?.kelas || '-'} | Metode: ${d.metode_pembelajaran || '-'} | ${date}</div>
             </div>
             <div class="rpm-item-actions">
@@ -1407,7 +1436,8 @@ window.editRPM = async function(id) {
     document.querySelector('#rpm-guru').value = d.identitas?.guru || '';
     document.querySelector('#rpm-mapel').value = d.identitas?.mapel || '';
     document.querySelector('#rpm-kelas').value = `${d.identitas?.kelas}|${d.identitas?.fase}` || '';
-    document.querySelector('#rpm-topik').value = d.identitas?.topik || '';
+    document.querySelector('#rpm-tema').value = d.identitas?.tema || d.identitas?.topik || '';
+    document.querySelector('#rpm-subtema').value = d.identitas?.sub_tema || d.identitas?.subtema || '';
     document.querySelector('#rpm-alokasi').value = d.identitas?.alokasi_waktu || '';
     document.querySelector('#rpm-metode').value = d.metode_pembelajaran || '';
     
@@ -1508,14 +1538,14 @@ window.deleteRPM = async function(id) {
 
 function handleExportWord(container) {
   const data = gatherFormData(container);
-  if (!data.identitas.topik) {
+  if (!data.identitas.tema && !data.identitas.topik) {
     showToast('⚠️ Isi data terlebih dahulu!', 'error');
     return;
   }
 
   const d = data;
   let html = `
-    <html><head><meta charset="utf-8"><title>RPM Spesifik - ${d.identitas.topik}</title>
+    <html><head><meta charset="utf-8"><title>RPM Spesifik - ${d.identitas.tema || d.identitas.topik}</title>
     <style>
       body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
       h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
@@ -1531,7 +1561,7 @@ function handleExportWord(container) {
       .ttd-name { font-weight: bold; border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
     </style></head><body>
     <h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
-    <h2 style="text-align: center; border: none;">${d.identitas.topik}</h2>
+    <h2 style="text-align: center; border: none;">${d.identitas.tema || ''}${d.identitas.sub_tema ? ' - ' + d.identitas.sub_tema : ''}</h2>
     <p style="text-align: center; font-style: italic;">Metode: ${d.metode_pembelajaran}</p>
     
     <h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
@@ -1540,7 +1570,8 @@ function handleExportWord(container) {
       <tr><td><strong>Guru</strong></td><td>${d.identitas.guru}</td></tr>
       <tr><td><strong>Mata Pelajaran</strong></td><td>${d.identitas.mapel}</td></tr>
       <tr><td><strong>Kelas/Fase</strong></td><td>${d.identitas.kelas} (Fase ${d.identitas.fase})</td></tr>
-      <tr><td><strong>Topik</strong></td><td>${d.identitas.topik}</td></tr>
+      <tr><td><strong>Tema</strong></td><td>${d.identitas.tema || d.identitas.topik || '-'}</td></tr>
+      <tr><td><strong>Sub Tema</strong></td><td>${d.identitas.sub_tema || d.identitas.subtema || '-'}</td></tr>
       <tr><td><strong>Alokasi Waktu</strong></td><td>${d.identitas.alokasi_waktu}</td></tr>
       <tr><td><strong>Metode</strong></td><td>${d.metode_pembelajaran}</td></tr>
       <tr><td><strong>Target Peserta Didik</strong></td><td>${d.target_peserta_didik || '-'}</td></tr>
@@ -1611,7 +1642,7 @@ function handleExportWord(container) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `RPM_Spesifik_${d.metode_pembelajaran.replace(/\s+/g, '_')}_${d.identitas.mapel}_${d.identitas.topik.replace(/\s+/g, '_')}.doc`;
+  link.download = `RPM_Spesifik_${d.metode_pembelajaran.replace(/\s+/g, '_')}_${d.identitas.mapel}_${(d.identitas.tema || d.identitas.topik || 'tema').replace(/\s+/g, '_')}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1622,6 +1653,9 @@ function handleExportWord(container) {
 function gatherFormData(container) {
   const kelas = container.querySelector('#rpm-kelas').value;
   const [kelasNum, fase] = kelas.split('|');
+  const tema = container.querySelector('#rpm-tema').value;
+  const subTema = container.querySelector('#rpm-subtema').value;
+  const topikGabung = [tema, subTema].filter(Boolean).join(' - ');
 
   const profilLulusan = [];
   container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
@@ -1647,7 +1681,10 @@ function gatherFormData(container) {
       mapel: container.querySelector('#rpm-mapel').value,
       kelas: kelasNum,
       fase,
-      topik: container.querySelector('#rpm-topik').value,
+      tema: container.querySelector('#rpm-tema').value,
+      sub_tema: container.querySelector('#rpm-subtema').value,
+      subtema: container.querySelector('#rpm-subtema').value,
+      topik: [container.querySelector('#rpm-tema').value, container.querySelector('#rpm-subtema').value].filter(Boolean).join(' - '),
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
     },
     metode_pembelajaran: container.querySelector('#rpm-metode').value,
