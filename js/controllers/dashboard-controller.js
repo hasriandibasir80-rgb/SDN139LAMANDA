@@ -2,15 +2,16 @@
 import { konfigurasiFitur, controlCenterFitur } from '../config/service-menu.js';
 
 // ==========================================
-// FUNGSI HELPER: NORMALISASI TEKS (OPSI 2)
+// FUNGSI HELPER: NORMALISASI TEKS (DIPERBAIKI)
 // ==========================================
 function normalizeString(str) {
   if (!str) return '';
   return str
     .toLowerCase()
     .trim()
-    .replace(/\s+/g, '-')      // Ganti spasi dengan strip
-    .replace(/[^a-z0-9-]/g, ''); // Hapus karakter khusus
+    .replace(/[^a-z0-9\s-]/g, '')  // 1. Hapus karakter khusus DULU (koma, &, dll)
+    .replace(/\s+/g, '-')           // 2. Ganti spasi dengan strip
+    .replace(/-+/g, '-');           // 3. ✅ BARU: Bersihkan double/triple dash (misal: cp-tp--atp jadi cp-tp-atp)
 }
 
 export class DashboardController {
@@ -24,7 +25,7 @@ export class DashboardController {
     // Gabungkan konfigurasi
     this.allConfig = { ...konfigurasiFitur };
 
-    // ✅ BARU: Ambil dan normalisasi hak akses user dari localStorage
+    // ✅ Ambil dan normalisasi hak akses user dari localStorage
     const hakAksesRaw = JSON.parse(localStorage.getItem('userHakAkses') || '[]');
     this.hakAksesNormalized = hakAksesRaw.map(item => normalizeString(item));
     
@@ -90,7 +91,7 @@ export class DashboardController {
     setTimeout(() => this.clearStatus(), 3000);
   }
 
-  // ✅ REVISI KETAT: Filter sub-fitur berdasarkan hakAkses
+  // ✅ REVISI PRECISE: Smart Dual-Layer Check untuk Hak Akses
   renderFiturInternal(featureKey) {
     this.contentArea.innerHTML = '';
 
@@ -101,14 +102,27 @@ export class DashboardController {
 
     const subFiturList = this.allConfig[featureKey];
     const featureTitle = this.layananSelect.options[this.layananSelect.selectedIndex].text;
+    
+    // 1. Normalisasi nama Fitur Utama (Misal: "Administrasi Pembelajaran" -> "administrasi-pembelajaran")
+    const mainFeatureNormalized = normalizeString(featureTitle);
+    
+    // 2. Cek apakah user memiliki akses ke Fitur Utama ini secara keseluruhan
+    const hasMainFeatureAccess = this.hakAksesNormalized.includes(mainFeatureNormalized);
 
-    // ✅ FILTER: Hanya ambil sub-fitur yang user punya akses (kecuali full access)
-    const allowedSubFitur = this.isFullAccess 
-      ? subFiturList 
+    // 3. FILTER PINTAR (Dual-Layer)
+    const allowedSubFitur = this.isFullAccess || hasMainFeatureAccess
+      ? subFiturList // ✅ LAYER 1: Jika punya akses fitur utama, tampilkan SEMUA sub-fitur
       : subFiturList.filter(item => {
+          // ✅ LAYER 2: Jika tidak, cek apakah user punya akses spesifik ke sub-fitur ini
           const normalizedNama = normalizeString(item.nama);
           return this.hakAksesNormalized.includes(normalizedNama);
         });
+
+    // Logging untuk debugging (Sangat membantu Anda memastikan logika berjalan)
+    console.log(`📋 Analisis Akses untuk: "${featureTitle}"`);
+    console.log(`   - Hak Akses User (Normalized):`, this.hakAksesNormalized);
+    console.log(`   - Punya Akses Fitur Utama ('${mainFeatureNormalized}')? :`, hasMainFeatureAccess ? '✅ YA' : '❌ TIDAK');
+    console.log(`   - Sub-fitur yang diizinkan: ${allowedSubFitur.length} dari ${subFiturList.length}`);
 
     // Jika tidak ada sub-fitur yang diizinkan
     if (allowedSubFitur.length === 0) {
@@ -116,7 +130,7 @@ export class DashboardController {
         <div style="text-align:center; padding:40px; color:#6b7280;">
           <div style="font-size:48px; margin-bottom:16px;">🔒</div>
           <h3 style="color:#374151; margin-bottom:8px;">Akses Ditolak</h3>
-          <p>Anda tidak memiliki izin untuk mengakses sub-fitur apapun di bagian "${featureTitle}".</p>
+          <p>Anda tidak memiliki izin untuk mengakses bagian "${featureTitle}".</p>
           <p style="font-size:14px; margin-top:16px;">Silakan hubungi administrator untuk meminta akses.</p>
         </div>
       `;
@@ -134,7 +148,7 @@ export class DashboardController {
     const gridEl = document.createElement('div');
     gridEl.className = 'internal-grid';
 
-    // ✅ HANYA render sub-fitur yang diizinkan
+    // HANYA render sub-fitur yang diizinkan
     allowedSubFitur.forEach(item => {
       const card = document.createElement('a');
       card.href = item.link;
@@ -158,7 +172,6 @@ export class DashboardController {
 
     this.contentArea.appendChild(gridEl);
     
-    // Tampilkan info berapa sub-fitur yang bisa diakses
     const infoEl = document.createElement('p');
     infoEl.style.textAlign = 'center';
     infoEl.style.color = '#6b7280';
