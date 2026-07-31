@@ -796,10 +796,13 @@ async function loadMasterCP(container) {
           if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
             data.elemen_cp.forEach((elemen) => {
               const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
+              // ⭐ Deduplikasi CP berdasarkan teks
+              if ([...select.options].some(o=>o.value===cpText)) return;
               const option = document.createElement('option');
               option.value = cpText;
               option.textContent = `${elemen.elemen}`;
               option.title = elemen.deskripsi;
+              option.dataset.docId = docSnap.id;
               option.selected = true;
               select.appendChild(option);
               foundCount++;
@@ -811,13 +814,17 @@ async function loadMasterCP(container) {
       console.log('Total CP found:', foundCount);
 
       if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled> Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
+        select.innerHTML = `<option value="" disabled>❌ Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
         select.style.display = 'block';
         container.querySelector('#masterCPHint').style.display = 'none';
       } else {
         select.style.display = 'block';
         container.querySelector('#masterCPHint').style.display = 'block';
-        showToast(`✅ Ditemukan ${foundCount} elemen CP yang cocok!`);
+        // ⭐ FINAL: Auto-select semua CP yang ditemukan
+        Array.from(select.options).forEach(opt => opt.selected = true);
+        // Simpan mapping id untuk relasi
+        select.dataset.loadedIds = JSON.stringify([...new Set(Array.from(select.options).map(o=>o.dataset.docId).filter(Boolean))]);
+        showToast(`✅ Ditemukan ${foundCount} elemen CP yang cocok! (Auto-terpilih)`);
       }
     }
   } catch (error) {
@@ -942,9 +949,13 @@ async function loadMasterTP(container) {
           console.log('✅ Match found!');
           if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
             data.tujuan_pembelajaran.forEach((tp) => {
+              // ⭐ Deduplikasi TP berdasarkan teks yang sama
+              if ([...select.options].some(o=>o.value===tp)) return;
               const option = document.createElement('option');
               option.value = tp;
               option.textContent = tp;
+              option.dataset.docId = docSnap.id;
+              option.dataset.topik = data.topik || '';
               option.selected = true;
               select.appendChild(option);
               foundCount++;
@@ -962,7 +973,11 @@ async function loadMasterTP(container) {
       } else {
         select.style.display = 'block';
         container.querySelector('#masterTPHint').style.display = 'block';
-        showToast(`✅ Ditemukan ${foundCount} TP yang cocok!`);
+        // ⭐ FINAL: Auto-select semua + simpan relasi ID
+        Array.from(select.options).forEach(opt => opt.selected = true);
+        const ids = [...new Set(Array.from(select.options).map(o=>o.dataset.docId).filter(Boolean))];
+        select.dataset.loadedIds = JSON.stringify(ids);
+        showToast(`✅ Ditemukan ${foundCount} TP yang cocok! (Auto-terpilih, tanpa duplikat)`);
       }
     }
   } catch (error) {
@@ -1370,6 +1385,11 @@ async function handleSimpan(container) {
   // Ambil CP dan TP dari opsi aktif
   const capaianPembelajaran = getActiveCP(container);
   const tujuanPembelajaran = getActiveTP(container);
+  // ⭐ FINAL: Ambil relasi ID Master Data untuk sinkronisasi
+  const cpSelect = container.querySelector('#selectMasterCP');
+  const tpSelect = container.querySelector('#selectMasterTP');
+  const data_cp_ids = cpSelect?.dataset?.loadedIds ? JSON.parse(cpSelect.dataset.loadedIds) : [];
+  const data_tp_ids = tpSelect?.dataset?.loadedIds ? JSON.parse(tpSelect.dataset.loadedIds) : [];
   
   if (tujuanPembelajaran.length === 0) {
     showToast('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!', 'error');
@@ -1754,8 +1774,19 @@ function gatherFormData(container) {
   // Ambil CP dan TP dari opsi aktif
   const capaianPembelajaran = getActiveCP(container);
   const tujuanPembelajaran = getActiveTP(container);
+  // ⭐ FINAL: Ambil relasi ID Master Data untuk sinkronisasi
+  const cpSelect = container.querySelector('#selectMasterCP');
+  const tpSelect = container.querySelector('#selectMasterTP');
+  const data_cp_ids = cpSelect?.dataset?.loadedIds ? JSON.parse(cpSelect.dataset.loadedIds) : [];
+  const data_tp_ids = tpSelect?.dataset?.loadedIds ? JSON.parse(tpSelect.dataset.loadedIds) : [];
 
   return {
+    // ⭐ Relasi ke Master Data untuk alur Generator -> Data TP -> RPM
+    relasi_master: {
+      data_cp_ids: data_cp_ids,
+      data_tp_ids: data_tp_ids,
+      source: 'auto-from-master-data'
+    },
     identitas: {
       sekolah: container.querySelector('#rpm-sekolah').value,
       guru: container.querySelector('#rpm-guru').value,
