@@ -446,8 +446,10 @@ async function handleGenerate(container) {
     
     // ⭐ BARU: Auto-save CP ke Master Data CP
     await autoSaveCPToMasterData(parsedData, { kelas, semester, mapel, jenjang });
-    const tpCount = await autoSaveTPToMasterData(parsedData, { kelas, semester, mapel, jenjang });
-    if (tpCount > 0) { showToast(`🔄 ${tpCount} TP otomatis tersimpan ke Master Data & siap dipakai di RPM!`, 'success'); }
+    // ⭐ TAMBAHAN SINKRONISASI OTOMATIS - TIDAK MENGHAPUS LOGIC LAMA
+    let tpCount = 0;
+    try { tpCount = await autoSaveTPToMasterData(parsedData, { kelas, semester, mapel, jenjang }); } catch(e){ console.warn('TP auto-save gagal', e); }
+    if (tpCount > 0) { showToast(`🔄 ${tpCount} TP & CP otomatis tersimpan ke Master Data!`, 'success'); }
     
     showToast('✅ Berhasil generate & tersimpan!', 'success');
 
@@ -615,7 +617,7 @@ async function autoSaveToFirestore(container, result, metadata) {
  * ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
  * Menyimpan CP yang di-generate ke collection 'data_cp' untuk jadi referensi global
  */
-async function autoSaveCPToMasterData_OLD(result, metadata) {
+async function autoSaveCPToMasterData(result, metadata) {
   try {
     if (!result.cp || result.cp.length === 0) return;
     
@@ -766,34 +768,8 @@ async function handleSave(container) {
  */
 
 /**
- * ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
- */
-async function autoSaveCPToMasterData(result, metadata) {
-  try {
-    if (!result.cp || result.cp.length === 0) return;
-    let fase = 'A';
-    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
-    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
-    const elemenCP = result.cp.map(cpItem => ({
-      elemen: cpItem.subTema || 'Umum',
-      deskripsi: cpItem.deskripsi || ''
-    }));
-    const cpData = {
-      fase: fase,
-      mapel: metadata.mapel,
-      elemen_cp: elemenCP,
-      source: 'AI-Generator-AutoSave',
-      userId: currentUser.uid,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    await addDoc(collection(db, 'data_cp'), cpData);
-    console.log('✅ CP auto-simpan');
-  } catch (e) { console.warn('Auto-save CP gagal', e); }
-}
-
-/**
- * ⭐ NEW: AUTO-SAVE TP KE MASTER DATA (data_tp) - Struktur 100% kompatibel dengan data-tp.js
+ * ⭐ NEW: AUTO-SAVE TP KE MASTER DATA (data_tp) - 100% kompatibel dengan data-tp.js
+ * DITAMBAHKAN TANPA MENGHAPUS FUNGSI LAMA
  */
 async function autoSaveTPToMasterData(result, metadata) {
   try {
@@ -894,7 +870,7 @@ function loadCTAData(container) {
     return;
   }
 
-  const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
+  const q = query(collection(db, 'cp_tp_atp'), where('userId', '==', currentUser.uid)); // orderBy dihapus untuk hindari butuh index, sorting di JS
 
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
@@ -904,7 +880,8 @@ function loadCTAData(container) {
     }
     if (countSpan) countSpan.textContent = snapshot.docs.length;
     
-    list.innerHTML = snapshot.docs.map(docSnap => {
+    const sortedDocs = snapshot.docs.sort((a,b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
+    list.innerHTML = sortedDocs.map(docSnap => {
       const d = docSnap.data();
       const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
       return `
