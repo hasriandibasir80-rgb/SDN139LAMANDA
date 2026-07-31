@@ -24,6 +24,62 @@ let currentEditId = null;
 let dataMapel = [];
 
 // Helper: Ambil nilai Tema & Sub Tema (pengganti Topik/Materi)
+
+// ⭐ FIX FINAL: Normalisasi mapel agar paibd == PAI & budi pekerti dll tetap match
+function normalizeMapelId(str) {
+  if (!str) return '';
+  const s = str.toLowerCase().trim();
+  // Cari di dataMapel global
+  for (const m of dataMapel) {
+    const id = (m.id||'').toLowerCase();
+    const nama = (m.nama||'').toLowerCase();
+    const sing = (m.singkatan||'').toLowerCase();
+    if (s === id || s === nama || s === sing) return id;
+    if (nama.includes(s) || s.includes(nama) || s.includes(id) || id.includes(s) || sing.includes(s) || s.includes(sing)) {
+      // untuk kasus paibd
+      if (id === 'paibd' && (s.includes('pabp') || s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti'))) return 'paibd';
+      if (s.length > 3) {
+        // kembalikan id yang paling cocok
+        if (nama.includes(s) || s.includes(id)) return id;
+      }
+    }
+  }
+  // fallback khusus
+  if (s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti') || s === 'paibd') return 'paibd';
+  return s;
+}
+
+function isMapelMatch(dbMapel, inputMapel) {
+  if (!dbMapel || !inputMapel) return false;
+  const db = normalizeMapelId(dbMapel);
+  const inp = normalizeMapelId(inputMapel);
+  if (db === inp) return true;
+  const dbL = dbMapel.toLowerCase();
+  const inL = inputMapel.toLowerCase();
+  // fuzzy includes
+  return dbL.includes(inL) || inL.includes(dbL) || db.includes(inp) || inp.includes(db);
+}
+
+function isTopikMatch(dbTopik, inputTopik) {
+  if (!dbTopik || !inputTopik) return true; // jika salah satu kosong, anggap match untuk CP
+  const db = dbTopik.toLowerCase();
+  const inp = inputTopik.toLowerCase();
+  if (db.includes(inp) || inp.includes(db)) return true;
+  // token matching > 3 huruf
+  const dbWords = db.split(/\s+/).filter(w=>w.length>3);
+  const inpWords = inp.split(/\s+/).filter(w=>w.length>3);
+  // jika ada 1 kata penting yang sama, anggap match (untuk handle typo al-quan vs alquran)
+  for (const w of inpWords) {
+    if (db.includes(w)) return true;
+  }
+  for (const w of dbWords) {
+    if (inp.includes(w)) return true;
+  }
+  // khusus alquran
+  if ((db.includes('alquran') || db.includes('al-quran') || db.includes('alquan')) && (inp.includes('alquran') || inp.includes('al-quran') || inp.includes('alquan') || inp.includes('quran') || inp.includes('kitabku'))) return true;
+  return false;
+}
+
 function getTemaSubTema(container) {
   const elTema = container ? container.querySelector('#rpm-tema') : document.querySelector('#rpm-tema');
   const elSub = container ? container.querySelector('#rpm-subtema') : document.querySelector('#rpm-subtema');
@@ -731,9 +787,9 @@ async function loadMasterCP(container) {
         
         console.log('Checking CP - DB Mapel:', dbMapel, 'DB Fase:', dbFase);
         
-        // Fuzzy matching untuk mapel (case-insensitive & partial match)
-        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
-        const matchFase = dbFase === fase;
+        // ⭐ FIX: Gunakan normalisasi mapel agar paibd == PAI
+        const matchMapel = isMapelMatch(data.mapel, mapelInput);
+        const matchFase = dbFase === fase || !fase || !dbFase;
 
         if (matchMapel && matchFase) {
           console.log('✅ Match found!');
@@ -877,15 +933,10 @@ async function loadMasterTP(container) {
         
         console.log('Checking TP - DB Mapel:', dbMapel, 'DB Kelas:', dbKelas, 'DB Topik:', dbTopik);
         
-        // Fuzzy matching untuk mapel
-        const matchMapel = dbMapel.includes(mapelLower) || mapelLower.includes(dbMapel);
-        const matchKelas = dbKelas === kelas;
-        
-        // Fuzzy matching untuk topik (partial match)
-        const inputTopikWords = topikLower.split(/\s+/).filter(w => w.length > 2);
-        const matchTopik = inputTopikWords.some(word => dbTopik.includes(word)) || 
-                           dbTopik.includes(topikLower) || 
-                           topikLower.includes(dbTopik);
+        // ⭐ FIX: Gunakan normalisasi mapel + topik toleran typo
+        const matchMapel = isMapelMatch(data.mapel, mapelInput);
+        const matchKelas = !kelas || dbKelas === kelas || String(dbKelas) === String(kelas);
+        const matchTopik = isTopikMatch(dbTopik, topikLower);
 
         if (matchMapel && matchKelas && matchTopik) {
           console.log('✅ Match found!');
