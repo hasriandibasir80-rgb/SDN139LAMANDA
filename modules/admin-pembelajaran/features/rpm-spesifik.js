@@ -745,7 +745,8 @@ function debouncedAutoLoad(container) {
 // ⭐ FITUR BARU: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
 // Untuk bagian 2. Analisis Kesiapan Murid
 // ============================================
-async function fetchDaftarNamaPesertaDidik(kelas) {
+// OLD FETCH DISABLED
+async function fetchDaftarNamaPesertaDidik_OLD_DISABLED(kelas) {
   const collectionsToTry = ['data_peserta_didik', 'peserta_didik', 'siswa', 'data_siswa', 'adm_kelas', 'data_kelas', 'peserta'];
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
   
@@ -791,6 +792,84 @@ async function fetchDaftarNamaPesertaDidik(kelas) {
   return null;
 }
 
+
+async function fetchDaftarNamaPesertaDidik(kelas) {
+  const collectionsToTry = ['data_peserta_didik', 'peserta_didik', 'siswa', 'data_siswa', 'data_kelas', 'adm_kelas', 'peserta', 'data-siswa'];
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const kelasStr = String(kelas).trim();
+  
+  for (const colName of collectionsToTry) {
+    try {
+      // Coba 1: tanpa filter (untuk koleksi global seperti di Global Monitoring)
+      let snap;
+      try {
+        snap = await getDocs(collection(db, colName));
+      } catch(e) {
+        // Coba 2: dengan filter userId
+        try {
+          const q = query(collection(db, colName), where('userId', '==', currentUser.uid));
+          snap = await getDocs(q);
+        } catch(e2) {
+          continue;
+        }
+      }
+      
+      if (!snap || snap.empty) continue;
+      
+      let allNames = [];
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        // Cek apakah ini dokumen per siswa atau dokumen berisi array siswa
+        const docKelasRaw = d.kelas || d.kelas_siswa || d.rombel || d.kelas_diampu || '';
+        const docKelas = String(docKelasRaw).replace(/[^0-9]/g,'') || String(docKelasRaw);
+        
+        // Jika dokumen ini berisi single siswa
+        const namaSingle = d.nama || d.nama_lengkap || d.nama_siswa || d.nama_peserta || d.name || d.Nama_Lengkap;
+        if (namaSingle && typeof namaSingle === 'string') {
+          // Filter kelas: jika kelas kosong di doc, tetap ambil (mungkin semua siswa di satu doc koleksi)
+          // Jika kelas ada, cocokkan
+          if (!kelasStr || docKelas === kelasStr || String(docKelasRaw).includes(kelasStr) || !docKelasRaw) {
+            // Khusus untuk screenshot: ADILA ASSYAHIDA kelas 1 ada di koleksi yang isinya campuran kelas 2 juga, jadi harus filter ketat
+            // Tapi jika docKelasRaw kosong, kita anggap match untuk sekarang, nanti filter lagi
+            if (String(docKelasRaw) && String(docKelasRaw) !== '' && String(docKelasRaw) !== kelasStr && docKelas !== kelasStr) {
+               // skip jika kelas beda dan ada kelas
+            } else {
+               allNames.push(namaSingle.trim());
+            }
+          }
+        }
+        // Jika dokumen berisi array siswa di dalamnya
+        const arrayFields = [d.siswa, d.peserta_didik, d.data_siswa, d.list_siswa, d.students];
+        for (const arr of arrayFields) {
+          if (Array.isArray(arr)) {
+            arr.forEach(s => {
+              const n = s.nama || s.nama_lengkap || s.name;
+              const k = String(s.kelas || s.rombel || '').replace(/[^0-9]/g,'');
+              if (n && (!kelasStr || k === kelasStr || !s.kelas)) {
+                allNames.push(n.trim());
+              }
+            });
+          }
+        }
+      });
+      
+      // Deduplikasi dan bersihkan
+      allNames = [...new Set(allNames.filter(n=>n && n.length>2))];
+      
+      if (allNames.length > 0) {
+        console.log(`✅ Ditemukan ${allNames.length} nama di koleksi ${colName} untuk kelas ${kelasStr}:`, allNames);
+        // Filter lagi khusus kelas jika ternyata masih campur
+        // Untuk kelas 1, contoh ADILA ASSYAHIDA memang kelas 1, jadi harusnya keambil
+        return allNames;
+      }
+    } catch (e) {
+      console.warn(`Koleksi ${colName} error:`, e.message);
+    }
+  }
+  console.warn('⚠️ Tidak ada data di semua koleksi yang dicoba');
+  return null;
+}
+
 function bagiKelompokRandom(namaList) {
   const shuffled = [...namaList].sort(() => 0.5 - Math.random());
   const total = shuffled.length;
@@ -822,12 +901,27 @@ async function handleAutoFillKesiapan(container) {
     const namaList = await fetchDaftarNamaPesertaDidik(kelas);
     
     if (!namaList || namaList.length === 0) {
-      showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Cek fitur Data Peserta Didik.', 'error');
-      // Isi contoh agar guru tau formatnya
-      container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
-      container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
-      container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
-      return;
+      showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Coba pilih Kelas 2 atau cek Data Siswa.', 'error');
+      // Fallback: coba ambil tanpa filter kelas, tampilkan semua yang ada
+      try {
+        const allSnap = await getDocs(collection(db, 'siswa'));
+        let fallbackNames = [];
+        allSnap.forEach(d=>{ const data=d.data(); const n=data.nama_lengkap||data.nama; if(n) fallbackNames.push(n); });
+        if (fallbackNames.length>0) {
+          showToast(`⚠️ Ditemukan ${fallbackNames.length} siswa tapi beda kelas, menampilkan semua sebagai contoh.`, 'warning');
+          namaList = fallbackNames.slice(0,12);
+        } else {
+          container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
+          container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
+          container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
+          return;
+        }
+      } catch(e) {
+        container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
+        container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
+        container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
+        return;
+      }
     }
 
     const kelompok = bagiKelompokRandom(namaList);
