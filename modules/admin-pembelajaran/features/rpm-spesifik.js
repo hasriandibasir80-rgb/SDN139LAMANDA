@@ -392,6 +392,10 @@ function renderUI(container) {
 
         <div class="rpm-section">
           <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
+          <button type="button" id="btnAutoFillKesiapan" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 15px; font-size: 13px; padding: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            🎲 Isi Otomatis Nama dari Data Peserta Didik (Kelas di atas)
+          </button>
+          <small style="display:block; color:#64748b; margin-bottom:15px; font-size:11px;">💡 Akan mengambil nama dari fitur Data Peserta Didik sesuai Kelas yang dipilih, lalu dibagi random ke 3 kelompok.</small>
           <div class="rpm-form-group">
             <label>🔴 Kelompok Belum Siap</label>
             <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
@@ -663,6 +667,12 @@ function attachEvents(container) {
   // Generate AI
   container.querySelector('#btn-generate-ai').addEventListener('click', () => handleGenerateAI(container));
 
+  // ⭐ Auto-fill Kesiapan Murid dari Data Peserta Didik
+  const btnAutoFill = container.querySelector('#btnAutoFillKesiapan');
+  if (btnAutoFill) {
+    btnAutoFill.addEventListener('click', () => handleAutoFillKesiapan(container));
+  }
+
   // Simpan
   container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
 
@@ -730,6 +740,125 @@ function debouncedAutoLoad(container) {
   if (autoLoadDebounceTimer) clearTimeout(autoLoadDebounceTimer);
   autoLoadDebounceTimer = setTimeout(() => autoLoadCPandTP(container), 800);
 }
+
+// ============================================
+// ⭐ FITUR BARU: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
+// Untuk bagian 2. Analisis Kesiapan Murid
+// ============================================
+async function fetchDaftarNamaPesertaDidik(kelas) {
+  const collectionsToTry = ['data_peserta_didik', 'peserta_didik', 'siswa', 'data_siswa', 'adm_kelas', 'data_kelas', 'peserta'];
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  
+  for (const colName of collectionsToTry) {
+    try {
+      const q = query(collection(db, colName), where('userId', '==', currentUser.uid));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        let allNames = [];
+        snap.forEach(docSnap => {
+          const d = docSnap.data();
+          // Cek berbagai kemungkinan field kelas
+          const docKelas = String(d.kelas || d.kelas_siswa || d.rombel || d.kelas_diampu || '').replace(/[^0-9]/g,'');
+          // Filter berdasarkan kelas jika ada, jika tidak ambil semua
+          if (!kelas || docKelas === String(kelas) || !docKelas || String(d.kelas).includes(String(kelas))) {
+            // Ambil nama dari berbagai kemungkinan field
+            const nama = d.nama || d.nama_lengkap || d.nama_siswa || d.nama_peserta || d.name;
+            if (nama) allNames.push(nama);
+            // Jika data berupa array di dalam doc
+            if (d.siswa && Array.isArray(d.siswa)) {
+              d.siswa.forEach(s => {
+                if (s.nama) allNames.push(s.nama);
+              });
+            }
+            if (d.peserta_didik && Array.isArray(d.peserta_didik)) {
+              d.peserta_didik.forEach(s => {
+                if (s.nama) allNames.push(s.nama);
+              });
+            }
+          }
+        });
+        if (allNames.length > 0) {
+          console.log(`✅ Ditemukan ${allNames.length} nama di koleksi ${colName}`);
+          return [...new Set(allNames)]; // deduplikasi
+        }
+      }
+    } catch (e) {
+      console.warn(`Koleksi ${colName} tidak ada atau no permission:`, e.message);
+    }
+  }
+  // Fallback: jika tidak ada koleksi, pakai data dummy sesuai kelas untuk demo
+  console.warn('⚠️ Tidak ada data peserta didik, pakai fallback');
+  return null;
+}
+
+function bagiKelompokRandom(namaList) {
+  const shuffled = [...namaList].sort(() => 0.5 - Math.random());
+  const total = shuffled.length;
+  const belumSiapCount = Math.max(1, Math.round(total * 0.25));
+  const mahirCount = Math.max(1, Math.round(total * 0.25));
+  const siapCount = total - belumSiapCount - mahirCount;
+
+  return {
+    belumSiap: shuffled.slice(0, belumSiapCount),
+    siap: shuffled.slice(belumSiapCount, belumSiapCount + siapCount),
+    mahir: shuffled.slice(belumSiapCount + siapCount)
+  };
+}
+
+async function handleAutoFillKesiapan(container) {
+  const kelasFull = container.querySelector('#rpm-kelas')?.value;
+  const kelas = kelasFull ? kelasFull.split('|')[0] : '';
+  
+  if (!kelas) {
+    showToast('⚠️ Pilih Kelas terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnAutoFillKesiapan');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengambil data...'; }
+
+  try {
+    const namaList = await fetchDaftarNamaPesertaDidik(kelas);
+    
+    if (!namaList || namaList.length === 0) {
+      showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Cek fitur Data Peserta Didik.', 'error');
+      // Isi contoh agar guru tau formatnya
+      container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
+      container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
+      container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
+      return;
+    }
+
+    const kelompok = bagiKelompokRandom(namaList);
+    
+    // Format teks dengan nama + karakteristik
+    const belumSiapText = kelompok.belumSiap.length > 0 
+      ? `Nama: ${kelompok.belumSiap.join(', ')}\nKarakteristik: Masih perlu bimbingan intensif, pemahaman konsep dasar masih terbatas, memerlukan pendekatan individual dan motivasi ekstra.\nStrategi: Pendampingan personal, media konkret, pengulangan materi.`
+      : 'Tidak ada siswa di kelompok ini.';
+      
+    const siapText = kelompok.siap.length > 0
+      ? `Nama: ${kelompok.siap.join(', ')}\nKarakteristik: Sudah memiliki pemahaman dasar, mampu mengikuti pembelajaran dengan baik, siap menerima materi pengayaan ringan.\nStrategi: Pembelajaran kolaboratif, diskusi kelompok, pemberian tugas sedang.`
+      : 'Tidak ada siswa di kelompok ini.';
+      
+    const mahirText = kelompok.mahir.length > 0
+      ? `Nama: ${kelompok.mahir.join(', ')}\nKarakteristik: Pemahaman sangat baik, cepat menangkap materi, mampu menjadi tutor sebaya dan menyelesaikan tugas kompleks.\nStrategi: Pengayaan, proyek mandiri, peran sebagai peer tutor.`
+      : 'Tidak ada siswa di kelompok ini.';
+
+    container.querySelector('#rpm-belum-siap').value = belumSiapText;
+    container.querySelector('#rpm-siap').value = siapText;
+    container.querySelector('#rpm-mahir').value = mahirText;
+
+    showToast(`✅ Berhasil membagi ${namaList.length} siswa: ${kelompok.belumSiap.length} Belum Siap, ${kelompok.siap.length} Siap, ${kelompok.mahir.length} Mahir`, 'success');
+
+  } catch (error) {
+    console.error('Error auto-fill kesiapan:', error);
+    showToast('❌ Gagal mengambil data: ' + error.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
 async function autoLoadCPandTP(container) {
   const mapel = container.querySelector('#rpm-mapel')?.value?.trim();
   const kelasFull = container.querySelector('#rpm-kelas')?.value;
