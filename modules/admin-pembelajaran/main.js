@@ -26,7 +26,7 @@ const MENU_ITEMS = [
     icon: '', 
     title: 'Program Tahunan', 
     path: './features/prota.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'promes', 
