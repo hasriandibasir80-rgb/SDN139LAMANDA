@@ -1,121 +1,136 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bantuan AI - SDN 139 LAMANDA</title>
-  
+  <title>Bantuan AI - SDN 139 LAMANDA (Adopsi CP-TP-ATP)</title>
   <link rel="stylesheet" href="../../css/core/variables.css">
   <link rel="stylesheet" href="../../css/core/reset.css">
   <link rel="stylesheet" href="../../css/layouts/main-layout.css">
-  <link rel="stylesheet" href="style.css">
-  
-  <!-- Tambahan CSS kecil agar toolbar multi-modal terlihat rapi -->
   <style>
-    .input-toolbar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .tool-btn {
-      background: #f1f5f9;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      padding: 6px 12px;
-      font-size: 13px;
-      cursor: pointer;
-      transition: all 0.2s;
-      color: #334155;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-    .tool-btn:hover {
-      background: #e2e8f0;
-      border-color: #94a3b8;
-    }
-    .tool-btn.listening {
-      background: #fee2e2;
-      border-color: #ef4444;
-      color: #dc2626;
-      animation: pulse 1.5s infinite;
-    }
-    .url-input {
-      flex: 1;
-      padding: 6px 10px;
-      border: 1px solid #cbd5e1;
-      border-radius: 6px;
-      font-size: 13px;
-      outline: none;
-      min-width: 150px;
-    }
-    .url-input:focus {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-    }
-    @keyframes pulse {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-    }
+    :root{--primary:#1e3a8a; --bg:#f8fafc;}
+    body{background:var(--bg); font-family:'Segoe UI',sans-serif;}
+    .header{display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#fff; border-bottom:1px solid #e5e7eb; position:sticky; top:0; z-index:10;}
+    .logo-text{font-weight:800; font-size:18px;} .logo-text span{color:var(--primary);}
+    .role-badge{padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; border:1px solid #e5e7eb; background:#fff;}
+    .role-badge.guru{background:#dbeafe; color:#1e3a8a; border-color:#bfdbfe;}
+    .role-badge.siswa{background:#dcfce7; color:#166534; border-color:#bbf7d0;}
+    .role-badge.ortu{background:#fef3c7; color:#92400e; border-color:#fde68a;}
+    .container{max-width:900px; margin:20px auto; padding:0 14px; display:flex; flex-direction:column; gap:16px;}
+    
+    /* INPUT AREA DI ATAS */
+    .input-area{background:#fff; border-radius:16px; padding:16px; border:1px solid #e5e7eb; box-shadow:0 4px 12px rgba(0,0,0,0.04);}
+    .role-selector{display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap;}
+    .role-btn{padding:6px 12px; border-radius:20px; border:1px solid #d1d5db; background:#fff; font-size:12px; font-weight:600; cursor:pointer;}
+    .role-btn.active{color:#fff;}
+    .role-btn[data-role="guru"].active{background:#1e3a8a; border-color:#1e3a8a;}
+    .role-btn[data-role="siswa"].active{background:#16a34a; border-color:#16a34a;}
+    .role-btn[data-role="ortu"].active{background:#d97706; border-color:#d97706;}
+    .input-toolbar{display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; align-items:center;}
+    .tool-btn{background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:7px 12px; font-size:12px; cursor:pointer; color:#334155; display:flex; align-items:center; gap:5px;}
+    .tool-btn:hover{background:#e2e8f0;}
+    .tool-btn.listening{background:#fee2e2; border-color:#ef4444; color:#dc2626; animation:pulse 1.5s infinite;}
+    .tool-btn.has-file{background:#dbeafe; border-color:#3b82f6; color:#1e3a8a;}
+    .preview-area{display:none; gap:10px; margin-bottom:10px; padding:10px; background:#f8fafc; border-radius:10px; border:1px dashed #cbd5e1;}
+    .preview-area.show{display:flex; align-items:center;}
+    .preview-area img{width:60px; height:60px; object-fit:cover; border-radius:8px; border:1px solid #e5e7eb;}
+    .preview-info{font-size:12px; flex:1;} .preview-info b{display:block; font-size:13px;}
+    .input-box{display:flex; gap:8px; align-items:flex-end;}
+    .chat-input{flex:1; padding:12px 14px; border:1px solid #cbd5e1; border-radius:12px; font-size:14px; resize:none; outline:none; min-height:70px;}
+    .chat-input:focus{border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,0.1);}
+    .btn-send{background:var(--primary); color:#fff; border:none; border-radius:12px; width:48px; height:48px; font-size:18px; cursor:pointer; flex-shrink:0;}
+    .btn-send:disabled{opacity:0.5;}
+    .url-input{flex:1; padding:7px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:12px; min-width:160px;}
+    
+    /* CHAT RINGKAS */
+    .chat-container{max-height:200px; overflow-y:auto; background:#fff; border-radius:12px; padding:12px; border:1px solid #e5e7eb; display:flex; flex-direction:column; gap:8px;}
+    .message{padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.4; max-width:90%;}
+    .message.ai{background:#f1f5f9; align-self:flex-start;}
+    .message.user{background:#1e3a8a; color:#fff; align-self:flex-end;}
+    
+    /* SASARAN 1: OUTPUT DI BAWAH INPUT */
+    .output-wrapper{background:#fff; border-radius:16px; padding:20px; border:1px solid #e5e7eb; box-shadow:0 4px 16px rgba(0,0,0,0.06); display:none; margin-top:4px;}
+    .output-wrapper.show{display:block; animation:slideUp 0.3s ease;}
+    @keyframes slideUp{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:translateY(0)}}
+    .output-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding-bottom:12px; border-bottom:1px solid #e5e7eb; flex-wrap:wrap; gap:8px;}
+    .output-header h3{margin:0; font-size:16px; color:#1e3a8a;}
+    .output-actions{display:flex; gap:6px; flex-wrap:wrap;}
+    .btn-sm{padding:7px 12px; border-radius:8px; border:1px solid #d1d5db; background:#fff; font-size:12px; font-weight:600; cursor:pointer;}
+    .btn-sm.primary{background:#1e3a8a; color:#fff; border-color:#1e3a8a;}
+    .btn-sm.success{background:#16a34a; color:#fff; border-color:#16a34a;}
+    .btn-sm.danger{background:#ef4444; color:#fff; border-color:#ef4444;}
+    .ai-output{font-size:14px; line-height:1.7; color:#1f2937; white-space:pre-wrap;}
+    .ai-output pre{background:#0f172a; color:#e2e8f0; padding:14px; border-radius:10px; overflow-x:auto; font-size:12px; margin:12px 0;}
+    @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)} 70%{box-shadow:0 0 0 6px rgba(239,68,68,0)} 100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
   </style>
 </head>
 <body>
   <header class="header">
-    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
-    <div class="logo-text">Bantuan <span>AI</span></div>
-    <div style="width: 50px;"></div>
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'" style="border:1px solid #e5e7eb; background:#fff; padding:6px 12px; border-radius:8px; cursor:pointer;">← Kembali</button>
+    <div class="logo-text">Bantuan <span>AI</span> <small style="font-weight:400; font-size:11px; color:#64748b;">Adopsi CP-TP-ATP</small></div>
+    <div id="roleBadge" class="role-badge">Memuat role...</div>
   </header>
 
   <div class="container">
-    <!-- Chat Container -->
-    <div id="chatContainer" class="chat-container">
-      <div class="message ai">
-        Halo, saya asisten AI. Silakan beri perintah atau pertanyaan.<br><br>
-        💡 <b>Fitur yang tersedia:</b><br>
-        • Ketik teks langsung<br>
-        • 📷 Upload <b>Gambar</b> untuk dianalisis<br>
-        • 🎥 Upload <b>Video</b> untuk feedback<br>
-        • 🔗 Masukkan <b>Link/URL</b> untuk analisis konten<br>
-        • 🎤 Gunakan tombol <b>Suara</b> untuk input voice
-      </div>
-    </div>
-
-    <!-- Input Area -->
+    <!-- INPUT AREA DI ATAS -->
     <div class="input-area">
-      
-      <!-- ✅ BARU: Toolbar untuk Multi-Modal Input -->
+      <div class="role-selector">
+        <span style="font-size:11px; font-weight:700; color:#64748b; align-self:center;">MASUK SEBAGAI:</span>
+        <button class="role-btn" data-role="guru">👨‍🏫 Guru / Admin</button>
+        <button class="role-btn" data-role="siswa">🎒 Siswa</button>
+        <button class="role-btn" data-role="ortu">👨‍👩‍👧 Orang Tua</button>
+      </div>
+
       <div class="input-toolbar">
-        <label for="imageInput" class="tool-btn" title="Upload Gambar">📷 Gambar</label>
+        <label for="imageInput" class="tool-btn" id="btnImage">📷 Gambar</label>
         <input type="file" id="imageInput" accept="image/*" hidden>
-        
-        <label for="videoInput" class="tool-btn" title="Upload Video">🎥 Video</label>
+        <label for="videoInput" class="tool-btn">🎥 Video</label>
         <input type="file" id="videoInput" accept="video/*" hidden>
-        
-        <button id="btnVoice" class="tool-btn" title="Input Suara (Klik untuk mulai/berhenti)">🎤 Suara</button>
-        
-        <div style="flex: 1; display: flex; gap: 4px; min-width: 200px;">
-          <input type="url" id="urlInput" class="url-input" placeholder="Paste link untuk analisis...">
-          <button id="btnSendLink" class="tool-btn" title="Analisis Link" style="padding: 6px 10px;">🔗</button>
+        <button id="btnVoice" class="tool-btn">🎤 Suara</button>
+        <div style="flex:1; display:flex; gap:4px; min-width:180px;">
+          <input type="url" id="urlInput" class="url-input" placeholder="Paste link YouTube / artikel...">
+          <button id="btnSendLink" class="tool-btn">🔗</button>
         </div>
       </div>
 
-      <!-- Input Box Utama -->
+      <div id="previewArea" class="preview-area">
+        <img id="previewImg" src="">
+        <div class="preview-info"><b id="previewName">gambar.jpg</b><span id="previewSize">0 KB</span> - Tetap bisa ketik teks di bawah untuk info gambar ini.</div>
+        <button id="btnRemoveFile" style="background:#fee2e2; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; color:#dc2626;">✕</button>
+      </div>
+
       <div class="input-box">
-        <textarea id="userInput" class="chat-input" placeholder="Ketik pertanyaan atau perintah Anda..." rows="2"></textarea>
+        <textarea id="userInput" class="chat-input" placeholder="Upload gambar dulu, lalu ketik info tambahan di sini... contoh: 'jelaskan soal ini untuk kelas 4'" rows="3"></textarea>
         <button id="btnSend" class="btn-send">➤</button>
       </div>
-      
-      <div class="input-footer">
-        <button id="btnClearChat" class="link-btn">🗑️ Hapus Chat</button>
-        <span class="model-info">AI Assistant Multi-Modal v2.0</span>
+      <div style="display:flex; justify-content:space-between; margin-top:8px;">
+        <span id="apiStatus" style="font-size:11px; color:#94a3b8;">Memuat API Key dari settings/api_key (sama seperti CP-TP-ATP)...</span>
+        <button id="btnClearChat" style="font-size:11px; background:none; border:none; color:#64748b; cursor:pointer;">🗑️ Hapus Chat</button>
       </div>
+    </div>
+
+    <!-- CHAT RINGKAS -->
+    <div id="chatContainer" class="chat-container"></div>
+
+    <!-- SASARAN 1: OUTPUT DI BAWAH INPUT AREA -->
+    <div id="outputWrapper" class="output-wrapper">
+      <div class="output-header">
+        <h3>📄 Jawaban AI</h3>
+        <div class="output-actions">
+          <button id="btnCopy" class="btn-sm">📋 Salin</button>
+          <button id="btnDownload" class="btn-sm">⬇️ TXT</button>
+          <button id="btnDownloadPDF" class="btn-sm">📄 PDF</button>
+          <button id="btnSaveFirestore" class="btn-sm success">💾 Simpan</button>
+          <button id="btnHapusOutput" class="btn-sm danger">🗑️ Hapus</button>
+          <button id="btnSaveProta" class="btn-sm primary" style="display:none;">📅 Save ke Prota</button>
+        </div>
+      </div>
+      <div id="aiOutput" class="ai-output"></div>
+      <div id="saveStatus" style="margin-top:12px; font-size:12px;"></div>
     </div>
   </div>
 
-  <script type="module" src="../../js/firebase-config.js"></script>
   <script type="module" src="script.js"></script>
 </body>
 </html>
