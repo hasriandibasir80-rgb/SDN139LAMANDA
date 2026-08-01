@@ -27,7 +27,7 @@ export const ELEMEN_CP = {
   BAHASA_INDONESIA: ['Menyimak', 'Membaca & Memirsa', 'Berbicara', 'Menulis'],
   MATEMATIKA:       ['Bilangan', 'Aljabar', 'Pengukuran', 'Geometri', 'Analisis Data & Peluang'],
   IPAS:             ['Pemahaman IPAS', 'Keterampilan Proses'],
-  PAI:              ['Al-Qur'an & Hadis', 'Akidah', 'Akhlak', 'Fikih', 'SPI'],
+  PAI:              ["Al-Qur'an & Hadis", "Akidah", "Akhlak", "Fikih", "SPI"],
   PJOK:             ['Keterampilan Gerak', 'Pengetahuan Gerak', 'Pemanfaatan Gerak', 'Pengembangan Karakter'],
 };
 
