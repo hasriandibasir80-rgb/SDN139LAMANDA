@@ -36,9 +36,9 @@ const MENU_ITEMS = [
     status: 'soon'
   },
   { 
-    id: 'modul-ajar', 
+    id: 'coming-soon', 
     icon: '📖', 
-    title: 'Modul Ajar', 
+    title: 'coming-soon', 
     path: './features/modul-ajar.js',
     status: 'soon'
   },
@@ -127,9 +127,9 @@ const MENU_ITEMS = [
     status: 'ready'
   },
   { 
-    id: 'rpm-standar', 
+    id: 'coming-soon', 
     icon: '📝', 
-    title: 'RPM Standar', 
+    title: 'coming-soon', 
     path: './features/rpm-standar.js',
     status: 'soon'
   },
