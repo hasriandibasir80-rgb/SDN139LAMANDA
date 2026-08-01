@@ -37,7 +37,7 @@ export const konfigurasiFitur = {
     { nama: 'CP, TP, & ATP', icon: '🎯', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=cp-tp-atp' },
     { nama: 'Program Tahunan', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=prota' },
     { nama: 'Program Semester', icon: '🗓️', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=promes' },
-    { nama: 'Modul Ajar', icon: '📖', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=modul-ajar' },
+    { nama: 'coming-soon', icon: '📖', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=coming-soon' },
     { nama: 'Jurnal Harian', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=jurnal' },
     { nama: 'Bank Soal', icon: '❓', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=bank-soal' },
     { nama: 'Analisis KKTP', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=kktp' },
@@ -50,7 +50,7 @@ export const konfigurasiFitur = {
     { nama: 'Penilaian', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=penilaian' },
     { nama: 'Pembuat Soal', icon: '✍️', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=pembuat-soal' },
     { nama: 'Pembuat Kisi-kisi', icon: '📋', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=kisi-kisi' },
-    { nama: 'RPM Standar', icon: '📝', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=rpm-standar' },
+    { nama: 'coming-soon', icon: '📝', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=coming-soon' },
     { nama: 'RPM Spesifik', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=rpm-spesifik' },
       { nama: 'Bantuan AI', icon: '🤖', link: 'modules/bantuan-ai/bantuan-ai.html' }
   ],
