@@ -20,6 +20,7 @@ import {
   query,
   orderBy
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import { konfigurasiFitur, controlCenterFitur } from './config/service-menu.js';
 
@@ -335,6 +336,82 @@ function buatUserItem(id, nama, email, noWA, role, status, hakAkses, passwordCha
     }
   }
 
+
+  // === FITUR BARU: RESET PASSWORD OLEH ADMIN ===
+  // Tombol Reset Password
+  const btnResetPass = wrapper.querySelector('.btn-reset-password');
+  if (btnResetPass) {
+    btnResetPass.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const newPass = prompt(`Reset password untuk "${nama}" (${email})\nMasukkan password baru (min 6 karakter):`, PASSWORD_DEFAULT);
+      if (!newPass) return;
+      if (newPass.length < 6) {
+        alert('❌ Password minimal 6 karakter!');
+        return;
+      }
+      if (!confirm(`Yakin reset password "${nama}" menjadi "${newPass}"?\nUser akan diminta ganti password saat login berikutnya.`)) return;
+      
+      try {
+        btnResetPass.disabled = true;
+        btnResetPass.textContent = '⏳ Reset...';
+        
+        // 1. Update di Firestore sebagai penanda
+        await updateDoc(doc(db, USERS_COLLECTION, id), {
+          password: newPass,
+          passwordChanged: false,
+          mustChangePassword: true,
+          resetByAdminAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        // 2. Kirim email reset resmi dari Firebase (best practice)
+        try {
+          // Gunakan secondaryAuth untuk kirim email reset
+          await sendPasswordResetEmail(secondaryAuth, email);
+          alert(`✅ Password di Firestore diupdate ke "${newPass}"\n✅ Email reset resmi juga telah dikirim ke ${email}\n\nCara kerja:\n1. User bisa login dengan password lama jika masih ingat\n2. Atau klik link di email untuk buat password baru\n3. Atau admin beritahu password baru "${newPass}" dan user ganti di Profil`);
+        } catch (emailErr) {
+          console.warn('Gagal kirim email reset:', emailErr);
+          alert(`✅ Password Firestore berhasil direset ke "${newPass}"\n⚠️ Tapi email reset otomatis gagal (mungkin email tidak valid). Beritahu user secara manual.`);
+        }
+        
+        // 3. Kirim notifikasi WA otomatis dengan password baru
+        const nomorWA = formatNomorWA(userData[index].noWA);
+        if (nomorWA && confirm('Kirim password baru via WhatsApp juga?')) {
+          const pesanReset = `Halo *${nama}*,\n\nPassword akun Anda di *${NAMA_SEKOLAH}* telah direset oleh Admin.\n\n📧 Email: ${email}\n🔑 Password Baru: *${newPass}*\n\nSilakan login di:\n${LOGIN_URL}\n\n*Wajib ganti password setelah login di halaman Profil untuk keamanan.*`;
+          window.open(`https://wa.me/${nomorWA}?text=${encodeURIComponent(pesanReset)}`, '_blank');
+        }
+        
+      } catch (error) {
+        console.error('Error reset password:', error);
+        alert('❌ Gagal reset: ' + error.message);
+      } finally {
+        btnResetPass.disabled = false;
+        btnResetPass.textContent = '🔑 Reset Pass';
+      }
+    });
+  }
+
+  // Tombol Kirim Email Reset saja (tanpa ubah password Firestore)
+  const btnEmailReset = wrapper.querySelector('.btn-email-reset');
+  if (btnEmailReset) {
+    btnEmailReset.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!confirm(`Kirim email reset password ke ${email}?`)) return;
+      try {
+        btnEmailReset.disabled = true;
+        btnEmailReset.textContent = '⏳...';
+        await sendPasswordResetEmail(secondaryAuth, email);
+        alert(`✅ Email reset terkirim ke ${email}. Minta user cek inbox/spam.`);
+      } catch (err) {
+        alert('❌ Gagal kirim email: ' + err.message);
+      } finally {
+        btnEmailReset.disabled = false;
+        btnEmailReset.textContent = '📧 Email Reset';
+      }
+    });
+  }
+
+
   // Kirim WA
   wrapper.querySelector('.btn-kirim-wa').addEventListener('click', () => {
     syncData(); 
@@ -445,8 +522,10 @@ if (btnSimpan) {
           role: user.role,
           status: user.status,
           hakAkses: user.hakAkses || [],
-          password: PASSWORD_DEFAULT,
-          passwordChanged: user.passwordChanged || false,
+          // FIX: Hanya set password default untuk user BARU, jangan overwrite user lama
+          ...(isUserNew ? { password: PASSWORD_DEFAULT, passwordChanged: false } : {}),
+          // Jika bukan user baru, pertahankan passwordChanged yang sudah ada
+          ...(!isUserNew ? { passwordChanged: user.passwordChanged || false } : {}),
           updatedAt: serverTimestamp()
         };
 
