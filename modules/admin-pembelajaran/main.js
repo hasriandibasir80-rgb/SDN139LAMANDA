@@ -232,20 +232,34 @@ async function loadFeature(feature, clickedBtn) {
   }
 }
 
-// ✅ FUNGSI GLOBAL: Kembali ke Menu
+// ✅ FUNGSI GLOBAL: Kembali ke Menu - FIXED
 window.backToMenu = function() {
   const menuContainer = document.getElementById('subMenuContainer');
   const contentDiv = document.getElementById('dynamicContent');
   const btnBack = document.getElementById('btnBackToMenu');
 
-  // ✅ SHOW MENU, HIDE TOMBOL KEMBALI
-  menuContainer.style.display = 'grid';
+  // 1. Hapus parameter ?fitur=... dari URL biar tidak auto-load lagi saat refresh
+  if (window.history && window.history.replaceState) {
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+
+  // 2. Render ulang menu grid (PENTING: karena jika masuk via URL, renderMenu belum pernah dipanggil)
+  renderMenu();
+
+  // 3. SHOW MENU, HIDE TOMBOL KEMBALI
+  if (menuContainer) menuContainer.style.display = 'grid';
   if (btnBack) btnBack.style.display = 'none';
   
-  // Reset konten
-  contentDiv.innerHTML = `
-    <div class="empty-state">
-      👆 Silakan pilih salah satu sub-fitur di atas untuk memulai.
-    </div>
-  `;
+  // 4. Reset konten
+  if (contentDiv) {
+    contentDiv.innerHTML = `
+      <div class="empty-state">
+        👆 Silakan pilih salah satu sub-fitur di atas untuk memulai.
+      </div>
+    `;
+  }
+  
+  // 5. Scroll ke atas
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
