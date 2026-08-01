@@ -4,8 +4,8 @@
 // Semua data user disimpan di Firestore collection 'users'
 // =========================================
 
-import { getAuth, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const auth = getAuth();
 const db = getFirestore(); // ⭐ Menggunakan Firestore, bukan Realtime Database
@@ -141,6 +141,32 @@ function showProfilView() {
           <button class="btn-profil-close" onclick="window.toggleEditMode(false)">❌ Batal</button>
         </div>
       </div>
+
+      <!-- ===== FITUR BARU: GANTI PASSWORD ===== -->
+      <div class="profil-section" style="margin-top:20px; border-top:2px solid #e2e8f0; padding-top:20px;">
+        <h3>🔑 Keamanan & Password</h3>
+        <div id="statusPasswordInfo" style="background:#f8fafc; padding:10px; border-radius:6px; margin-bottom:12px; font-size:13px;"></div>
+
+        <div class="form-group">
+          <label>🔒 Password Lama</label>
+          <input type="password" id="oldPassword" class="form-control" placeholder="Masukkan password lama">
+        </div>
+        <div class="form-group">
+          <label>🆕 Password Baru (min 6 karakter)</label>
+          <input type="password" id="newPassword" class="form-control" placeholder="Password baru">
+        </div>
+        <div class="form-group">
+          <label>✅ Konfirmasi Password Baru</label>
+          <input type="password" id="confirmPassword" class="form-control" placeholder="Ulangi password baru">
+        </div>
+
+        <div class="profil-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn-profil-save" onclick="window.handleGantiPassword()" style="background:#1e3a8a;">🔑 Ganti Password</button>
+          <button class="btn-profil-edit" onclick="window.handleLupaPassword()" style="background:#3b82f6;">📧 Kirim Email Reset</button>
+        </div>
+        <div id="passwordStatus" style="margin-top:12px; display:none; padding:10px; border-radius:6px; font-size:13px;"></div>
+      </div>
+
     </div>
   `;
   
@@ -150,6 +176,7 @@ function showProfilView() {
   }
   
   profilView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(() => updatePasswordInfo(), 100);
 }
 
 // --- FUNGSI GLOBAL UNTUK ONCLICK ---
@@ -271,6 +298,116 @@ export function showOnNoService() {
   if (btnContainer) btnContainer.style.display = 'block';
   if (profilView) profilView.style.display = 'none';
 }
+
+
+// ===== FITUR BARU: GANTI PASSWORD USER SENDIRI =====
+window.handleGantiPassword = async function() {
+  const oldPass = document.getElementById('oldPassword')?.value.trim();
+  const newPass = document.getElementById('newPassword')?.value.trim();
+  const confirmPass = document.getElementById('confirmPassword')?.value.trim();
+  const statusEl = document.getElementById('passwordStatus');
+  
+  if (!oldPass || !newPass || !confirmPass) {
+    showPasswordStatus('⚠️ Semua field password wajib diisi!', 'error');
+    return;
+  }
+  if (newPass.length < 6) {
+    showPasswordStatus('❌ Password baru minimal 6 karakter!', 'error');
+    return;
+  }
+  if (newPass !== confirmPass) {
+    showPasswordStatus('❌ Konfirmasi password tidak cocok!', 'error');
+    return;
+  }
+  
+  const user = auth.currentUser;
+  if (!user) {
+    showPasswordStatus('❌ Anda belum login!', 'error');
+    return;
+  }
+  
+  const btn = document.querySelector('[onclick="window.handleGantiPassword()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Memproses...'; }
+  
+  try {
+    // 1. Re-authenticate (wajib Firebase)
+    const credential = EmailAuthProvider.credential(user.email, oldPass);
+    await reauthenticateWithCredential(user, credential);
+    
+    // 2. Update password di Auth
+    await updatePassword(user, newPass);
+    
+    // 3. Update di Firestore
+    const userRef = doc(db, "users", user.uid);
+    await updateDoc(userRef, {
+      password: newPass,
+      passwordChanged: true,
+      mustChangePassword: false,
+      lastPasswordChange: serverTimestamp(),
+      updatedAt: new Date().toISOString()
+    });
+    
+    showPasswordStatus('✅ Password berhasil diganti! Password baru sudah aktif.', 'success');
+    document.getElementById('oldPassword').value = '';
+    document.getElementById('newPassword').value = '';
+    document.getElementById('confirmPassword').value = '';
+    
+    // Update local cache
+    currentUserData.passwordChanged = true;
+    updatePasswordInfo();
+    
+  } catch (error) {
+    console.error('Ganti password error:', error);
+    let msg = error.message;
+    if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') msg = 'Password lama salah!';
+    else if (error.code === 'auth/requires-recent-login') msg = 'Sesi login lama, logout lalu login ulang dulu.';
+    else if (error.code === 'auth/weak-password') msg = 'Password baru terlalu lemah!';
+    showPasswordStatus('❌ Gagal: ' + msg, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔑 Ganti Password'; }
+  }
+};
+
+window.handleLupaPassword = async function() {
+  const user = auth.currentUser;
+  if (!user?.email) {
+    showPasswordStatus('❌ Email tidak ditemukan!', 'error');
+    return;
+  }
+  if (!confirm(`Kirim email reset password ke ${user.email}?`)) return;
+  try {
+    await sendPasswordResetEmail(auth, user.email);
+    showPasswordStatus(`✅ Email reset dikirim ke ${user.email}. Cek inbox/spam!`, 'success');
+  } catch (e) {
+    showPasswordStatus('❌ Gagal kirim email: ' + e.message, 'error');
+  }
+};
+
+function updatePasswordInfo() {
+  const infoEl = document.getElementById('statusPasswordInfo');
+  if (!infoEl) return;
+  const changed = currentUserData.passwordChanged;
+  const mustChange = currentUserData.mustChangePassword;
+  let html = `<strong>Status:</strong> ${changed ? '✅ Sudah pernah diganti' : '⚠️ Masih pakai password default'}`;
+  if (mustChange) html += `<br><span style="color:#dc2626; font-weight:bold;">🔒 Admin meminta Anda segera ganti password!</span>`;
+  if (currentUserData.lastPasswordChange) html += `<br><small>Terakhir ganti: ${new Date(currentUserData.lastPasswordChange.seconds ? currentUserData.lastPasswordChange.seconds*1000 : currentUserData.lastPasswordChange).toLocaleString('id-ID')}</small>`;
+  infoEl.innerHTML = html;
+  infoEl.style.background = mustChange ? '#fee2e2' : (changed ? '#dcfce7' : '#fef3c7');
+}
+
+function showPasswordStatus(msg, type) {
+  const el = document.getElementById('passwordStatus');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = msg;
+  el.style.background = type === 'success' ? '#dcfce7' : '#fee2e2';
+  el.style.color = type === 'success' ? '#166534' : '#991b1b';
+  el.style.border = `1px solid ${type === 'success' ? '#bbf7d0' : '#fecaca'}`;
+}
+
+// Hook after showProfilView to update password info
+const originalShowProfilView = null;
+
 
 function showToast(message, type = 'success') {
   const existing = document.querySelector('.toast-notification');
