@@ -1,0 +1,26 @@
+/* ============================================================================
+   PROTA.CSS — Styling untuk modul Prota
+   ============================================================================ */
+.prota-wrapper { font-family: 'Calibri', 'Segoe UI', sans-serif; color: #222; max-width: 1000px; margin: 20px auto; }
+.prota-title { text-align: center; margin: 0; font-size: 1.4rem; }
+.prota-subtitle { text-align: center; margin-bottom: 20px; color: #555; }
+.prota-meta { margin-bottom: 20px; }
+.prota-meta td:first-child { font-weight: 600; width: 180px; }
+
+.prota-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.prota-table th { background: #4472C4; color: #fff; padding: 8px; border: 1px solid #333; text-align: center; }
+.prota-table td { border: 1px solid #333; padding: 6px; vertical-align: middle; }
+.prota-table .center { text-align: center; }
+.prota-table .semester-row { background: #D9E2F3; font-weight: 700; text-align: center; }
+.prota-table .buffer-row { background: #FFF8E1; font-style: italic; }
+.prota-table .total-row { background: #FFF2CC; }
+
+.prota-ttd { width: 100%; margin-top: 40px; }
+.prota-ttd td { width: 50%; text-align: center; vertical-align: top; }
+
+@media print {
+  @page { size: A4 landscape; margin: 15mm; }
+  .prota-wrapper { margin: 0; }
+  .prota-table { page-break-inside: auto; }
+  .prota-table tr { page-break-inside: avoid; }
+}
