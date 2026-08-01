@@ -1,19 +1,17 @@
 // modules/admin-pembelajaran/features/kisi-kisi.js
 // =========================================
-// FITUR: PEMBUAT KISI-KISI SOAL
-// PERENCANAAN ASESMEN BERBASIS AI
-// TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
+// FITUR: PEMBUAT KISI-KISI SOAL - V2 FIX
+// Update: Tema+SubTema, Bentuk Isian, TP Master Data ala RPM
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
 import { 
   collection, addDoc, query, where, orderBy, 
-  onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
+  onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
-// Groq API Configuration
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
@@ -22,14 +20,13 @@ const CSS_ID = 'kisi-kisi-css';
 let currentEditId = null;
 let dataMapel = [];
 
-// Fallback Data Mapel
 const FALLBACK_MAPEL = [
   { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
-  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇩' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
@@ -77,23 +74,15 @@ async function loadMataPelajaran() {
     '../assets/data-mapel.json',
     '../../assets/data-mapel.json'
   ];
-  
   for (const path of possiblePaths) {
     try {
       const response = await fetch(path);
       if (!response.ok) continue;
       const data = await response.json();
       dataMapel = data.mataPelajaran || [];
-      if (dataMapel.length > 0) {
-        console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
-        return;
-      }
-    } catch (error) {
-      continue;
-    }
+      if (dataMapel.length > 0) return;
+    } catch (error) { continue; }
   }
-  
-  console.warn('⚠️ Menggunakan data mapel fallback');
   dataMapel = FALLBACK_MAPEL;
 }
 
@@ -147,13 +136,17 @@ function loadCSS() {
     .level-lots { background: #dcfce7; color: #166534; }
     .level-mots { background: #fef3c7; color: #92400e; }
     .level-hots { background: #fee2e2; color: #991b1b; }
+    .method-options { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
+    .method-option { font-weight: 600; font-size: 13px; cursor: pointer; background: #fdf2f8; padding: 8px 12px; border-radius: 6px; border: 1px solid #fbcfe8; }
+    .method-option input { margin-right: 5px; }
+    .tp-method-content { margin-top: 10px; }
     @media (max-width: 768px) { .kisi-form-grid { grid-template-columns: 1fr; } .kisi-actions { flex-direction: column; } .kisi-btn { width: 100%; justify-content: center; } .kisi-preview-table { font-size: 11px; } }
   `;
   document.head.appendChild(style);
 }
 
 function renderUI(container) {
-  const aiReady = groqApiKey ? '✅ AI Siap' : '️ API Key Belum Aktif';
+  const aiReady = groqApiKey ? '✅ AI Siap' : '⚠️ API Key Belum Aktif';
   const aiStatusClass = groqApiKey ? 'kisi-badge-ready' : '';
   
   let mapelOptions = '<option value="">-- Pilih Mapel --</option>';
@@ -172,7 +165,7 @@ function renderUI(container) {
 
       <div class="kisi-tabs">
         <button class="kisi-tab active" data-tab="form">📝 Buat Kisi-Kisi</button>
-        <button class="kisi-tab" data-tab="list"> Kisi-Kisi Tersimpan</button>
+        <button class="kisi-tab" data-tab="list">📚 Kisi-Kisi Tersimpan</button>
       </div>
 
       <div id="kisi-form-section">
@@ -185,7 +178,7 @@ function renderUI(container) {
             </div>
             <div class="kisi-form-group">
               <label>👩‍🏫 Nama Guru</label>
-              <input type="text" id="kisi-guru" class="kisi-form-control" value="Hasriandi Basir SP.d">
+              <input type="text" id="kisi-guru" class="kisi-form-control" value="${currentUser.displayName || 'Hasriandi Basir SP.d'}">
             </div>
           </div>
           <div class="kisi-form-grid">
@@ -208,9 +201,15 @@ function renderUI(container) {
           </div>
           <div class="kisi-form-grid">
             <div class="kisi-form-group">
-              <label>📝 Topik / Materi</label>
-              <input type="text" id="kisi-topik" class="kisi-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
+              <label>🗂️ Tema / Topik</label>
+              <input type="text" id="kisi-tema" class="kisi-form-control" placeholder="Contoh: Tumbuhan di Sekitarku">
             </div>
+            <div class="kisi-form-group">
+              <label>📖 Sub Tema / Materi</label>
+              <input type="text" id="kisi-subtema" class="kisi-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
+            </div>
+          </div>
+          <div class="kisi-form-grid">
             <div class="kisi-form-group">
               <label>📅 Jenis Asesmen</label>
               <select id="kisi-jenis" class="kisi-form-control">
@@ -221,32 +220,54 @@ function renderUI(container) {
                 <option value="PAS">PAS (Penilaian Akhir Semester)</option>
               </select>
             </div>
-          </div>
-          <div class="kisi-form-grid">
             <div class="kisi-form-group">
               <label>🔢 Jumlah Soal</label>
               <input type="number" id="kisi-jumlah" class="kisi-form-control" value="10" min="1" max="50">
             </div>
-            <div class="kisi-form-group">
-              <label>📝 Bentuk Soal</label>
-              <select id="kisi-bentuk" class="kisi-form-control">
-                <option value="Pilihan Ganda">Pilihan Ganda</option>
-                <option value="Esai">Esai / Uraian</option>
-                <option value="Campuran">Campuran (PG + Esai)</option>
-              </select>
-            </div>
           </div>
           <div class="kisi-form-group">
-            <label>🎯 Tujuan Pembelajaran (TP) / Indikator (satu per baris)</label>
-            <textarea id="kisi-tp" class="kisi-form-control" rows="4" placeholder="1. Siswa mampu mengidentifikasi bagian tubuh tumbuhan&#10;2. Siswa mampu menjelaskan fungsi akar, batang, dan daun&#10;3. Siswa mampu menganalisis hubungan antara bagian tumbuhan dengan fungsinya"></textarea>
-            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 AI akan memetakan TP ini ke level kognitif (LOTS/MOTS/HOTS) secara otomatis</p>
+            <label>📝 Bentuk Soal</label>
+            <select id="kisi-bentuk" class="kisi-form-control">
+              <option value="Pilihan Ganda">Pilihan Ganda</option>
+              <option value="Isian Singkat">Isian Singkat</option>
+              <option value="Esai">Esai / Uraian</option>
+              <option value="Isian + Pilihan Ganda">a. Isian + Pilihan Ganda</option>
+              <option value="Isian + Esai">b. Isian + Esai</option>
+              <option value="Pilihan Ganda + Esai">c. Pilihan Ganda + Esai</option>
+              <option value="Isian + Pilihan Ganda + Esai">d. Isian + Pilihan Ganda + Esai (Lengkap)</option>
+            </select>
+          </div>
+
+          <div class="kisi-form-group">
+            <label>🎯 Tujuan Pembelajaran (TP) / Indikator</label>
+            <div class="method-options">
+              <label class="method-option"><input type="radio" name="tpMethod" value="master" checked> 1. Master Data</label>
+              <label class="method-option"><input type="radio" name="tpMethod" value="ai"> 2. Generate AI</label>
+              <label class="method-option"><input type="radio" name="tpMethod" value="manual"> 3. Input Manual</label>
+            </div>
+            <div id="tpMethodMaster" class="tp-method-content">
+              <button type="button" id="btnLoadMasterTP" class="kisi-btn kisi-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+                🔄 Muat TP dari Master Data (Mapel, Kelas, Tema & Sub Tema)
+              </button>
+              <select id="selectMasterTP" class="kisi-form-control" multiple size="5" style="min-height: 120px; display: none;"></select>
+              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl untuk pilih lebih dari satu TP. TP terpilih akan otomatis masuk ke textarea di bawah.</small>
+            </div>
+            <div id="tpMethodAI" class="tp-method-content" style="display: none;">
+              <button type="button" id="btnGenerateTP" class="kisi-btn kisi-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">✨ Generate TP dengan AI</button>
+              <textarea id="inpTujuanAI" class="kisi-form-control" rows="3" readonly placeholder="TP akan muncul di sini..."></textarea>
+            </div>
+            <div id="tpMethodManual" class="tp-method-content" style="display: none;">
+              <textarea id="inpTujuanManual" class="kisi-form-control" rows="3" placeholder="Tulis manual..."></textarea>
+            </div>
+            <textarea id="kisi-tp" class="kisi-form-control" rows="4" placeholder="1. Siswa mampu mengidentifikasi bagian tubuh tumbuhan&#10;2. Siswa mampu menjelaskan fungsi akar, batang, dan daun&#10;3. Siswa mampu menganalisis hubungan antara bagian tumbuhan dengan fungsinya" style="margin-top:10px;"></textarea>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 AI akan memetakan TP ini ke level kognitif (LOTS/MOTS/HOTS) secara otomatis. Bisa dari Master Data juga.</p>
           </div>
         </div>
 
         <div class="kisi-actions">
           <button class="kisi-btn kisi-btn-primary" id="btn-generate-ai">✨ Generate Kisi-Kisi dengan AI</button>
           <button class="kisi-btn kisi-btn-success" id="btn-simpan">💾 Simpan ke Database</button>
-          <button class="kisi-btn kisi-btn-warning" id="btn-export"> Export Word</button>
+          <button class="kisi-btn kisi-btn-warning" id="btn-export">📥 Export Word</button>
           <button class="kisi-btn kisi-btn-secondary" id="btn-reset">🔄 Reset Form</button>
         </div>
 
@@ -259,9 +280,7 @@ function renderUI(container) {
       <div id="kisi-list-section" style="display: none;">
         <div class="kisi-section">
           <h3 class="kisi-section-title">📚 Daftar Kisi-Kisi Tersimpan</h3>
-          <div id="kisi-list-container">
-            <div class="kisi-loading">⏳ Memuat data...</div>
-          </div>
+          <div id="kisi-list-container"><div class="kisi-loading">⏳ Memuat data...</div></div>
         </div>
       </div>
     </div>
@@ -269,7 +288,6 @@ function renderUI(container) {
 }
 
 function attachEvents(container) {
-  // Tab switching
   container.querySelectorAll('.kisi-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       container.querySelectorAll('.kisi-tab').forEach(t => t.classList.remove('active'));
@@ -280,187 +298,261 @@ function attachEvents(container) {
     });
   });
 
-  // Generate AI
+  // TP Method Switching
+  container.querySelectorAll('input[name="tpMethod"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+      const method = e.target.value;
+      container.querySelector('#tpMethodMaster').style.display = method === 'master' ? 'block' : 'none';
+      container.querySelector('#tpMethodAI').style.display = method === 'ai' ? 'block' : 'none';
+      container.querySelector('#tpMethodManual').style.display = method === 'manual' ? 'block' : 'none';
+    });
+  });
+
+  // Load Master TP
+  const btnLoadTP = container.querySelector('#btnLoadMasterTP');
+  if (btnLoadTP) btnLoadTP.addEventListener('click', () => loadMasterTP(container));
+
+  const selectTP = container.querySelector('#selectMasterTP');
+  if (selectTP) selectTP.addEventListener('change', () => syncTPSelection(container));
+
+  // Generate TP AI (optional)
+  const btnGenTP = container.querySelector('#btnGenerateTP');
+  if (btnGenTP) btnGenTP.addEventListener('click', () => generateTPAI(container));
+
   container.querySelector('#btn-generate-ai').addEventListener('click', () => handleGenerateAI(container));
-
-  // Simpan
   container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
-
-  // Export Word
   container.querySelector('#btn-export').addEventListener('click', () => handleExportWord(container));
-
-  // Reset
   container.querySelector('#btn-reset').addEventListener('click', () => {
     if (confirm('🔄 Reset semua form?')) {
       currentEditId = null;
       container.querySelectorAll('input[type="text"], textarea').forEach(el => {
-        if (el.id === 'kisi-guru') {
-          el.value = 'Hasriandi Basir SP.d';
-        } else if (el.id === 'kisi-sekolah') {
-          el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
-        } else if (el.id === 'kisi-jumlah') {
-          el.value = '10';
-        } else {
-          el.value = '';
-        }
+        if (el.id === 'kisi-guru') el.value = currentUser.displayName || 'Hasriandi Basir SP.d';
+        else if (el.id === 'kisi-sekolah') el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
+        else if (el.id !== 'kisi-tp') el.value = '';
       });
+      container.querySelector('#kisi-tp').value = '';
       container.querySelector('#kisi-preview-section').style.display = 'none';
-      showToast('✅ Form direset!');
+      container.querySelector('#selectMasterTP').style.display = 'none';
+      container.querySelector('#masterTPHint').style.display = 'none';
+      showToast('🔄 Form direset!');
     }
   });
 }
 
-async function handleGenerateAI(container) {
-  if (!groqApiKey) {
-    showToast('⚠️ API Key belum aktif!', 'error');
-    return;
-  }
-
-  const mapel = container.querySelector('#kisi-mapel').value;
-  const kelas = container.querySelector('#kisi-kelas').value;
-  const topik = container.querySelector('#kisi-topik').value;
-  const jumlah = container.querySelector('#kisi-jumlah').value;
-  const bentuk = container.querySelector('#kisi-bentuk').value;
-  const tp = container.querySelector('#kisi-tp').value;
-
-  if (!mapel || !kelas || !topik || !jumlah || !tp) {
-    showToast('⚠️ Lengkapi semua field terlebih dahulu!', 'error');
-    return;
-  }
-
-  const [kelasNum, fase] = kelas.split('|');
-  
-  const prompt = `Bertindaklah sebagai Ahli Kurikulum Merdeka dan Pengembang Asesmen profesional.
-
-Buatkan KISI-KISI SOAL (BUKAN soal jadi) dengan format JSON valid berdasarkan data:
-- Mata Pelajaran: ${mapel}
-- Kelas: ${kelasNum} (Fase ${fase})
-- Topik: ${topik}
-- Jenis Asesmen: ${container.querySelector('#kisi-jenis').value}
-- Jumlah Soal: ${jumlah}
-- Bentuk Soal: ${bentuk}
-- Tujuan Pembelajaran: ${tp}
-
-WAJIB output dalam format JSON berikut (tanpa markdown tambahan):
-{
-  "informasi": {
-    "sekolah": "SDN 139 LAMANDA",
-    "mapel": "${mapel}",
-    "kelas": "${kelasNum}",
-    "fase": "${fase}",
-    "topik": "${topik}",
-    "jenis_asesmen": "${container.querySelector('#kisi-jenis').value}",
-    "jumlah_soal": ${jumlah},
-    "bentuk_soal": "${bentuk}"
-  },
-  "kisi_kisi": [
-    {
-      "nomor": 1,
-      "tujuan_pembelajaran": "TP yang diukur...",
-      "indikator_soal": "Indikator spesifik yang dapat diukur...",
-      "materi": "Materi yang diujikan...",
-      "bentuk_soal": "PG/Esai",
-      "level_kognitif": "LOTS/MOTS/HOTS",
-      "nomor_soal": "1",
-      "media_gambar": "URL gambar dari Wikimedia Commons atau Unsplash yang relevan (jika diperlukan), atau 'Tidak ada' jika tidak perlu gambar"
-    }
-  ],
-  "distribusi_level": {
-    "LOTS": "jumlah soal LOTS",
-    "MOTS": "jumlah soal MOTS",
-    "HOTS": "jumlah soal HOTS"
-  }
+function getTemaSubTema(container) {
+  const tema = container.querySelector('#kisi-tema')?.value.trim() || '';
+  const subTema = container.querySelector('#kisi-subtema')?.value.trim() || '';
+  const combined = [tema, subTema].filter(Boolean).join(' - ');
+  return { tema, subTema, combined };
 }
 
-PENTING:
-- Distribusikan level kognitif secara proporsional (30% LOTS, 40% MOTS, 30% HOTS)
-- Untuk soal yang membutuhkan gambar (misal: IPA, Matematika geometri), sertakan URL gambar edukatif dari Wikimedia Commons atau Unsplash
-- Indikator soal harus SPESIFIK dan dapat diukur
-- Jumlah item di array kisi_kisi HARUS sama dengan jumlah_soal
-- Gunakan bahasa Indonesia formal dan edukatif`;
+// ===== LOAD TP DARI MASTER DATA (ALA RPM) =====
+async function loadMasterTP(container) {
+  const mapel = container.querySelector('#kisi-mapel')?.value || '';
+  const kelasVal = container.querySelector('#kisi-kelas')?.value || '';
+  const { tema, subTema } = getTemaSubTema(container);
+  
+  if (!mapel) {
+    showToast('⚠️ Pilih Mata Pelajaran dulu!', 'error');
+    return;
+  }
+
+  const btn = container.querySelector('#btnLoadMasterTP');
+  const selectEl = container.querySelector('#selectMasterTP');
+  const hintEl = container.querySelector('#masterTPHint');
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Memuat TP...';
+  }
 
   try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${groqApiKey}`
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Output HARUS JSON valid.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
-      })
+    // Query ke collection data_tp (Master TP)
+    const q = query(collection(db, 'data_tp'), where('userId', '==', currentUser.uid));
+    const snap = await getDocs(q);
+    
+    let allTP = [];
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      // Fuzzy matching: mapel harus cocok
+      const mapelMatch = !d.mapel || d.mapel.toLowerCase().includes(mapel.toLowerCase()) || mapel.toLowerCase().includes((d.mapel||'').toLowerCase());
+      if (!mapelMatch && d.mapel !== mapel) {
+        // Tetap masukkan jika filter kelas/tema tidak ketat, tapi prioritaskan yang match
+      }
+      if (d.tujuan_pembelajaran) {
+        // d.tujuan_pembelajaran bisa array atau string
+        const tpList = Array.isArray(d.tujuan_pembelajaran) ? d.tujuan_pembelajaran : d.tujuan_pembelajaran.split('\n').filter(Boolean);
+        tpList.forEach(tp => {
+          allTP.push({
+            text: typeof tp === 'string' ? tp : (tp.deskripsi || tp.text || JSON.stringify(tp)),
+            mapel: d.mapel || '',
+            kelas: d.kelas || '',
+            tema: d.tema || d.topik || '',
+            subtema: d.sub_tema || d.subtema || d.materi || ''
+          });
+        });
+      } else if (d.tp || d.tujuan) {
+        const tpList = Array.isArray(d.tp || d.tujuan) ? (d.tp || d.tujuan) : [d.tp || d.tujuan];
+        tpList.forEach(tp => allTP.push({ text: tp, mapel: d.mapel, kelas: d.kelas, tema: d.tema, subtema: d.sub_tema }));
+      }
     });
 
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    // Filter lanjutan berdasarkan kelas/tema jika ada
+    let filtered = allTP;
+    if (kelasVal) {
+      const [kelasNum] = kelasVal.split('|');
+      filtered = filtered.filter(item => !item.kelas || item.kelas == kelasNum || item.kelas.toString().includes(kelasNum));
+    }
+    if (tema) {
+      filtered = filtered.filter(item => !item.tema || item.tema.toLowerCase().includes(tema.toLowerCase()) || tema.toLowerCase().includes(item.tema.toLowerCase()) || !tema);
+    }
+    // Jika tidak ada hasil setelah filter ketat, tampilkan semua
+    if (filtered.length === 0) filtered = allTP;
 
-    const data = await response.json();
-    const aiText = data.choices[0].message.content;
-    
-    let parsed;
-    const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/) || aiText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    } else {
-      parsed = JSON.parse(aiText);
+    if (filtered.length === 0) {
+      showToast('⚠️ Belum ada Master TP. Buat di Global Monitoring > Data TP dulu.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Muat TP dari Master Data (Mapel, Kelas, Tema & Sub Tema)'; }
+      return;
     }
 
-    // Tampilkan preview
-    tampilkanPreview(container, parsed);
-    showToast('✅ Kisi-kisi berhasil di-generate dengan AI!');
-  } catch (error) {
-    console.error('Error AI:', error);
-    showToast('❌ Gagal generate: ' + error.message, 'error');
+    // Populate select
+    selectEl.innerHTML = '';
+    filtered.forEach((item, idx) => {
+      const opt = document.createElement('option');
+      opt.value = item.text;
+      opt.textContent = `${idx+1}. ${item.text.substring(0,120)}${item.text.length>120?'...':''} ${item.kelas ? '[Kls '+item.kelas+']' : ''} ${item.tema ? '('+item.tema+')' : ''}`;
+      selectEl.appendChild(opt);
+    });
+    selectEl.style.display = 'block';
+    if (hintEl) hintEl.style.display = 'block';
+    showToast(`✅ ${filtered.length} TP ditemukan dari Master Data!`);
+
+  } catch (err) {
+    console.error('Load Master TP error:', err);
+    showToast('❌ Gagal memuat TP: '+err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Muat TP dari Master Data (Mapel, Kelas, Tema & Sub Tema)';
+    }
   }
 }
 
-function tampilkanPreview(container, data) {
-  const previewSection = container.querySelector('#kisi-preview-section');
-  const previewContent = container.querySelector('#kisi-preview-content');
-  
-  if (!data.kisi_kisi || data.kisi_kisi.length === 0) {
-    previewContent.innerHTML = '<div class="kisi-empty">❌ Data kisi-kisi tidak valid</div>';
-    previewSection.style.display = 'block';
+function syncTPSelection(container) {
+  const selectEl = container.querySelector('#selectMasterTP');
+  const tpTextarea = container.querySelector('#kisi-tp');
+  if (!selectEl || !tpTextarea) return;
+  const selected = Array.from(selectEl.selectedOptions).map(o => o.value);
+  if (selected.length > 0) {
+    tpTextarea.value = selected.map((t, i) => `${i+1}. ${t}`).join('\n');
+  }
+}
+
+async function generateTPAI(container) {
+  const mapel = container.querySelector('#kisi-mapel')?.value;
+  const kelas = container.querySelector('#kisi-kelas')?.value;
+  const { combined } = getTemaSubTema(container);
+  if (!mapel || !kelas || !combined) {
+    showToast('⚠️ Lengkapi Mapel, Kelas, Tema & Sub Tema dulu!', 'error');
     return;
   }
+  if (!groqApiKey) { showToast('⚠️ API Key belum aktif!', 'error'); return; }
+  const btn = container.querySelector('#btnGenerateTP');
+  btn.disabled = true; btn.textContent = '⏳ Generating...';
+  try {
+    const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) untuk ${mapel} Kelas ${kelas} dengan tema "${combined}". Format: nomor + deskripsi singkat.`;
+    const res = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }], temperature: 0.7 })
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    container.querySelector('#inpTujuanAI').value = text;
+    container.querySelector('#kisi-tp').value = text;
+    showToast('✅ TP berhasil di-generate AI!');
+  } catch (e) {
+    showToast('❌ Gagal generate TP: '+e.message, 'error');
+  } finally { btn.disabled = false; btn.textContent = '✨ Generate TP dengan AI'; }
+}
 
-  let html = `
-    <div style="margin-bottom: 20px; padding: 15px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
-      <h4 style="margin: 0 0 10px 0; color: #1e40af;"> Distribusi Level Kognitif</h4>
-      <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-        <span class="level-badge level-lots">LOTS: ${data.distribusi_level?.LOTS || 0} soal</span>
-        <span class="level-badge level-mots">MOTS: ${data.distribusi_level?.MOTS || 0} soal</span>
-        <span class="level-badge level-hots">HOTS: ${data.distribusi_level?.HOTS || 0} soal</span>
-      </div>
-    </div>
-    <table class="kisi-preview-table">
-      <thead>
-        <tr>
-          <th style="width: 40px;">No</th>
-          <th>Tujuan Pembelajaran</th>
-          <th>Indikator Soal</th>
-          <th>Materi</th>
-          <th style="width: 80px;">Bentuk</th>
-          <th style="width: 80px;">Level</th>
-          <th style="width: 60px;">No. Soal</th>
-          <th style="width: 100px;">Media</th>
-        </tr>
-      </thead>
-      <tbody>
-  `;
+// ===== GENERATE KISI AI =====
+async function handleGenerateAI(container) {
+  const { tema, subTema, combined } = getTemaSubTema(container);
+  const sekolah = container.querySelector('#kisi-sekolah')?.value;
+  const guru = container.querySelector('#kisi-guru')?.value;
+  const mapel = container.querySelector('#kisi-mapel')?.value;
+  const kelas = container.querySelector('#kisi-kelas')?.value;
+  const jenis = container.querySelector('#kisi-jenis')?.value;
+  const jumlah = container.querySelector('#kisi-jumlah')?.value;
+  const bentuk = container.querySelector('#kisi-bentuk')?.value;
+  const tp = container.querySelector('#kisi-tp')?.value;
 
-  data.kisi_kisi.forEach(item => {
-    const levelClass = item.level_kognitif === 'LOTS' ? 'level-lots' : 
-                       item.level_kognitif === 'MOTS' ? 'level-mots' : 'level-hots';
-    const mediaIcon = item.media_gambar && item.media_gambar !== 'Tidak ada' ? '🖼️ Ada' : '➖';
-    
-    html += `
-      <tr>
+  if (!mapel || !kelas || !tema || !tp) {
+    showToast('⚠️ Lengkapi Mapel, Kelas, Tema, dan TP dulu!', 'error');
+    return;
+  }
+  if (!groqApiKey) { showToast('⚠️ API Key belum aktif!', 'error'); return; }
+
+  const btn = container.querySelector('#btn-generate-ai');
+  btn.disabled = true; btn.textContent = '⏳ AI Sedang Berpikir...';
+  const previewSection = container.querySelector('#kisi-preview-section');
+  const previewContent = container.querySelector('#kisi-preview-content');
+  previewContent.innerHTML = '<div class="kisi-loading">🤖 AI sedang menyusun kisi-kisi...</div>';
+  previewSection.style.display = 'block';
+
+  try {
+    const prompt = `
+Buatkan kisi-kisi soal untuk:
+- Mapel: ${mapel}
+- Kelas/Fase: ${kelas}
+- Tema: ${tema}
+- Sub Tema/Materi: ${subTema}
+- Jenis: ${jenis}
+- Jumlah Soal: ${jumlah}
+- Bentuk Soal: ${bentuk}
+- TP/Indikator:
+${tp}
+
+Kembalikan dalam JSON array dengan format per item:
+{
+  "nomor": 1,
+  "tujuan_pembelajaran": "...",
+  "indikator_soal": "...",
+  "materi": "...",
+  "bentuk_soal": "Pilihan Ganda / Isian / Esai / Campuran",
+  "level_kognitif": "LOTS/MOTS/HOTS",
+  "nomor_soal": "1",
+  "media_gambar": "Tidak ada / Ada"
+}
+Hanya kembalikan JSON array valid, tanpa penjelasan tambahan.
+`;
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: 'user', content: prompt }], temperature: 0.7, max_tokens: 4000 })
+    });
+    const data = await response.json();
+    let text = data.choices?.[0]?.message?.content || '';
+    // Clean markdown code block
+    text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    let kisiData = [];
+    try { kisiData = JSON.parse(text); } catch (e) {
+      // Fallback parse
+      const jsonMatch = text.match(/\[.*\]/s);
+      if (jsonMatch) kisiData = JSON.parse(jsonMatch[0]);
+    }
+
+    if (!Array.isArray(kisiData) || kisiData.length === 0) throw new Error('Format AI tidak valid');
+
+    let html = `<table class="kisi-preview-table"><thead><tr>
+      <th>No</th><th>Tujuan Pembelajaran</th><th>Indikator Soal</th>
+      <th>Materi</th><th>Bentuk</th><th>Level</th><th>No. Soal</th><th>Media</th>
+    </tr></thead><tbody>`;
+    kisiData.forEach(item => {
+      const levelClass = item.level_kognitif === 'LOTS' ? 'level-lots' : item.level_kognitif === 'MOTS' ? 'level-mots' : 'level-hots';
+      const mediaIcon = item.media_gambar && item.media_gambar !== 'Tidak ada' ? '🖼️ Ada' : '➖';
+      html += `<tr>
         <td style="text-align: center;">${item.nomor}</td>
         <td>${item.tujuan_pembelajaran}</td>
         <td>${item.indikator_soal}</td>
@@ -469,169 +561,128 @@ function tampilkanPreview(container, data) {
         <td style="text-align: center;"><span class="level-badge ${levelClass}">${item.level_kognitif}</span></td>
         <td style="text-align: center;">${item.nomor_soal}</td>
         <td style="text-align: center;">${mediaIcon}</td>
-      </tr>
-    `;
-  });
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    previewContent.innerHTML = html;
+    previewContent.dataset.kisiJson = JSON.stringify(kisiData);
+    showToast('✅ Kisi-kisi berhasil di-generate!');
 
-  html += `</tbody></table>`;
-  
-  previewContent.innerHTML = html;
-  previewSection.style.display = 'block';
-  
-  // Scroll ke preview
-  setTimeout(() => {
-    previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 100);
+  } catch (error) {
+    console.error(error);
+    previewContent.innerHTML = `<div class="kisi-empty">❌ Gagal: ${error.message}</div>`;
+    showToast('❌ Gagal generate: '+error.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Generate Kisi-Kisi dengan AI';
+  }
 }
 
 async function handleSimpan(container) {
-  const mapel = container.querySelector('#kisi-mapel').value;
-  const kelas = container.querySelector('#kisi-kelas').value;
-  const topik = container.querySelector('#kisi-topik').value;
-
-  if (!mapel || !kelas || !topik) {
-    showToast('⚠️ Lengkapi informasi asesmen terlebih dahulu!', 'error');
-    return;
-  }
-
-  // Ambil data dari preview (jika sudah di-generate)
-  const previewContent = container.querySelector('#kisi-preview-content');
-  if (!previewContent.innerHTML.trim()) {
-    showToast('⚠️ Generate kisi-kisi dengan AI terlebih dahulu!', 'error');
-    return;
-  }
-
-  // Kumpulkan data dari form
-  const [kelasNum, fase] = kelas.split('|');
-  
-  const dataKisi = {
-    jenis: 'kisi-kisi',
-    informasi: {
-      sekolah: container.querySelector('#kisi-sekolah').value,
-      guru: container.querySelector('#kisi-guru').value,
-      mapel,
-      kelas: kelasNum,
-      fase,
-      topik,
-      jenis_asesmen: container.querySelector('#kisi-jenis').value,
-      jumlah_soal: parseInt(container.querySelector('#kisi-jumlah').value),
-      bentuk_soal: container.querySelector('#kisi-bentuk').value,
-      tujuan_pembelajaran: container.querySelector('#kisi-tp').value
-    },
-    kisi_kisi: extractKisiFromPreview(previewContent),
-    createdAt: serverTimestamp(),
-    userId: currentUser.uid
+  const { tema, subTema, combined } = getTemaSubTema(container);
+  const informasi = {
+    sekolah: container.querySelector('#kisi-sekolah')?.value,
+    guru: container.querySelector('#kisi-guru')?.value,
+    mapel: container.querySelector('#kisi-mapel')?.value,
+    kelas: container.querySelector('#kisi-kelas')?.value.split('|')[0],
+    fase: container.querySelector('#kisi-kelas')?.value.split('|')[1],
+    tema,
+    sub_tema: subTema,
+    subtema: subTema,
+    topik: combined,
+    topik_materi: combined,
+    jenis_asesmen: container.querySelector('#kisi-jenis')?.value,
+    jumlah_soal: container.querySelector('#kisi-jumlah')?.value,
+    bentuk_soal: container.querySelector('#kisi-bentuk')?.value,
+    tujuan_pembelajaran: container.querySelector('#kisi-tp')?.value
   };
 
+  if (!informasi.mapel || !informasi.kelas || !informasi.tema || !informasi.tujuan_pembelajaran) {
+    showToast('⚠️ Lengkapi Tema, Mapel, Kelas, dan TP!', 'error');
+    return;
+  }
+
+  const previewContent = container.querySelector('#kisi-preview-content');
+  let kisi_kisi = [];
+  if (previewContent?.dataset?.kisiJson) {
+    try { kisi_kisi = JSON.parse(previewContent.dataset.kisiJson); } catch(e) {}
+  }
+
   try {
+    const payload = {
+      userId: currentUser.uid,
+      informasi,
+      kisi_kisi,
+      updatedAt: serverTimestamp()
+    };
     if (currentEditId) {
-      const docRef = doc(db, 'kisi_kisi', currentEditId);
-      await updateDoc(docRef, dataKisi);
+      await updateDoc(doc(db, 'kisi_kisi', currentEditId), payload);
       showToast('✅ Kisi-kisi berhasil diupdate!');
-      currentEditId = null;
     } else {
-      await addDoc(collection(db, 'kisi_kisi'), dataKisi);
+      payload.createdAt = serverTimestamp();
+      await addDoc(collection(db, 'kisi_kisi'), payload);
       showToast('✅ Kisi-kisi berhasil disimpan!');
     }
+    currentEditId = null;
   } catch (error) {
-    console.error('Error saving:', error);
-    showToast('❌ Gagal menyimpan: ' + error.message, 'error');
+    console.error(error);
+    showToast('❌ Gagal simpan: '+error.message, 'error');
   }
-}
-
-function extractKisiFromPreview(previewContent) {
-  // Extract data dari tabel preview (simplified)
-  const rows = previewContent.querySelectorAll('tbody tr');
-  const kisiArray = [];
-  
-  rows.forEach((row, idx) => {
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 7) {
-      const levelBadge = cells[5].querySelector('.level-badge');
-      kisiArray.push({
-        nomor: idx + 1,
-        tujuan_pembelajaran: cells[1].textContent,
-        indikator_soal: cells[2].textContent,
-        materi: cells[3].textContent,
-        bentuk_soal: cells[4].textContent,
-        level_kognitif: levelBadge ? levelBadge.textContent : 'MOTS',
-        nomor_soal: cells[6].textContent,
-        media_gambar: cells[7].textContent.includes('🖼️') ? 'Ada' : 'Tidak ada'
-      });
-    }
-  });
-  
-  return kisiArray;
 }
 
 function loadKisiList(container) {
   const listContainer = container.querySelector('#kisi-list-container');
-  
-  const q = query(
-    collection(db, 'kisi_kisi'),
-    where('userId', '==', currentUser.uid),
-    orderBy('createdAt', 'desc')
-  );
-
+  if (!listContainer) return;
+  const q = query(collection(db, 'kisi_kisi'), where('userId', '==', currentUser.uid), orderBy('createdAt', 'desc'));
   onSnapshot(q, (snapshot) => {
     if (snapshot.empty) {
-      listContainer.innerHTML = '<div class="kisi-empty">📭 Belum ada kisi-kisi tersimpan</div>';
+      listContainer.innerHTML = '<div class="kisi-empty">📭 Belum ada kisi-kisi tersimpan.</div>';
       return;
     }
-
-    listContainer.innerHTML = snapshot.docs.map(docSnap => {
+    listContainer.innerHTML = '';
+    snapshot.forEach(docSnap => {
       const d = docSnap.data();
-      const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
-      return `
-        <div class="kisi-item">
-          <div class="kisi-item-header">
-            <div>
-              <div class="kisi-item-title">${d.informasi?.mapel || '-'} - ${d.informasi?.topik || '-'}</div>
-              <div class="kisi-item-meta">Kelas ${d.informasi?.kelas || '-'} | ${d.informasi?.jenis_asesmen || '-'} | ${d.informasi?.jumlah_soal || 0} soal | ${date}</div>
-            </div>
-            <div class="kisi-item-actions">
-              <button onclick="editKisi('${docSnap.id}')" style="background: #3b82f6;">✏️ Edit</button>
-              <button onclick="deleteKisi('${docSnap.id}')" style="background: #ef4444;">️ Hapus</button>
-            </div>
+      const info = d.informasi || {};
+      const div = document.createElement('div');
+      div.className = 'kisi-item';
+      div.innerHTML = `
+        <div class="kisi-item-header">
+          <div>
+            <div class="kisi-item-title">📚 ${info.mapel || '-'} - ${info.tema || info.topik || '-'} ${info.sub_tema ? ' / '+info.sub_tema : ''}</div>
+            <div class="kisi-item-meta">${info.kelas ? 'Kelas '+info.kelas : ''} | ${info.jenis_asesmen || ''} | ${info.bentuk_soal || ''} | ${info.jumlah_soal || 0} soal</div>
+          </div>
+          <div class="kisi-item-actions">
+            <button onclick="editKisi('${docSnap.id}')" style="background: #3b82f6;">✏️ Edit</button>
+            <button onclick="deleteKisi('${docSnap.id}')" style="background: #ef4444;">🗑️ Hapus</button>
           </div>
         </div>
+        <div style="font-size:12px; color:#64748b; margin-top:5px;">${(info.tujuan_pembelajaran || '').substring(0,120)}...</div>
       `;
-    }).join('');
+      listContainer.appendChild(div);
+    });
   }, (error) => {
-    console.warn('Error loading kisi list:', error);
-    if (error.code === 'failed-precondition') {
-      listContainer.innerHTML = '<div class="kisi-empty">️ Index Firestore sedang diproses. Silakan tunggu beberapa menit.</div>';
-    } else {
-      listContainer.innerHTML = '<div class="kisi-empty">❌ Gagal memuat data</div>';
-    }
+    listContainer.innerHTML = `<div class="kisi-empty">❌ Gagal memuat: ${error.message}</div>`;
   });
 }
 
 window.editKisi = async function(id) {
   try {
-    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
     const docRef = doc(db, 'kisi_kisi', id);
     const docSnap = await getDoc(docRef);
-    
-    if (!docSnap.exists()) {
-      showToast('❌ Data tidak ditemukan!', 'error');
-      return;
-    }
-
+    if (!docSnap.exists()) { showToast('❌ Data tidak ditemukan!', 'error'); return; }
     const d = docSnap.data();
     currentEditId = id;
-
     document.querySelector('#kisi-sekolah').value = d.informasi?.sekolah || '';
     document.querySelector('#kisi-guru').value = d.informasi?.guru || '';
     document.querySelector('#kisi-mapel').value = d.informasi?.mapel || '';
     document.querySelector('#kisi-kelas').value = `${d.informasi?.kelas}|${d.informasi?.fase}` || '';
-    document.querySelector('#kisi-topik').value = d.informasi?.topik || '';
+    document.querySelector('#kisi-tema').value = d.informasi?.tema || d.informasi?.topik?.split(' - ')[0] || '';
+    document.querySelector('#kisi-subtema').value = d.informasi?.sub_tema || d.informasi?.subtema || d.informasi?.topik?.split(' - ')[1] || '';
     document.querySelector('#kisi-jenis').value = d.informasi?.jenis_asesmen || 'Formatif';
     document.querySelector('#kisi-jumlah').value = d.informasi?.jumlah_soal || 10;
     document.querySelector('#kisi-bentuk').value = d.informasi?.bentuk_soal || 'Pilihan Ganda';
     document.querySelector('#kisi-tp').value = d.informasi?.tujuan_pembelajaran || '';
 
-    // Tampilkan preview dari data tersimpan
     const previewContent = document.querySelector('#kisi-preview-content');
     if (d.kisi_kisi && d.kisi_kisi.length > 0) {
       let html = `<table class="kisi-preview-table"><thead><tr>
@@ -639,10 +690,8 @@ window.editKisi = async function(id) {
         <th>Materi</th><th style="width: 80px;">Bentuk</th><th style="width: 80px;">Level</th>
         <th style="width: 60px;">No. Soal</th><th style="width: 100px;">Media</th>
       </tr></thead><tbody>`;
-      
       d.kisi_kisi.forEach(item => {
-        const levelClass = item.level_kognitif === 'LOTS' ? 'level-lots' : 
-                           item.level_kognitif === 'MOTS' ? 'level-mots' : 'level-hots';
+        const levelClass = item.level_kognitif === 'LOTS' ? 'level-lots' : item.level_kognitif === 'MOTS' ? 'level-mots' : 'level-hots';
         const mediaIcon = item.media_gambar && item.media_gambar !== 'Tidak ada' ? '🖼️ Ada' : '➖';
         html += `<tr>
           <td style="text-align: center;">${item.nomor}</td>
@@ -657,9 +706,9 @@ window.editKisi = async function(id) {
       });
       html += '</tbody></table>';
       previewContent.innerHTML = html;
+      previewContent.dataset.kisiJson = JSON.stringify(d.kisi_kisi);
       document.querySelector('#kisi-preview-section').style.display = 'block';
     }
-
     document.querySelector('[data-tab="form"]').click();
     showToast('✅ Kisi-kisi dimuat untuk edit!');
   } catch (error) {
@@ -670,7 +719,6 @@ window.editKisi = async function(id) {
 
 window.deleteKisi = async function(id) {
   if (!confirm('⚠️ Yakin hapus kisi-kisi ini?')) return;
-  
   try {
     await deleteDoc(doc(db, 'kisi_kisi', id));
     showToast('✅ Kisi-kisi berhasil dihapus!');
@@ -686,16 +734,15 @@ function handleExportWord(container) {
     showToast('⚠️ Generate kisi-kisi terlebih dahulu!', 'error');
     return;
   }
-
   const sekolah = container.querySelector('#kisi-sekolah').value;
   const guru = container.querySelector('#kisi-guru').value;
   const mapel = container.querySelector('#kisi-mapel').value;
   const kelas = container.querySelector('#kisi-kelas').value;
-  const topik = container.querySelector('#kisi-topik').value;
+  const tema = container.querySelector('#kisi-tema').value;
+  const subTema = container.querySelector('#kisi-subtema').value;
   const jenis = container.querySelector('#kisi-jenis').value;
   const jumlah = container.querySelector('#kisi-jumlah').value;
   const bentuk = container.querySelector('#kisi-bentuk').value;
-
   const [kelasNum, fase] = kelas.split('|');
 
   let html = `
@@ -711,8 +758,7 @@ function handleExportWord(container) {
       .header-table td { border: none; padding: 5px; }
     </style></head><body>
     <h1>KISI-KISI SOAL</h1>
-    <h2 style="text-align: center; border: none;">${topik}</h2>
-    
+    <h2 style="text-align: center; border: none;">${tema} ${subTema ? ' - '+subTema : ''}</h2>
     <table class="header-table">
       <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>: ${sekolah}</td></tr>
       <tr><td><strong>Guru</strong></td><td>: ${guru}</td></tr>
@@ -722,10 +768,8 @@ function handleExportWord(container) {
       <tr><td><strong>Jumlah Soal</strong></td><td>: ${jumlah}</td></tr>
       <tr><td><strong>Bentuk Soal</strong></td><td>: ${bentuk}</td></tr>
     </table>
-
     <h2>Kisi-Kisi Soal</h2>
     ${previewContent.innerHTML}
-
     <div style="margin-top: 50px; text-align: right;">
       <p style="margin: 5px 0;">Lamanda, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
       <p style="margin: 5px 0;">Guru Mata Pelajaran</p>
@@ -739,7 +783,7 @@ function handleExportWord(container) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `KisiKisi_${mapel}_${topik.replace(/\s+/g, '_')}.doc`;
+  link.download = `KisiKisi_${mapel}_${tema.replace(/\s+/g, '_')}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
