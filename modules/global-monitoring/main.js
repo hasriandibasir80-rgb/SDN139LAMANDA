@@ -16,7 +16,7 @@ if (!currentUser.uid) {
 const MENU_ITEMS = [
   { 
     id: 'data-peserta-didik', 
-    icon: '👨‍🎓', 
+    icon: '👨🎓', 
     title: 'Data Peserta Didik', 
     path: './features/data-peserta-didik.js',
     status: 'ready'
@@ -142,18 +142,34 @@ async function loadFeature(feature, clickedBtn) {
   }
 }
 
-// ✅ FUNGSI GLOBAL: Kembali ke Menu
+// ✅ FUNGSI GLOBAL: Kembali ke Menu - FIXED UNIVERSAL
 window.backToMenu = function() {
   const menuContainer = document.getElementById('subMenuContainer');
   const contentDiv = document.getElementById('dynamicContent');
   const btnBack = document.getElementById('btnBackToMenu');
 
-  menuContainer.style.display = 'grid';
+  // 1. Hapus parameter ?fitur=... dari URL
+  if (window.history && window.history.replaceState) {
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+
+  // 2. Render ulang menu grid (FIX UTAMA untuk bug layar biru)
+  renderMenu();
+
+  // 3. Show menu, hide tombol kembali
+  if (menuContainer) menuContainer.style.display = 'grid';
   if (btnBack) btnBack.style.display = 'none';
   
-  contentDiv.innerHTML = `
-    <div class="empty-state">
-      👆 Silakan pilih salah satu sub-fitur di atas untuk memulai.
-    </div>
-  `;
+  // 4. Reset konten
+  if (contentDiv) {
+    contentDiv.innerHTML = `
+      <div class="empty-state">
+        👆 Silakan pilih salah satu sub-fitur di atas untuk memulai.
+      </div>
+    `;
+  }
+
+  // 5. Scroll ke atas
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
