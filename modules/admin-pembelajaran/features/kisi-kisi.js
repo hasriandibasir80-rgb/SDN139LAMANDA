@@ -388,8 +388,7 @@ async function loadMasterTP(container) {
       let tpList = [];
       if (d.tujuan_pembelajaran) {
         if (Array.isArray(d.tujuan_pembelajaran)) tpList = d.tujuan_pembelajaran;
-        else tpList = d.tujuan_pembelajaran.toString().split('
-').filter(Boolean);
+        else tpList = d.tujuan_pembelajaran.toString().split('\n').filter(Boolean);
       }
       tpList.forEach(tpRaw => {
         const text = (typeof tpRaw === 'string' ? tpRaw : (tpRaw.deskripsi || '')).trim();
