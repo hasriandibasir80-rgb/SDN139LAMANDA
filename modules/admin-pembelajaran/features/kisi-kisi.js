@@ -346,90 +346,140 @@ function getTemaSubTema(container) {
   return { tema, subTema, combined };
 }
 
-// ===== LOAD TP DARI MASTER DATA (ALA RPM) =====
+// ===== LOAD TP DARI MASTER DATA - STRICT TEMA/SUBTEMA ONLY =====
 async function loadMasterTP(container) {
   const mapel = container.querySelector('#kisi-mapel')?.value || '';
   const kelasVal = container.querySelector('#kisi-kelas')?.value || '';
   const { tema, subTema } = getTemaSubTema(container);
-  
+  const temaLower = tema.toLowerCase().trim();
+  const subTemaLower = subTema.toLowerCase().trim();
+  const combinedLower = `${tema} ${subTema}`.toLowerCase().trim();
+
+  console.log('[KISI] Filter diminta:', { mapel, kelasVal, tema, subTema });
+
   if (!mapel) {
     showToast('⚠️ Pilih Mata Pelajaran dulu!', 'error');
+    return;
+  }
+  if (!tema && !subTema) {
+    showToast('⚠️ Isi Tema atau Sub Tema dulu biar filter berjalan!', 'error');
     return;
   }
 
   const btn = container.querySelector('#btnLoadMasterTP');
   const selectEl = container.querySelector('#selectMasterTP');
   const hintEl = container.querySelector('#masterTPHint');
-  
+
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '⏳ Memuat TP...';
+    btn.textContent = '⏳ Mencari TP...';
   }
 
   try {
-    // Query ke collection data_tp (Master TP)
+    // Ambil semua data_tp milik user ini
     const q = query(collection(db, 'data_tp'), where('userId', '==', currentUser.uid));
     const snap = await getDocs(q);
-    
+
+    console.log('[KISI] Total doc data_tp:', snap.size);
+
     let allTP = [];
     snap.forEach(docSnap => {
       const d = docSnap.data();
-      // Fuzzy matching: mapel harus cocok
-      const mapelMatch = !d.mapel || d.mapel.toLowerCase().includes(mapel.toLowerCase()) || mapel.toLowerCase().includes((d.mapel||'').toLowerCase());
-      if (!mapelMatch && d.mapel !== mapel) {
-        // Tetap masukkan jika filter kelas/tema tidak ketat, tapi prioritaskan yang match
-      }
+      let tpList = [];
       if (d.tujuan_pembelajaran) {
-        // d.tujuan_pembelajaran bisa array atau string
-        const tpList = Array.isArray(d.tujuan_pembelajaran) ? d.tujuan_pembelajaran : d.tujuan_pembelajaran.split('\n').filter(Boolean);
-        tpList.forEach(tp => {
-          allTP.push({
-            text: typeof tp === 'string' ? tp : (tp.deskripsi || tp.text || JSON.stringify(tp)),
-            mapel: d.mapel || '',
-            kelas: d.kelas || '',
-            tema: d.tema || d.topik || '',
-            subtema: d.sub_tema || d.subtema || d.materi || ''
-          });
-        });
-      } else if (d.tp || d.tujuan) {
-        const tpList = Array.isArray(d.tp || d.tujuan) ? (d.tp || d.tujuan) : [d.tp || d.tujuan];
-        tpList.forEach(tp => allTP.push({ text: tp, mapel: d.mapel, kelas: d.kelas, tema: d.tema, subtema: d.sub_tema }));
+        if (Array.isArray(d.tujuan_pembelajaran)) tpList = d.tujuan_pembelajaran;
+        else tpList = d.tujuan_pembelajaran.toString().split('
+').filter(Boolean);
       }
+      tpList.forEach(tpRaw => {
+        const text = (typeof tpRaw === 'string' ? tpRaw : (tpRaw.deskripsi || '')).trim();
+        if (!text) return;
+        allTP.push({
+          text,
+          mapel: (d.mapel || '').toLowerCase(),
+          mapelOriginal: d.mapel || '',
+          kelas: (d.kelas || '').toString().toLowerCase(),
+          topik: (d.topik || d.tema || '').toLowerCase(),
+          topikOriginal: d.topik || d.tema || ''
+        });
+      });
     });
 
-    // Filter lanjutan berdasarkan kelas/tema jika ada
-    let filtered = allTP;
-    if (kelasVal) {
-      const [kelasNum] = kelasVal.split('|');
-      filtered = filtered.filter(item => !item.kelas || item.kelas == kelasNum || item.kelas.toString().includes(kelasNum));
-    }
-    if (tema) {
-      filtered = filtered.filter(item => !item.tema || item.tema.toLowerCase().includes(tema.toLowerCase()) || tema.toLowerCase().includes(item.tema.toLowerCase()) || !tema);
-    }
-    // Jika tidak ada hasil setelah filter ketat, tampilkan semua
-    if (filtered.length === 0) filtered = allTP;
+    console.log('[KISI] Total TP mentah:', allTP.length, allTP.slice(0,2));
 
-    if (filtered.length === 0) {
-      showToast('⚠️ Belum ada Master TP. Buat di Global Monitoring > Data TP dulu.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '🔄 Muat TP dari Master Data (Mapel, Kelas, Tema & Sub Tema)'; }
+    // 1. Filter Mapel dulu - WAJIB sama
+    let step1 = allTP.filter(item => {
+      if (!item.mapel) return false;
+      return item.mapel === mapel.toLowerCase() || item.mapel.includes(mapel.toLowerCase()) || mapel.toLowerCase().includes(item.mapel);
+    });
+
+    console.log('[KISI] Setelah filter Mapel:', step1.length);
+
+    if (step1.length === 0) {
+      showToast(`⚠️ Tidak ada TP dengan mapel "${mapel}" di Master Data`, 'error');
+      selectEl.style.display = 'none';
+      if (hintEl) hintEl.style.display = 'none';
       return;
     }
 
-    // Populate select
+    // 2. Filter Kelas jika dipilih
+    let step2 = step1;
+    if (kelasVal) {
+      const [kelasNum] = kelasVal.split('|');
+      step2 = step1.filter(item => {
+        if (!item.kelas) return true;
+        return item.kelas.includes(kelasNum.toLowerCase());
+      });
+      console.log('[KISI] Setelah filter Kelas:', step2.length);
+    }
+
+    // 3. Filter TEMA / SUB TEMA - SUPER KETAT, tidak fallback ke semua
+    // Syarat: topik ATAU teks TP mengandung kata tema/subtema
+    let finalFiltered = step2.filter(item => {
+      const haystack = `${item.topik} ${item.text}`.toLowerCase();
+      const matchTema = temaLower ? haystack.includes(temaLower) : false;
+      const matchSubTema = subTemaLower ? haystack.includes(subTemaLower) : false;
+      
+      if (temaLower && subTemaLower) {
+        return matchTema || matchSubTema;
+      } else if (temaLower) {
+        return matchTema;
+      } else if (subTemaLower) {
+        return matchSubTema;
+      }
+      return false;
+    });
+
+    console.log('[KISI] Final filtered by Tema/SubTema:', finalFiltered.length, finalFiltered);
+
+    if (finalFiltered.length === 0) {
+      showToast(`⚠️ Tidak ada TP yang cocok. Tema "${tema}" / Sub "${subTema}" tidak ditemukan di topik/isi TP mapel ${mapel}. Coba kata kunci lebih pendek.`, 'error');
+      selectEl.style.display = 'none';
+      if (hintEl) {
+        hintEl.style.display = 'block';
+        hintEl.textContent = `🔍 Mencari: Tema "${tema}" / Sub "${subTema}" di ${step2.length} TP mapel ${mapel}. Tidak ada yang cocok. Coba kurangi kata, misal "Tumbuhan" saja.`;
+      }
+      return;
+    }
+
+    // Render hanya yang cocok
     selectEl.innerHTML = '';
-    filtered.forEach((item, idx) => {
+    finalFiltered.forEach((item, idx) => {
       const opt = document.createElement('option');
       opt.value = item.text;
-      opt.textContent = `${idx+1}. ${item.text.substring(0,120)}${item.text.length>120?'...':''} ${item.kelas ? '[Kls '+item.kelas+']' : ''} ${item.tema ? '('+item.tema+')' : ''}`;
+      opt.textContent = `${idx+1}. ${item.text.substring(0,110)}... [Topik: ${item.topikOriginal}]`;
       selectEl.appendChild(opt);
     });
     selectEl.style.display = 'block';
-    if (hintEl) hintEl.style.display = 'block';
-    showToast(`✅ ${filtered.length} TP ditemukan dari Master Data!`);
+    if (hintEl) {
+      hintEl.style.display = 'block';
+      hintEl.textContent = `✅ Ditemukan ${finalFiltered.length} TP dari ${step2.length} TP mapel ${mapel} yang mengandung kata "${tema} / ${subTema}".`;
+    }
+    showToast(`✅ ${finalFiltered.length} TP sesuai ditemukan!`);
 
   } catch (err) {
-    console.error('Load Master TP error:', err);
-    showToast('❌ Gagal memuat TP: '+err.message, 'error');
+    console.error('[KISI] Error:', err);
+    showToast('❌ Gagal: ' + err.message, 'error');
   } finally {
     if (btn) {
       btn.disabled = false;
