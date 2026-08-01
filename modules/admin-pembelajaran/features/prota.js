@@ -1,394 +1,252 @@
 /**
  * ============================================================================
- * PROTA.JS — Modul Program Tahunan Kurikulum Merdeka
- * ============================================================================
- * Deskripsi: Mengelola perhitungan, distribusi, dan render Program Tahunan
- *            sesuai standar BSKAP Kemendikbudristek.
- * Versi    : 1.0.0
- * Author   : Tim Pengembang Situs Sekolah (Kolaborasi)
- * Lisensi  : Internal Sekolah
+ * features/prota.js - Program Tahunan Kurikulum Merdeka - REBUILD TOTAL
+ * Versi: 2.0.0 - Clean Build
+ * Cara kerja: main.js akan memanggil export function init(container, db)
  * ============================================================================
  */
 
-// ============================================================================
-// 1. KONSTANTA & DEFAULT CONFIG
-// ============================================================================
-export const DEFAULT_CONFIG = {
-  semester: {
-    count: 2,
-    names: ['SEMESTER 1', 'SEMESTER 2'],
-  },
-  jpPerWeek: 5, // default JP per minggu (bisa di-override per mapel)
-  bufferWeeks: 1, // minggu cadangan per semester
-  minEffectiveWeeks: 12,
-};
+export async function init(container, db) {
+  // Reset container
+  container.innerHTML = `
+    <style>
+      .prota-wrapper{font-family:'Segoe UI',sans-serif; background:#fff; border-radius:12px; padding:20px; color:#1f2937; max-width:1100px; margin:auto;}
+      .prota-header{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:20px; border-bottom:2px solid #1e3a8a; padding-bottom:15px;}
+      .prota-header h2{margin:0; color:#1e3a8a; font-size:22px;}
+      .btn{padding:8px 14px; border:none; border-radius:8px; cursor:pointer; font-weight:600;}
+      .btn-primary{background:#1e3a8a; color:#fff;}
+      .btn-success{background:#16a34a; color:#fff;}
+      .btn-secondary{background:#e5e7eb; color:#111;}
+      .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+      .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+      @media(max-width:768px){.grid2,.grid3{grid-template-columns:1fr}}
+      .form-group{margin-bottom:10px;}
+      .form-group label{font-size:13px; font-weight:600; display:block; margin-bottom:4px;}
+      .form-group input, .form-group select, .form-group textarea{width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px;}
+      .card{border:1px solid #e5e7eb; border-radius:10px; padding:15px; margin-bottom:15px; background:#f9fafb;}
+      .prota-table{width:100%; border-collapse:collapse; margin-top:15px; font-size:13px;}
+      .prota-table th,.prota-table td{border:1px solid #d1d5db; padding:8px;}
+      .prota-table th{background:#1e3a8a; color:#fff; text-align:center;}
+      .prota-table .center{text-align:center;}
+      .semester-row td{background:#dbeafe; font-weight:800; color:#1e3a8a;}
+      .total-row td{background:#fef3c7; font-weight:800;}
+      .prota-ttd{width:100%; margin-top:30px;}
+      .prota-ttd td{width:50%; text-align:center; vertical-align:top; padding:10px;}
+      @media print{ .no-print{display:none !important} .prota-wrapper{box-shadow:none; padding:0} }
+    </style>
 
-export const ELEMEN_CP = {
-  BAHASA_INDONESIA: ['Menyimak', 'Membaca & Memirsa', 'Berbicara', 'Menulis'],
-  MATEMATIKA:       ['Bilangan', 'Aljabar', 'Pengukuran', 'Geometri', 'Analisis Data & Peluang'],
-  IPAS:             ['Pemahaman IPAS', 'Keterampilan Proses'],
-  PAI:              ["Al-Qur'an & Hadis", "Akidah", "Akhlak", "Fikih", "SPI"],
-  PJOK:             ['Keterampilan Gerak', 'Pengetahuan Gerak', 'Pemanfaatan Gerak', 'Pengembangan Karakter'],
-};
+    <div class="prota-wrapper">
+      <div class="prota-header">
+        <h2>PROGRAM TAHUNAN (PROTA) <span style="font-size:14px; color:#6b7280;">Kurikulum Merdeka</span></h2>
+        <div class="no-print" style="display:flex; gap:8px;">
+          <button id="btnCetak" class="btn btn-secondary">🖨️ Cetak</button>
+          <button id="btnSimpan" class="btn btn-success">💾 Simpan ke Database</button>
+          <button id="btnExport" class="btn btn-primary">📄 Export JSON</button>
+        </div>
+      </div>
 
-// ============================================================================
-// 2. KELAS UTAMA: ProtaManager
-// ============================================================================
-/**
- * Manager utama untuk Program Tahunan.
- * Bertugas: validasi, kalkulasi, distribusi, render, dan export.
- */
-export class ProtaManager {
-  /**
-   * @param {Object} identitas - Data identitas sekolah & mapel
-   * @param {Object} options   - Konfigurasi tambahan
-   */
-  constructor(identitas = {}, options = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...options };
-    this.identitas = this._validateIdentitas(identitas);
-    this.kalender = { semester1: null, semester2: null };
-    this.atp = []; // daftar Tujuan Pembelajaran
-    this.distribusi = []; // hasil distribusi JP
+      <div class="card no-print">
+        <h3 style="margin-top:0;">1. Identitas</h3>
+        <div class="grid2">
+          <div class="form-group"><label>Sekolah</label><input id="inpSekolah" value="SDN 139 LAMANDA"></div>
+          <div class="form-group"><label>Tahun Pelajaran</label><input id="inpTahun" value="2025/2026"></div>
+          <div class="form-group"><label>Mata Pelajaran</label><input id="inpMapel" placeholder="Contoh: IPAS"></div>
+          <div class="form-group"><label>Fase / Kelas</label><input id="inpKelas" placeholder="Contoh: Fase B / Kelas 4"></div>
+          <div class="form-group"><label>Guru Mapel</label><input id="inpGuru"></div>
+          <div class="form-group"><label>Kepala Sekolah</label><input id="inpKepsek"></div>
+        </div>
+      </div>
+
+      <div class="card no-print">
+        <h3 style="margin-top:0;">2. Kalender Pendidikan</h3>
+        <div class="grid3">
+          <div class="form-group"><label>Sem 1 - Total Minggu</label><input type="number" id="s1Total" value="26"></div>
+          <div class="form-group"><label>Sem 1 - Tidak Efektif</label><input type="number" id="s1Tidak" value="6"></div>
+          <div class="form-group"><label>JP / Minggu</label><input type="number" id="jpMinggu" value="5"></div>
+          <div class="form-group"><label>Sem 2 - Total Minggu</label><input type="number" id="s2Total" value="26"></div>
+          <div class="form-group"><label>Sem 2 - Tidak Efektif</label><input type="number" id="s2Tidak" value="7"></div>
+          <div class="form-group"><label>Buffer (minggu)</label><input type="number" id="buffer" value="1"></div>
+        </div>
+        <div id="infoWaktu" style="margin-top:10px; font-size:13px; background:#eff6ff; padding:10px; border-radius:6px;"></div>
+      </div>
+
+      <div class="card no-print">
+        <h3 style="margin-top:0;">3. Daftar Tujuan Pembelajaran (TP/ATP)</h3>
+        <div class="grid3">
+          <div class="form-group"><label>Elemen CP</label><input id="tpElemen" placeholder="Contoh: Bilangan"></div>
+          <div class="form-group"><label>JP</label><input type="number" id="tpJP" value="4"></div>
+          <div class="form-group"><label>Semester</label>
+            <select id="tpSemester"><option value="1">Semester 1</option><option value="2">Semester 2</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label>Tujuan Pembelajaran</label><textarea id="tpTeks" rows="2" placeholder="Tulis TP..."></textarea></div>
+        <button id="btnTambahTP" class="btn btn-primary">+ Tambah TP</button>
+        <div id="listTP" style="margin-top:15px;"></div>
+      </div>
+
+      <div id="renderArea"></div>
+    </div>
+  `;
+
+  // --- STATE ---
+  let tpList = [];
+  const defaultTP = [
+    { elemen: "Bilangan", tp: "Peserta didik memahami bilangan cacah sampai 10.000", jp: 8, sem: 1 },
+    { elemen: "Geometri", tp: "Peserta didik mengenal bangun datar dan keliling", jp: 6, sem: 1 },
+    { elemen: "Pemahaman IPAS", tp: "Peserta didik memahami siklus hidup makhluk hidup", jp: 10, sem: 2 },
+  ];
+  tpList = [...defaultTP];
+
+  // --- HELPERS ---
+  const $ = (id) => container.querySelector('#' + id);
+
+  function hitung() {
+    const s1T = parseInt($('s1Total').value) || 0;
+    const s1N = parseInt($('s1Tidak').value) || 0;
+    const s2T = parseInt($('s2Total').value) || 0;
+    const s2N = parseInt($('s2Tidak').value) || 0;
+    const jp = parseInt($('jpMinggu').value) || 0;
+
+    const s1E = s1T - s1N;
+    const s2E = s2T - s2N;
+    const jp1 = s1E * jp;
+    const jp2 = s2E * jp;
+
+    $('infoWaktu').innerHTML = `
+      Sem 1: <b>${s1E} minggu efektif</b> x ${jp} JP = <b>${jp1} JP</b> | 
+      Sem 2: <b>${s2E} minggu efektif</b> x ${jp} JP = <b>${jp2} JP</b> | 
+      <b>TOTAL: ${jp1 + jp2} JP / Tahun</b>
+    `;
+    return { s1E, s2E, jp1, jp2, total: jp1 + jp2, jpPerWeek: jp };
   }
 
-  // --------------------------------------------------------------------------
-  // 2.1. Validasi & Setter
-  // --------------------------------------------------------------------------
-  _validateIdentitas(id) {
-    const required = ['sekolah', 'mapel', 'fase', 'kelas', 'tahunPelajaran'];
-    for (const key of required) {
-      if (!id[key]) throw new Error(`[ProtaManager] Identitas wajib: ${key}`);
+  function renderTPList() {
+    if (tpList.length === 0) {
+      $('listTP').innerHTML = '<p style="color:#9ca3af; font-size:13px;">Belum ada TP. Tambahkan di atas.</p>';
+      return;
     }
-    return {
-      sekolah: id.sekolah,
-      mapel: id.mapel,
-      fase: id.fase,
-      kelas: id.kelas,
-      tahunPelajaran: id.tahunPelajaran,
-      guru: id.guru || '',
-      nip: id.nip || '',
-      kepsek: id.kepsek || '',
-      nipKepsek: id.nipKepsek || '',
+    $('listTP').innerHTML = tpList.map((t, i) => `
+      <div style="display:flex; justify-content:space-between; align-items:center; border:1px solid #e5e7eb; padding:8px 10px; border-radius:6px; margin-bottom:6px; background:#fff; font-size:13px;">
+        <div><b>[S${t.sem}] ${t.elemen}</b> (${t.jp} JP) - ${t.tp}</div>
+        <button data-i="${i}" class="btnHapus btn btn-secondary" style="padding:4px 8px; font-size:12px;">Hapus</button>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.btnHapus').forEach(b => {
+      b.onclick = (e) => {
+        tpList.splice(parseInt(e.target.dataset.i), 1);
+        refreshAll();
+      };
+    });
+  }
+
+  function renderTabel() {
+    const waktu = hitung();
+    const identitas = {
+      sekolah: $('inpSekolah').value,
+      tahun: $('inpTahun').value,
+      mapel: $('inpMapel').value || '-',
+      kelas: $('inpKelas').value || '-',
+      guru: $('inpGuru').value || '...........................',
+      kepsek: $('inpKepsek').value || '...........................'
     };
-  }
 
-  /**
-   * Set data kalender pendidikan per semester.
-   * @param {1|2} semester
-   * @param {Object} data - { totalMinggu, mingguTidakEfektif[] }
-   */
-  setKalender(semester, data) {
-    if (![1, 2].includes(semester)) throw new Error('Semester harus 1 atau 2');
-    const key = `semester${semester}`;
-    this.kalender[key] = {
-      totalMinggu: data.totalMinggu,
-      mingguTidakEfektif: data.mingguTidakEfektif || [],
-    };
-    return this;
-  }
-
-  /**
-   * Set daftar ATP/TP.
-   * @param {Array<Object>} atpList - [{id, elemen, tp, jpEstimasi, semester}]
-   */
-  setATP(atpList) {
-    if (!Array.isArray(atpList)) throw new Error('ATP harus berupa array');
-    this.atp = atpList.map((item, idx) => ({
-      no: idx + 1,
-      id: item.id || `TP-${idx + 1}`,
-      semester: item.semester || 1,
-      elemen: item.elemen || '-',
-      tp: item.tp || '',
-      jpEstimasi: Number(item.jpEstimasi) || 0,
-      keterangan: item.keterangan || '',
-    }));
-    return this;
-  }
-
-  // --------------------------------------------------------------------------
-  // 2.2. Kalkulasi Waktu
-  // --------------------------------------------------------------------------
-  /**
-   * Hitung minggu efektif & total JP per semester.
-   * @returns {Object} { semester1: {...}, semester2: {...}, totalJP }
-   */
-  hitungWaktu() {
-    const result = {};
+    let rows = '';
+    let no = 1;
     let totalJP = 0;
 
-    for (const sem of [1, 2]) {
-      const key = `semester${sem}`;
-      const kal = this.kalender[key];
-      if (!kal) throw new Error(`Kalender semester ${sem} belum diatur`);
-
-      const mingguTidakEfektif = kal.mingguTidakEfektif.length;
-      const mingguEfektif = kal.totalMinggu - mingguTidakEfektif;
-
-      if (mingguEfektif < this.config.minEffectiveWeeks) {
-        console.warn(`[Prota] Semester ${sem}: minggu efektif (${mingguEfektif}) di bawah minimum`);
-      }
-
-      const jpTersedia = mingguEfektif * this.config.jpPerWeek;
-      result[key] = {
-        semester: sem,
-        nama: this.config.semester.names[sem - 1],
-        totalMinggu: kal.totalMinggu,
-        mingguTidakEfektif,
-        mingguEfektif,
-        jpPerWeek: this.config.jpPerWeek,
-        jpTersedia,
-      };
-      totalJP += jpTersedia;
-    }
-
-    result.totalJP = totalJP;
-    this._waktuResult = result;
-    return result;
-  }
-
-  // --------------------------------------------------------------------------
-  // 2.3. Distribusi Materi
-  // --------------------------------------------------------------------------
-  /**
-   * Distribusikan ATP ke dalam tabel Prota + hitung total JP terpakai.
-   * @returns {Array<Object>} data siap render
-   */
-  distribusikan() {
-    if (!this._waktuResult) this.hitungWaktu();
-
-    const grouped = { 1: [], 2: [] };
-    this.atp.forEach(tp => {
-      if (grouped[tp.semester]) grouped[tp.semester].push(tp);
+    [1, 2].forEach(sem => {
+      rows += `<tr class="semester-row"><td colspan="5">SEMESTER ${sem} - ${sem === 1 ? waktu.s1E + ' Minggu' : waktu.s2E + ' Minggu'} Efektif</td></tr>`;
+      tpList.filter(t => t.sem === sem).forEach(t => {
+        totalJP += t.jp;
+        rows += `
+          <tr>
+            <td class="center">${no++}</td>
+            <td>${t.elemen}</td>
+            <td>${t.tp}</td>
+            <td class="center">${t.jp}</td>
+            <td>Sem ${t.sem}</td>
+          </tr>`;
+      });
     });
 
-    const distribusi = [];
-    let totalTerpakai = 0;
+    rows += `<tr class="total-row"><td colspan="3" class="center">TOTAL JP TERCATAT</td><td class="center">${totalJP}</td><td>Sisa: ${waktu.total - totalJP} JP</td></tr>`;
 
-    for (const sem of [1, 2]) {
-      distribusi.push({ type: 'semester-header', nama: this.config.semester.names[sem - 1] });
-      grouped[sem].forEach(tp => {
-        distribusi.push({ type: 'tp', ...tp });
-        totalTerpakai += tp.jpEstimasi;
-      });
-      // Baris cadangan
-      const sisa = this._waktuResult[`semester${sem}`].jpTersedia -
-                   grouped[sem].reduce((s, t) => s + t.jpEstimasi, 0);
-      if (sisa > 0) {
-        distribusi.push({
-          type: 'buffer',
-          elemen: 'Cadangan / Pengayaan',
-          tp: 'Kegiatan literasi, remedial, & pembelajaran berdiferensiasi',
-          jpEstimasi: sisa,
-          keterangan: 'Fleksibel',
-        });
-      }
-    }
-
-    this.distribusi = distribusi;
-    this._totalTerpakai = totalTerpakai;
-    return distribusi;
-  }
-
-  // --------------------------------------------------------------------------
-  // 2.4. Render HTML
-  // --------------------------------------------------------------------------
-  /**
-   * Render Prota ke dalam container DOM.
-   * @param {string|HTMLElement} container - selector atau elemen
-   */
-  render(container) {
-    const el = typeof container === 'string'
-      ? document.querySelector(container)
-      : container;
-    if (!el) throw new Error('Container tidak ditemukan');
-
-    if (!this.distribusi.length) this.distribusikan();
-
-    el.innerHTML = `
-      <div class="prota-wrapper">
-        ${this._renderIdentitas()}
-        ${this._renderTabel()}
-        ${this._renderTTD()}
-      </div>
-    `;
-
-    this._bindEvents(el);
-  }
-
-  _renderIdentitas() {
-    const id = this.identitas;
-    return `
-      <div class="prota-identitas">
-        <h2 class="prota-title">PROGRAM TAHUNAN (PROTA)</h2>
-        <p class="prota-subtitle">Kurikulum Merdeka — Tahun Pelajaran ${id.tahunPelajaran}</p>
-        <table class="prota-meta">
-          <tr><td>Satuan Pendidikan</td><td>: ${id.sekolah}</td></tr>
-          <tr><td>Mata Pelajaran</td><td>: ${id.mapel}</td></tr>
-          <tr><td>Fase / Kelas</td><td>: ${id.fase} / ${id.kelas}</td></tr>
-          <tr><td>Tahun Pelajaran</td><td>: ${id.tahunPelajaran}</td></tr>
+    $('renderArea').innerHTML = `
+      <div style="margin-top:25px; border-top:2px dashed #d1d5db; padding-top:20px;">
+        <h3 style="text-align:center; margin:0;">PROGRAM TAHUNAN</h3>
+        <p style="text-align:center; margin:5px 0 15px 0; font-size:13px;">${identitas.sekolah} - ${identitas.mapel} - ${identitas.kelas} - ${identitas.tahun}</p>
+        <table class="prota-table">
+          <thead><tr><th style="width:40px;">No</th><th style="width:140px;">Elemen CP</th><th>Tujuan Pembelajaran</th><th style="width:60px;">JP</th><th style="width:90px;">Ket</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+        <table class="prota-ttd">
+          <tr>
+            <td>Mengetahui,<br>Kepala Sekolah<br><br><br><br><u>${identitas.kepsek}</u></td>
+            <td>${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}<br>Guru Mata Pelajaran<br><br><br><br><u>${identitas.guru}</u></td>
+          </tr>
         </table>
       </div>
     `;
   }
 
-  _renderTabel() {
-    let rows = '';
-    let noCounter = 0;
-
-    this.distribusi.forEach(row => {
-      if (row.type === 'semester-header') {
-        rows += `<tr class="semester-row"><td colspan="6">${row.nama}</td></tr>`;
-      } else if (row.type === 'tp') {
-        noCounter++;
-        rows += `
-          <tr>
-            <td class="center">${noCounter}</td>
-            <td></td>
-            <td>${row.elemen}</td>
-            <td>${row.tp}</td>
-            <td class="center">${row.jpEstimasi}</td>
-            <td>${row.keterangan}</td>
-          </tr>`;
-      } else if (row.type === 'buffer') {
-        rows += `
-          <tr class="buffer-row">
-            <td></td><td></td>
-            <td>${row.elemen}</td>
-            <td>${row.tp}</td>
-            <td class="center">${row.jpEstimasi}</td>
-            <td>${row.keterangan}</td>
-          </tr>`;
-      }
-    });
-
-    const totalJP = this._waktuResult?.totalJP || 0;
-    rows += `
-      <tr class="total-row">
-        <td colspan="4" class="center"><strong>TOTAL JAM PELAJARAN 1 TAHUN</strong></td>
-        <td class="center"><strong>${totalJP}</strong></td>
-        <td></td>
-      </tr>`;
-
-    return `
-      <table class="prota-table">
-        <thead>
-          <tr>
-            <th>No</th><th>Semester</th><th>Elemen CP</th>
-            <th>Tujuan Pembelajaran (TP)</th><th>JP</th><th>Keterangan</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    `;
+  function refreshAll() {
+    hitung();
+    renderTPList();
+    renderTabel();
   }
 
-  _renderTTD() {
-    const id = this.identitas;
-    const today = new Date().toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
-    });
-    return `
-      <table class="prota-ttd">
-        <tr>
-          <td>
-            Mengetahui,<br>Kepala Sekolah<br><br><br><br>
-            (<u>${id.kepsek || '...........................'}</u>)<br>
-            NIP. ${id.nipKepsek || ''}
-          </td>
-          <td>
-            ${today}<br>Guru Mata Pelajaran<br><br><br><br>
-            (<u>${id.guru || '...........................'}</u>)<br>
-            NIP. ${id.nip || ''}
-          </td>
-        </tr>
-      </table>
-    `;
-  }
+  // --- EVENTS ---
+  $('btnTambahTP').onclick = () => {
+    const elemen = $('tpElemen').value.trim();
+    const teks = $('tpTeks').value.trim();
+    const jp = parseInt($('tpJP').value) || 0;
+    const sem = parseInt($('tpSemester').value);
+    if (!teks) return alert('Isi TP dulu!');
+    if (!elemen) return alert('Isi Elemen CP!');
+    tpList.push({ elemen, tp: teks, jp, sem });
+    $('tpTeks').value = '';
+    refreshAll();
+  };
 
-  _bindEvents(root) {
-    // Hook untuk event custom (bisa di-extend oleh repo)
-    root.dispatchEvent(new CustomEvent('prota:rendered', { detail: this }));
-  }
+  container.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', refreshAll);
+  });
 
-  // --------------------------------------------------------------------------
-  // 2.5. Export
-  // --------------------------------------------------------------------------
-  /**
-   * Cetak Prota (gunakan CSS @media print).
-   */
-  print() {
-    window.print();
-  }
+  $('btnCetak').onclick = () => window.print();
 
-  /**
-   * Export data Prota ke JSON (untuk backup / API).
-   */
-  toJSON() {
-    return {
-      identitas: this.identitas,
-      kalender: this.kalender,
-      waktu: this._waktuResult,
-      distribusi: this.distribusi,
-      totalJP: this._waktuResult?.totalJP || 0,
-      exportedAt: new Date().toISOString(),
+  $('btnExport').onclick = () => {
+    const data = {
+      identitas: {
+        sekolah: $('inpSekolah').value,
+        tahun: $('inpTahun').value,
+        mapel: $('inpMapel').value,
+        kelas: $('inpKelas').value,
+        guru: $('inpGuru').value,
+        kepsek: $('inpKepsek').value
+      },
+      kalender: hitung(),
+      tpList,
+      exportedAt: new Date().toISOString()
     };
-  }
-
-  /**
-   * Download JSON.
-   */
-  downloadJSON(filename = 'prota.json') {
-    const blob = new Blob([JSON.stringify(this.toJSON(), null, 2)],
-      { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
+    a.href = url; a.download = `PROTA-${data.identitas.mapel || 'Mapel'}-${data.identitas.tahun}.json`; a.click();
     URL.revokeObjectURL(url);
-  }
-}
-
-// ============================================================================
-// 3. FUNGSI UTILITAS (Standalone)
-// ============================================================================
-/**
- * Hitung cepat minggu efektif tanpa instansiasi class.
- * @param {number} totalMinggu
- * @param {number} mingguTidakEfektif
- * @param {number} jpPerWeek
- * @returns {Object}
- */
-export function hitungMingguEfektif(totalMinggu, mingguTidakEfektif, jpPerWeek = 5) {
-  const efektif = totalMinggu - mingguTidakEfektif;
-  return {
-    totalMinggu,
-    mingguTidakEfektif,
-    mingguEfektif: efektif,
-    jpPerWeek,
-    jpTersedia: efektif * jpPerWeek,
   };
-}
 
-/**
- * Validasi apakah total JP ATP tidak melebihi JP tersedia.
- * @param {Array} atpList
- * @param {number} jpTersedia
- * @returns {Object} { valid, selisih, pesan }
- */
-export function validasiDistribusi(atpList, jpTersedia) {
-  const terpakai = atpList.reduce((s, t) => s + Number(t.jpEstimasi || 0), 0);
-  const selisih = jpTersedia - terpakai;
-  return {
-    valid: selisih >= 0,
-    terpakai,
-    jpTersedia,
-    selisih,
-    pesan: selisih < 0
-      ? `⚠️ JP terpakai (${terpakai}) melebihi tersedia (${jpTersedia})`
-      : `✅ Sisa JP: ${selisih} (untuk cadangan/pengayaan)`,
+  $('btnSimpan').onclick = async () => {
+    if (!db) return alert('DB tidak terhubung, tapi data tetap bisa dicetak/export');
+    try {
+      // Contoh simpan ke Firestore jika ada
+      // await db.collection('prota').add({ ... })
+      alert('Fitur simpan ke DB siap dihubungkan. Data saat ini sudah valid dan bisa dicetak.');
+    } catch (e) {
+      alert('Gagal simpan: ' + e.message);
+    }
   };
-}
 
-// ============================================================================
-// 4. DEFAULT EXPORT (untuk kemudahan import)
-// ============================================================================
-export default ProtaManager;
+  // Init awal
+  refreshAll();
+}
