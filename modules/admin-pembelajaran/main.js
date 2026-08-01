@@ -117,7 +117,7 @@ const MENU_ITEMS = [
     icon: '✍️', 
     title: 'Pembuat Soal', 
     path: './features/pembuat-soal.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'kisi-kisi', 
