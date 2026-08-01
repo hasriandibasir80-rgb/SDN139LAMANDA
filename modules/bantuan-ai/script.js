@@ -1,485 +1,368 @@
-// modules/bantuan-ai/script.js
-// =========================================
-// MODUL: BANTUAN AI (MULTI-MODAL: TEKS, SUARA, GAMBAR, VIDEO, LINK)
-// =========================================
+/**
+ * script.js - Bantuan AI Global (GROQ API) - REVISI
+ * Fitur: Groq Vision + Teks + Role Classification + Output di bawah + Download + Save Firestore + Tetap bisa ketik saat upload gambar
+ * API: Groq - https://api.groq.com/openai/v1/chat/completions
+ * Model Vision: meta-llama/llama-4-scout-17b-16e-instruct atau llama-3.2-11b-vision-preview
+ */
 
 import { db } from '../../js/firebase-config.js';
-import { doc, getDoc, collection, addDoc, serverTimestamp } 
-  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-if (!currentUser.uid) {
-  alert('Sesi berakhir. Silakan login kembali.');
-  window.location.href = '../../index.html';
-}
+// --- CONFIG GROQ ---
+// Simpan API Key di localStorage agar aman: localStorage.setItem('groq_api_key', 'gsk_xxx')
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL_TEXT = 'llama-3.3-70b-versatile'; // cepat & pintar untuk teks
+const GROQ_MODEL_VISION = 'meta-llama/llama-4-scout-17b-16e-instruct'; // support image
+let firestoreDB = db;
 
-// Konfigurasi API
-const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const API_MODEL = 'llama-3.3-70b-versatile';
-const STORAGE_KEY_CHAT = 'ai_chat_history';
+// --- STATE ---
+let currentRole = localStorage.getItem('ai_role') || detectRole();
+let currentFile = null; // { file, base64, type }
+let lastOutputRaw = '';
 
-let apiKeys = [];
-let currentKeyIndex = 0;
-let chatHistory = JSON.parse(localStorage.getItem(STORAGE_KEY_CHAT) || '[]');
-let recognition = null; // Untuk voice input
-let isListening = false;
+const $ = (id) => document.getElementById(id);
 
-const SYSTEM_PROMPT = `Anda adalah asisten AI yang membantu guru-guru di SDN 139 LAMANDA. 
-Anda ahli dalam pembuatan modul ajar, soal evaluasi, ide P5, dan administrasi pembelajaran.
-Berikan jawaban yang praktis, sesuai konteks SD di Indonesia, dan terstruktur rapi.
-Anda bisa memproses teks, gambar, dan link.`;
-
-document.addEventListener('DOMContentLoaded', () => {
-  initializeSpeechRecognition();
-  loadApiKeys();
-  renderChatHistory();
-  attachEventListeners();
-});
-
-// ✅ INISIALISASI SPEECH RECOGNITION (Voice Input)
-function initializeSpeechRecognition() {
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'id-ID';
-    
-    recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const input = document.getElementById('userInput');
-      input.value = input.value ? input.value + ' ' + transcript : transcript;
-      input.focus();
-    };
-    
-    recognition.onerror = (event) => {
-      console.error('Voice recognition error:', event.error);
-      appendMessage('ai', '❌ Gagal mengenali suara. Silakan coba lagi atau ketik manual.');
-      isListening = false;
-      updateVoiceButton();
-    };
-    
-    recognition.onend = () => {
-      isListening = false;
-      updateVoiceButton();
-    };
-    
-    console.log('✅ Voice recognition initialized');
-  } else {
-    console.warn('⚠️ Voice recognition tidak didukung browser ini');
-    const btnVoice = document.getElementById('btnVoice');
-    if (btnVoice) {
-      btnVoice.disabled = true;
-      btnVoice.title = 'Fitur suara tidak didukung browser ini';
-    }
-  }
-}
-
-// ✅ TOGGLE VOICE INPUT
-function toggleVoiceInput() {
-  if (!recognition) {
-    alert('Fitur voice tidak didukung browser Anda');
-    return;
-  }
-  
-  if (isListening) {
-    recognition.stop();
-    isListening = false;
-  } else {
-    recognition.start();
-    isListening = true;
-    appendMessage('ai', '🎤 Mendengarkan... Silakan berbicara');
-  }
-  updateVoiceButton();
-}
-
-function updateVoiceButton() {
-  const btnVoice = document.getElementById('btnVoice');
-  if (!btnVoice) return;
-  
-  if (isListening) {
-    btnVoice.innerHTML = '⏹️ Stop';
-    btnVoice.classList.add('listening');
-  } else {
-    btnVoice.innerHTML = '🎤 Suara';
-    btnVoice.classList.remove('listening');
-  }
-}
-
-// ✅ LOAD MULTI-API KEYS DARI FIRESTORE
-async function loadApiKeys() {
+// --- ROLE SYSTEM ---
+function detectRole() {
   try {
-    const docRef = doc(db, 'settings', 'api_key');
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      
-      if (data.keys) {
-        apiKeys = Object.values(data.keys)
-          .filter(key => key.active === true)
-          .map(key => key.value);
-        
-        console.log(`✅ Loaded ${apiKeys.length} API keys`);
-        
-        if (apiKeys.length === 0) {
-          appendMessage('ai', '⚠️ Tidak ada API Key yang aktif. Hubungi Admin.');
-        }
-      } else {
-        appendMessage('ai', '⚠️ Struktur API Key tidak valid di database.');
-      }
-    } else {
-      appendMessage('ai', '⚠️ Dokumen API Key tidak ditemukan. Hubungi Admin.');
-    }
-  } catch (error) {
-    console.error('Error loading API keys:', error);
-    appendMessage('ai', '❌ Gagal memuat konfigurasi API Key.');
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const r = (user.role || user.jabatan || '').toLowerCase();
+    if (r.includes('siswa') || r.includes('murid')) return 'siswa';
+    if (r.includes('ortu') || r.includes('wali') || r.includes('orang')) return 'ortu';
+    return 'guru';
+  } catch { return 'guru'; }
+}
+
+function getSystemPrompt(role) {
+  const base = `Kamu adalah asisten AI resmi SDN 139 LAMANDA, ramah dan membantu.`;
+  if (role === 'guru') {
+    return `${base}
+Peran: Membantu Guru/Admin SD.
+Gaya: Profesional, terstruktur, sesuai Kurikulum Merdeka. Selalu berikan format tabel jika relevan, sertakan JP, Elemen CP, dan contoh konkret.
+Jika user upload gambar, analisis sebagai soal, LKPD, atau hasil kerja siswa dan berikan umpan balik + rekomendasi TP.
+Jika menghasilkan daftar TP/ATP, selalu akhiri dengan format JSON array seperti: [{"elemen":"Bilangan","tp":"...","jp":8,"semester":1,"mapel":"Matematika"}] agar bisa disimpan otomatis ke Prota.`;
+  }
+  if (role === 'siswa') {
+    return `${base}
+Peran: Tutor untuk Peserta Didik SD (Fase A-C).
+Gaya: Bahasa sederhana, menyenangkan, pakai emoji secukupnya, jelaskan langkah demi langkah.
+Jika user upload gambar soal, jelaskan cara menyelesaikannya dengan 3 langkah mudah, jangan langsung kasih jawaban akhir saja.
+Akhiri dengan 1 pertanyaan latihan untuk siswa.`;
+  }
+  // ortu
+  return `${base}
+Peran: Konselor untuk Orang Tua/Wali.
+Gaya: Empatik, santai, tidak pakai istilah teknis berat. Fokus pada cara mendampingi anak di rumah, motivasi, dan perkembangan karakter.
+Jika user upload gambar (rapor, tugas, foto kegiatan), berikan apresiasi positif dulu, lalu tips pendampingan praktis di rumah.`;
+}
+
+function setRoleUI(role) {
+  currentRole = role;
+  localStorage.setItem('ai_role', role);
+  document.querySelectorAll('.role-btn').forEach(b => b.classList.toggle('active', b.dataset.role === role));
+  const badge = $('roleBadge');
+  if (badge) {
+    badge.textContent = role === 'guru' ? '👨‍🏫 Guru/Admin' : role === 'siswa' ? '🎒 Siswa' : '👨‍👩‍👧 Orang Tua';
+    badge.className = 'role-badge ' + role;
   }
 }
 
-function getNextApiKey() {
-  if (apiKeys.length === 0) return null;
-  const key = apiKeys[currentKeyIndex];
-  currentKeyIndex = (currentKeyIndex + 1) % apiKeys.length;
-  return key;
+function addChat(text, who, imgBase64) {
+  const container = $('chatContainer');
+  if (!container) return;
+  const div = document.createElement('div');
+  div.className = `message ${who}`;
+  const safeText = text.replace(/</g, '&lt;').replace(/\n/g, '<br>');
+  div.innerHTML = `${safeText}${imgBase64 && who === 'user' ? `<img src="${imgBase64}" style="max-width:120px; border-radius:6px; margin-top:6px; display:block;">` : ''}`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
 }
 
-function attachEventListeners() {
-  document.getElementById('btnClearChat')?.addEventListener('click', () => {
-    if (confirm('Hapus semua riwayat chat?')) {
-      chatHistory = [];
-      localStorage.removeItem(STORAGE_KEY_CHAT);
-      renderChatHistory();
-    }
-  });
-
-  document.getElementById('btnSend')?.addEventListener('click', sendMessage);
-  
-  document.getElementById('userInput')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-  
-  // ✅ VOICE INPUT BUTTON
-  document.getElementById('btnVoice')?.addEventListener('click', toggleVoiceInput);
-  
-  // ✅ IMAGE UPLOAD
-  document.getElementById('imageInput')?.addEventListener('change', handleImageUpload);
-  
-  // ✅ LINK/URL INPUT
-  document.getElementById('btnSendLink')?.addEventListener('click', sendLinkAnalysis);
-  
-  // ✅ VIDEO UPLOAD (Placeholder untuk masa depan)
-  document.getElementById('videoInput')?.addEventListener('change', handleVideoUpload);
-}
-
-// ✅ HANDLE IMAGE UPLOAD
-async function handleImageUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  
-  if (!file.type.startsWith('image/')) {
-    alert('File bukan gambar. Silakan pilih file gambar.');
-    return;
-  }
-  
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if (file.size > maxSize) {
-    alert('Ukuran gambar terlalu besar. Maksimal 5MB.');
-    return;
-  }
-  
-  appendMessage('ai', `📷 Gambar "${file.name}" diupload. Silakan ajukan pertanyaan tentang gambar ini.`);
-  
-  // Preview gambar
+// --- FILE HANDLING (BISA TETAP KETIK TEKS) ---
+function handleFile(file, type) {
+  currentFile = { file, type, name: file.name, size: file.size };
   const reader = new FileReader();
-  reader.onload = (e) => {
-    const img = document.createElement('img');
-    img.src = e.target.result;
-    img.style.maxWidth = '200px';
-    img.style.borderRadius = '8px';
-    img.style.marginTop = '8px';
-    
-    const lastMessage = document.querySelector('.message.ai:last-child');
-    if (lastMessage) {
-      lastMessage.appendChild(img);
+  reader.onload = (ev) => {
+    currentFile.base64 = ev.target.result;
+    const previewArea = $('previewArea');
+    const previewImg = $('previewImg');
+    const previewName = $('previewName');
+    const previewSize = $('previewSize');
+    const btnImage = $('btnImage');
+    if (previewArea) {
+      previewArea.classList.add('show');
+      if (previewImg) previewImg.src = type === 'image' ? ev.target.result : '';
+      if (previewName) previewName.textContent = file.name;
+      if (previewSize) previewSize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+    }
+    if (btnImage) btnImage.classList.add('has-file');
+    const userInput = $('userInput');
+    if (userInput) {
+      userInput.placeholder = `Gambar "${file.name}" terupload. Silakan ketik info tambahan tentang gambar ini (contoh: 'jelaskan soal ini untuk kelas 4')...`;
+      userInput.focus();
     }
   };
-  reader.readAsDataURL(file);
-  
-  // Simpan untuk dikirim ke AI (base64)
-  window.lastUploadedImage = e?.target?.result || await convertToBase64(file);
+  if (type === 'image') reader.readAsDataURL(file);
+  else reader.readAsDataURL(file); // video juga sebagai base64 untuk preview
 }
 
-// ✅ HANDLE VIDEO UPLOAD (Placeholder)
-async function handleVideoUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  
-  if (!file.type.startsWith('video/')) {
-    alert('File bukan video. Silakan pilih file video.');
-    return;
+function clearFile() {
+  currentFile = null;
+  const previewArea = $('previewArea');
+  const btnImage = $('btnImage');
+  const imageInput = $('imageInput');
+  const videoInput = $('videoInput');
+  if (previewArea) previewArea.classList.remove('show');
+  if (btnImage) btnImage.classList.remove('has-file');
+  if (imageInput) imageInput.value = '';
+  if (videoInput) videoInput.value = '';
+  const userInput = $('userInput');
+  if (userInput) userInput.placeholder = 'Ketik pertanyaan atau perintah Anda...';
+}
+
+// --- GROQ API CALL ---
+async function callGroqAPI(promptText, file) {
+  const apiKey = localStorage.getItem('groq_api_key') || localStorage.getItem('GROQ_API_KEY') || '';
+  if (!apiKey) {
+    throw new Error('Groq API Key belum diatur. Silakan set: localStorage.setItem("groq_api_key", "gsk_xxx") di console browser. Dapatkan key di https://console.groq.com/keys');
   }
-  
-  appendMessage('ai', `🎥 Video "${file.name}" diupload. Fitur analisis video sedang dalam pengembangan. Saat ini hanya bisa memproses teks dari deskripsi video.`);
-  
-  // Untuk saat ini, simpan informasi video
-  window.lastUploadedVideo = {
-    name: file.name,
-    size: file.size,
-    type: file.type
+
+  const systemPrompt = getSystemPrompt(currentRole);
+  const userContent = [];
+
+  // Jika ada gambar, gunakan format vision
+  if (file && file.type === 'image' && file.base64) {
+    // Groq vision butuh base64 url
+    userContent.push({
+      type: 'text',
+      text: `${promptText}\n\nInfo tambahan: User mengupload file ${file.name}. ${promptText ? `Konteks dari user: ${promptText}` : 'Jelaskan isi gambar ini.'}`
+    });
+    userContent.push({
+      type: 'image_url',
+      image_url: { url: file.base64 }
+    });
+  } else {
+    // Text only
+    userContent.push({
+      type: 'text',
+      text: promptText
+    });
+  }
+
+  const body = {
+    model: file && file.type === 'image' ? GROQ_MODEL_VISION : GROQ_MODEL_TEXT,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: file && file.type === 'image' ? userContent : promptText }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048,
   };
-}
 
-// ✅ SEND LINK/URL ANALYSIS
-async function sendLinkAnalysis() {
-  const urlInput = document.getElementById('urlInput');
-  const url = urlInput?.value.trim();
-  
-  if (!url) {
-    alert('Masukkan URL/link yang ingin dianalisis');
-    return;
-  }
-  
-  if (!isValidUrl(url)) {
-    alert('URL tidak valid. Pastikan dimulai dengan http:// atau https://');
-    return;
-  }
-  
-  appendMessage('ai', `🔗 Menganalisis konten dari: ${url}`);
-  
-  // Kirim ke AI untuk analisis
-  const prompt = `Analisis konten dari link berikut dan berikan ringkasan yang bermanfaat untuk guru: ${url}\n\nBerikan poin-poin penting yang bisa diterapkan dalam pembelajaran.`;
-  
-  await sendAiRequest(prompt);
-  
-  if (urlInput) urlInput.value = '';
-}
-
-function isValidUrl(string) {
-  try {
-    new URL(string);
-    return true;
-  } catch (_) {
-    return false;
-  }
-}
-
-// ✅ CONVERT FILE TO BASE64
-function convertToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = (error) => reject(error);
+  const response = await fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
   });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Groq API Error ${response.status}: ${errText}`);
+  }
+
+  const data = await response.json();
+  const output = data.choices?.[0]?.message?.content || 'Maaf, tidak ada jawaban dari AI.';
+  return output;
 }
 
-// ✅ SEND MESSAGE (Updated untuk multi-modal)
-async function sendMessage() {
-  const input = document.getElementById('userInput');
-  const btnSend = document.getElementById('btnSend');
-  let userMessage = input.value.trim();
-  
-  // Tambahkan informasi upload jika ada
-  if (window.lastUploadedImage && !userMessage) {
-    userMessage = 'Analisis gambar yang saya upload';
-  }
-  
-  if (window.lastUploadedVideo && !userMessage) {
-    userMessage = 'Berikan saran untuk video pembelajaran ini';
-  }
-  
-  if (!userMessage && !window.lastUploadedImage && !window.lastUploadedVideo) return;
-  
-  if (apiKeys.length === 0) {
-    alert('️ API Key belum dikonfigurasi. Hubungi Admin.');
-    return;
-  }
-  
-  // Tampilkan pesan user
-  let fullMessage = userMessage;
-  if (window.lastUploadedImage) {
-    fullMessage += '\n[📷 Gambar dilampirkan]';
-  }
-  if (window.lastUploadedVideo) {
-    fullMessage += '\n[🎥 Video dilampirkan]';
-  }
-  
-  appendMessage('user', fullMessage);
-  input.value = '';
-  btnSend.disabled = true;
-  
-  // Loading indicator
-  const container = document.getElementById('chatContainer');
-  const loadingDiv = document.createElement('div');
-  loadingDiv.className = 'message ai loading';
-  loadingDiv.innerHTML = '<span class="typing-dots">AI sedang berpikir</span>';
-  container.appendChild(loadingDiv);
-  container.scrollTop = container.scrollHeight;
-  
-  // Siapkan messages untuk API
-  const validMessages = chatHistory.map(msg => ({
-    role: msg.role === 'ai' ? 'assistant' : msg.role,
-    content: msg.content
-  }));
-  
-  // Tambahkan system prompt
-  const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...validMessages
-  ];
-  
-  // Tambahkan konteks multi-modal
-  let enhancedPrompt = userMessage;
-  if (window.lastUploadedImage) {
-    enhancedPrompt += '\n\n[User mengupload gambar. Analisis gambar tersebut dan berikan jawaban yang relevan.]';
-  }
-  if (window.lastUploadedVideo) {
-    enhancedPrompt += `\n\n[User mengupload video: ${window.lastUploadedVideo.name}. Berikan saran dan feedback yang konstruktif.]`;
-  }
-  
-  // Update messages dengan prompt yang enhanced
-  messages.push({
-    role: 'user',
-    content: enhancedPrompt
-  });
-  
-  // Kirim ke API
-  let lastError = null;
-  let success = false;
-  
-  for (let attempt = 0; attempt < apiKeys.length; attempt++) {
-    const apiKey = getNextApiKey();
-    
-    try {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: API_MODEL,
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 2048
-        })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const aiMessage = data.choices[0].message.content;
-        
-        loadingDiv.remove();
-        appendMessage('ai', aiMessage);
-        
-        // Reset uploads setelah diproses
-        window.lastUploadedImage = null;
-        window.lastUploadedVideo = null;
-        
-        logUsage(fullMessage, aiMessage).catch(err => {
-          console.warn('⚠️ Log usage gagal (tidak kritis):', err.message);
-        });
-        
-        success = true;
-        break;
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }
-    } catch (error) {
-      console.warn(`API Key attempt failed:`, error);
-      lastError = error;
-      
-      if (attempt < apiKeys.length - 1) {
-        console.log(`Trying next API key... (${attempt + 2}/${apiKeys.length})`);
-      }
-    }
-  }
-  
-  if (!success) {
-    loadingDiv.remove();
-    
-    let errorMsg = '❌ Maaf, terjadi kesalahan pada semua API Key.';
-    if (lastError) {
-      if (lastError.message.includes('401')) {
-        errorMsg = '❌ Semua API Key tidak valid. Hubungi Admin.';
-      } else if (lastError.message.includes('429')) {
-        errorMsg = '⚠️ Semua API Key mencapai batas permintaan. Silakan coba lagi nanti.';
-      } else {
-        errorMsg = `❌ Error: ${lastError.message}`;
-      }
-    }
-    
-    appendMessage('ai', errorMsg);
-  }
-  
-  btnSend.disabled = false;
-  input.focus();
-}
-
-function appendMessage(role, text) {
-  chatHistory.push({ role, content: text });
-  saveChatHistory();
-  renderChatHistory();
-}
-
-function saveChatHistory() {
-  if (chatHistory.length > 50) {
-    chatHistory = chatHistory.slice(-50);
-  }
-  localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(chatHistory));
-}
-
-function renderChatHistory() {
-  const container = document.getElementById('chatContainer');
-  
-  if (chatHistory.length === 0) {
-    container.innerHTML = `
-      <div class="message ai">
-        Halo, saya asisten AI. Silakan beri perintah atau pertanyaan. 
-        Anda bisa:<br>
-        • Ketik teks langsung<br>
-        • Upload gambar untuk dianalisis<br>
-        • Upload video untuk feedback<br>
-        • Masukkan link untuk analisis konten<br>
-        • Gunakan tombol suara untuk input voice
-      </div>
-    `;
-    return;
-  }
-  
-  container.innerHTML = chatHistory.map(msg => {
-    const formattedContent = formatAIResponse(msg.content);
-    return `<div class="message ${msg.role}">${formattedContent}</div>`;
-  }).join('');
-  
-  container.scrollTop = container.scrollHeight;
-}
-
-function formatAIResponse(text) {
+function formatAIOutput(text) {
   return text
-    .replace(/```([\s\S]*?)```/g, '<pre>$1</pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/```json([\s\S]*?)```/g, (m, code) => `<pre>${code.trim()}</pre>`)
+    .replace(/```([\s\S]*?)```/g, (m, code) => `<pre>${code.trim()}</pre>`)
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
     .replace(/\n/g, '<br>');
 }
 
-async function logUsage(question, answer) {
+// --- MAIN SEND ---
+async function send() {
+  const userInput = $('userInput');
+  const urlInput = $('urlInput');
+  const btnSend = $('btnSend');
+  const aiOutput = $('aiOutput');
+  const outputWrapper = $('outputWrapper');
+
+  const text = userInput ? userInput.value.trim() : '';
+  const url = urlInput ? urlInput.value.trim() : '';
+
+  if (!text && !url && !currentFile) {
+    alert('Ketik pertanyaan atau upload gambar dulu!');
+    return;
+  }
+
+  const displayPrompt = `${text}${url ? `\n🔗 Link: ${url}` : ''}${currentFile ? `\n📎 File: ${currentFile.name}` : ''}`;
+  addChat(displayPrompt, 'user', currentFile?.base64);
+
+  // Gabung prompt + url + info file (agar bisa tetap ketik teks saat upload gambar)
+  let fullPrompt = text;
+  if (url) fullPrompt += `\n\nTolong analisis link ini juga: ${url}`;
+  if (currentFile && !text) fullPrompt = `Jelaskan / analisis file ${currentFile.name} ini.`;
+  if (currentFile && text) fullPrompt = `${text} (Konteks: user mengupload file ${currentFile.name})`;
+
+  if (btnSend) { btnSend.disabled = true; btnSend.textContent = '⏳'; }
+  if (outputWrapper) outputWrapper.classList.remove('show');
+
   try {
-    await addDoc(collection(db, 'ai_usage_logs'), {
-      userId: currentUser.uid,
-      userEmail: currentUser.email || 'unknown',
-      question: question.substring(0, 200),
-      answerLength: answer.length,
-      timestamp: serverTimestamp()
-    });
-  } catch (error) {
-    console.warn('Gagal log penggunaan AI:', error);
-    throw error;
+    const result = await callGroqAPI(fullPrompt, currentFile);
+    lastOutputRaw = result;
+
+    if (aiOutput) aiOutput.innerHTML = formatAIOutput(result);
+    if (outputWrapper) {
+      outputWrapper.classList.add('show');
+      // Tampilkan tombol Simpan ke Prota jika ada JSON TP
+      const btnSaveProta = $('btnSaveProta');
+      if (btnSaveProta) {
+        btnSaveProta.style.display = (result.includes('"elemen"') && result.includes('"tp"')) ? 'inline-block' : 'none';
+      }
+      outputWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    addChat('✅ Jawaban AI sudah tampil di bawah input.', 'ai');
+  } catch (err) {
+    console.error(err);
+    if (aiOutput) aiOutput.innerHTML = `<span style="color:#ef4444;">❌ Error: ${err.message}<br><br>Tips: Cek API Key Groq di localStorage. Buka Console (F12) dan ketik:<br><code>localStorage.setItem('groq_api_key','gsk_xxx')</code></span>`;
+    if (outputWrapper) outputWrapper.classList.add('show');
+    addChat(`❌ Gagal: ${err.message}`, 'ai');
+  } finally {
+    if (btnSend) { btnSend.disabled = false; btnSend.textContent = '➤'; }
   }
 }
+
+// --- ACTIONS ---
+function initEvents() {
+  // File inputs
+  const imageInput = $('imageInput');
+  const videoInput = $('videoInput');
+  if (imageInput) imageInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f, 'image'); });
+  if (videoInput) videoInput.addEventListener('change', (e) => { const f = e.target.files[0]; if (f) handleFile(f, 'video'); });
+
+  const btnRemoveFile = $('btnRemoveFile');
+  if (btnRemoveFile) btnRemoveFile.onclick = clearFile;
+
+  // Voice
+  let recognition = null;
+  let isListening = false;
+  const btnVoice = $('btnVoice');
+  if (btnVoice) {
+    btnVoice.onclick = () => {
+      if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        alert('Browser tidak mendukung voice. Gunakan Chrome.');
+        return;
+      }
+      if (!recognition) {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SR();
+        recognition.lang = 'id-ID';
+        recognition.onresult = (e) => {
+          const t = e.results[0][0].transcript;
+          const ui = $('userInput');
+          if (ui) ui.value += (ui.value ? ' ' : '') + t;
+        };
+        recognition.onend = () => { isListening = false; btnVoice.classList.remove('listening'); btnVoice.textContent = '🎤 Suara'; };
+      }
+      if (!isListening) { recognition.start(); isListening = true; btnVoice.classList.add('listening'); btnVoice.textContent = '⏹️ Stop'; }
+      else recognition.stop();
+    };
+  }
+
+  // Send
+  const btnSend = $('btnSend');
+  const userInput = $('userInput');
+  const btnSendLink = $('btnSendLink');
+  if (btnSend) btnSend.onclick = send;
+  if (userInput) userInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  if (btnSendLink) btnSendLink.onclick = () => { const ui = $('urlInput'); if (ui && ui.value) send(); };
+
+  // Role buttons
+  document.querySelectorAll('.role-btn').forEach(b => {
+    b.onclick = () => setRoleUI(b.dataset.role);
+  });
+
+  // Output actions
+  const btnCopy = $('btnCopy');
+  const btnDownload = $('btnDownload');
+  const btnDownloadPDF = $('btnDownloadPDF');
+  const btnSaveFirestore = $('btnSaveFirestore');
+  const btnSaveProta = $('btnSaveProta');
+  const btnClearChat = $('btnClearChat');
+
+  if (btnCopy) btnCopy.onclick = () => { navigator.clipboard.writeText(lastOutputRaw); alert('✅ Disalin ke clipboard!'); };
+  if (btnDownload) btnDownload.onclick = () => {
+    if (!lastOutputRaw) return alert('Belum ada output');
+    const blob = new Blob([lastOutputRaw], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `AI-${currentRole}-${Date.now()}.txt`; a.click(); URL.revokeObjectURL(url);
+  };
+  if (btnDownloadPDF) btnDownloadPDF.onclick = () => {
+    if (!lastOutputRaw) return alert('Belum ada output');
+    const w = window.open('', '_blank');
+    w.document.write(`<html><head><title>AI Output</title><style>body{font-family:sans-serif; padding:24px; line-height:1.7;} pre{background:#0f172a; color:#e2e8f0; padding:14px; border-radius:8px; overflow:auto;}</style></head><body><h2>Bantuan AI - ${currentRole.toUpperCase()} - SDN 139 LAMANDA</h2><hr><div>${$('aiOutput').innerHTML}</div><script>window.print()<\/script></body></html>`);
+    w.document.close();
+  };
+  if (btnSaveFirestore) btnSaveFirestore.onclick = async () => {
+    if (!lastOutputRaw) return alert('Belum ada output');
+    const saveStatus = $('saveStatus');
+    if (saveStatus) saveStatus.textContent = '⏳ Menyimpan ke Firestore...';
+    try {
+      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const data = {
+        uid: user.uid || 'anonymous',
+        nama: user.nama || user.displayName || 'User',
+        role: currentRole,
+        prompt: $('userInput') ? $('userInput').value : '',
+        fileName: currentFile?.name || null,
+        response: lastOutputRaw,
+        createdAt: new Date().toISOString()
+      };
+      if (firestoreDB) {
+        if (firestoreDB.collection) {
+          await firestoreDB.collection('bantuan_ai_logs').add({ ...data, createdAt: firestoreDB.constructor.FieldValue ? firestoreDB.constructor.FieldValue.serverTimestamp() : new Date() });
+        } else {
+          const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+          await addDoc(collection(firestoreDB, 'bantuan_ai_logs'), { ...data, createdAt: serverTimestamp() });
+        }
+      }
+      const logs = JSON.parse(localStorage.getItem('ai_logs') || '[]');
+      logs.push(data);
+      localStorage.setItem('ai_logs', JSON.stringify(logs));
+      if (saveStatus) saveStatus.innerHTML = '✅ <b>Berhasil disimpan ke Firestore: bantuan_ai_logs</b>';
+    } catch (e) {
+      if (saveStatus) saveStatus.innerHTML = `❌ Gagal Firestore: ${e.message}, tapi tersimpan lokal.`;
+    }
+  };
+  if (btnSaveProta) btnSaveProta.onclick = () => {
+    try {
+      const match = lastOutputRaw.match(/\[([\s\S]*?"elemen"[\s\S]*?)\]/);
+      if (!match) return alert('Tidak ada JSON TP ditemukan di output');
+      const jsonStr = match[0];
+      const json = JSON.parse(jsonStr);
+      localStorage.setItem('cp_tp_atp', JSON.stringify(json));
+      alert(`✅ ${json.length} TP berhasil disimpan ke Prota! Buka Program Tahunan > Tarik Data TP/ATP`);
+    } catch (e) { alert('Gagal parse JSON TP: ' + e.message); }
+  };
+  if (btnClearChat) btnClearChat.onclick = () => {
+    const cc = $('chatContainer');
+    if (cc) cc.innerHTML = '<div class="message ai">Chat dibersihkan.</div>';
+    const ow = $('outputWrapper');
+    if (ow) ow.classList.remove('show');
+    lastOutputRaw = '';
+  };
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  setRoleUI(currentRole);
+  initEvents();
+  console.log('Bantuan AI Groq v2.1 - Role:', currentRole, 'Groq Model:', GROQ_MODEL_TEXT, '/', GROQ_MODEL_VISION);
+});
