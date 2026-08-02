@@ -1,119 +1,95 @@
-// FILE FIX: js/modules/arsip-upload.js
-// FIX KASUS 1: Pisah storage key, dan render terbaru hanya dari upload
-import { db, auth } from '../firebase-config.js';
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Upload Dokumen Arsip - SDN 139 LAMANDA</title>
+  
+  <!-- ✅ BARU: Design System Variables (Wajib dipanggil paling atas) -->
+  <link rel="stylesheet" href="../../css/core/variables.css">
+  
+  <!-- CSS Existing -->
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="stylesheet" href="../../css/modules/arsip-upload.css">
+</head>
+<body>
+  <header class="header">
+    <button class="menu-btn" onclick="window.location.href='../../dashboard.html'">← Kembali</button>
+    <div class="logo-text">Upload <span>Arsip</span></div>
+    <div style="width: 50px;"></div>
+  </header>
 
-const KEY_UPLOAD = 'sdn139_upload_dokumen'; // KHUSUS UPLOAD
-const KEY_SIMPAN = 'sdn139_simpan_file'; // untuk referensi, jangan dipakai disini
+  <div class="container modul-container">
+    <div class="upload-card">
+      <h2 class="form-title">📤 Unggah Dokumen Baru</h2>
+      <p class="form-subtitle">Isi detail dan pilih file untuk diunggah ke sistem arsip sekolah.</p>
 
-const form = document.getElementById('formUpload');
-const fileInput = document.getElementById('fileInput');
-const recentList = document.getElementById('recentList');
-const btnText = document.getElementById('btnText');
-const uploadStatus = document.getElementById('uploadStatus');
-const dropZone = document.getElementById('dropZone');
-const fileInfo = document.getElementById('fileInfo');
+      <form id="formUpload">
+        <div class="form-group">
+          <label for="namaDokumen">📄 Nama Dokumen</label>
+          <input type="text" id="namaDokumen" class="form-control" placeholder="Contoh: SK Pembagian Tugas 2025" required>
+        </div>
 
-function getData() {
-  return JSON.parse(localStorage.getItem(KEY_UPLOAD) || '[]');
-}
-function saveData(data) {
-  localStorage.setItem(KEY_UPLOAD, JSON.stringify(data));
-}
+        <div class="form-group">
+          <label for="kategori">📁 Kategori</label>
+          <select id="kategori" class="form-control" required>
+            <option value="">-- Pilih Kategori --</option>
+            <option value="administrasi">Administrasi</option>
+            <option value="surat_edaran">Surat Edaran</option>
+            <option value="surat keputusan">Surat keputusan</option>
+            <option value="modul ajar">Modul Ajar</option>
+            <option value="cp">Cp-tp-ato</option>
+            <option value="jurnal">Jurnal</option>
+            <option value="serba serbi">Serba serbi</option>
+            <option value="sertifikat">Sertipikat dan piagam</option>
+          
+          </select>
+        </div>
 
-function dataURLtoBlob(dataURL) {
-  const [meta, base64] = dataURL.split(',');
-  const mime = meta.match(/:(.*?);/)[1];
-  const binary = atob(base64);
-  const arr = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
-  return new Blob([arr], { type: mime });
-}
+        <div class="form-group">
+          <label for="levelAkses"> Level Akses</label>
+          <select id="levelAkses" class="form-control" required>
+            <option value="publik">🟢 Publik Internal (Semua user)</option>
+            <option value="guru">🟡 Khusus Guru</option>
+            <option value="admin">🔴 Khusus Admin</option>
+          </select>
+        </div>
 
-function renderRecent() {
-  const data = getData();
-  if (data.length === 0) {
-    recentList.innerHTML = `<p class="empty-state">Belum ada dokumen yang diupload.</p>`;
-    return;
-  }
-  recentList.innerHTML = data.slice(0, 5).map(item => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #eee;">
-      <div>
-        <div style="font-weight:600;">${item.nama}</div>
-        <div style="font-size:12px;color:#666;">📅 ${item.tanggal} • 📁 ${item.kategori} • ${item.levelAkses}</div>
-      </div>
-      <span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:99px;font-size:11px;">PUBLIK</span>
+        <div class="form-group">
+          <label for="deskripsi"> Deskripsi (Opsional)</label>
+          <textarea id="deskripsi" class="form-control" placeholder="Tambahkan deskripsi singkat..." rows="3"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="fileInput">📎 Pilih File (Max 10MB)</label>
+          <div class="file-drop-zone" id="dropZone">
+            <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png" required>
+            <div class="drop-text">
+              <div style="font-size: 40px;">📁</div>
+              <p><strong>Klik atau seret file ke sini</strong></p>
+              <p class="drop-hint">Format: PDF, DOC, XLS, PPT, JPG, PNG</p>
+            </div>
+            <div id="fileInfo" class="file-info" style="display:none;"></div>
+          </div>
+        </div>
+
+        <button type="submit" id="btnUpload" class="btn-submit">
+          <span id="btnText">💾 Upload & Simpan Metadata</span>
+        </button>
+
+        <div id="uploadStatus" class="upload-status"></div>
+      </form>
     </div>
-  `).join('');
-}
 
-// Drag & Drop UI
-dropZone?.addEventListener('click', () => fileInput.click());
-dropZone?.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
-dropZone?.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone?.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  if (e.dataTransfer.files[0]) {
-    fileInput.files = e.dataTransfer.files;
-    showFileInfo(fileInput.files[0]);
-  }
-});
-fileInput?.addEventListener('change', () => {
-  if (fileInput.files[0]) showFileInfo(fileInput.files[0]);
-});
-function showFileInfo(file) {
-  fileInfo.style.display = 'block';
-  fileInfo.innerHTML = `📄 ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
-}
+    <div class="recent-uploads">
+      <h3>📋 Dokumen Terbaru yang Anda Upload</h3>
+      <div id="recentList" class="recent-list">
+        <p class="empty-state">Belum ada dokumen yang diupload.</p>
+      </div>
+    </div>
+  </div>
 
-form?.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const file = fileInput.files[0];
-  if (!file) return alert('Pilih file!');
-  if (file.size > 10 * 1024 * 1024) return alert('Max 10MB');
-
-  btnText.textContent = 'Mengupload...';
-  form.querySelector('button').disabled = true;
-
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const data = getData();
-    data.unshift({
-      id: Date.now(),
-      nama: document.getElementById('namaDokumen').value.trim(),
-      kategori: document.getElementById('kategori').value,
-      levelAkses: document.getElementById('levelAkses').value,
-      deskripsi: document.getElementById('deskripsi').value,
-      fileNameAsli: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      base64: ev.target.result,
-      tanggal: new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'2-digit', year:'numeric' }),
-      timestamp: Date.now(),
-      sumber: 'upload-dokumen'
-    });
-    saveData(data);
-    renderRecent();
-    uploadStatus.innerHTML = `<div style="color:green;margin-top:10px;">✅ Dokumen "${file.name}" berhasil disimpan!</div>`;
-    form.reset();
-    fileInfo.style.display = 'none';
-    btnText.textContent = '💾 Upload & Simpan Metadata';
-    form.querySelector('button').disabled = false;
-  };
-  reader.onerror = () => {
-    alert('Gagal baca file');
-    btnText.textContent = '💾 Upload & Simpan Metadata';
-    form.querySelector('button').disabled = false;
-  };
-  reader.readAsDataURL(file);
-});
-
-renderRecent();
-
-// Expose global untuk katalog jika butuh
-window.lihatFileUpload = (id) => {
-  const item = getData().find(f => f.id == id);
-  if (!item) return;
-  const blob = dataURLtoBlob(item.base64);
-  window.open(URL.createObjectURL(blob), '_blank');
-};
+  <script type="module" src="../../js/firebase-config.js"></script>
+  <script type="module" src="../../js/modules/arsip-upload.js"></script>
+</body>
+</html>
