@@ -38,7 +38,7 @@ const MENU_ITEMS = [
   { 
     id: 'LCKH', 
     icon: '📖', 
-    title: 'coming-soon', 
+    title: 'Laporan capaian kinerja harian', 
     path: './features/Laporan capaian kinerja harian.js',
     status: 'ready'
   },
