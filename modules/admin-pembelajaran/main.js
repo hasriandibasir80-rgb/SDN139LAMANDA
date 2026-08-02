@@ -1,4 +1,4 @@
-// modules/admin-pembelajaran/main.js
+// modules/admin-pembelajaran/main.js - FIXED LCKH
 // =========================================
 // MAIN CONTROLLER: Pengatur Menu & Routing Modular
 // =========================================
@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR SEMUA SUB-FITUR (18 Fitur)
+// ✅ DAFTAR SEMUA SUB-FITUR (18 Fitur) - FIXED
 const MENU_ITEMS = [
   { 
     id: 'cp-tp-atp', 
@@ -23,21 +23,21 @@ const MENU_ITEMS = [
   },
   { 
     id: 'prota', 
-    icon: '', 
+    icon: '📅', 
     title: 'Program Tahunan', 
     path: './features/prota.js',
     status: 'ready'
   },
   { 
     id: 'promes', 
-    icon: '️', 
+    icon: '🗓️', 
     title: 'Program Semester', 
     path: './features/promes.js',
     status: 'soon'
   },
   { 
-    id: 'lckh', 
-    icon: '📖', 
+    id: 'lckh',
+    icon: '📁', 
     title: 'LCKH', 
     path: './features/lckh.js',
     status: 'ready'
@@ -129,7 +129,7 @@ const MENU_ITEMS = [
   { 
     id: 'coming-soon', 
     icon: '📝', 
-    title: 'coming-soon', 
+    title: 'comong-soon', 
     path: './features/rpm-standar.js',
     status: 'soon'
   },
@@ -142,30 +142,26 @@ const MENU_ITEMS = [
   }
 ];
 
-// ✅ INISIALISASI DENGAN AUTO-LOAD DARI URL PARAMETER
+// ✅ INISIALISASI DENGAN AUTO-LOAD DARI URL PARAMETER - FIXED CASE INSENSITIVE
 document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
-  const targetFiturId = urlParams.get('fitur'); // Contoh: ?fitur=lkpd
+  const targetFiturId = urlParams.get('fitur');
 
   if (targetFiturId) {
-    // Cari fitur yang cocok di MENU_ITEMS
-    const targetItem = MENU_ITEMS.find(item => item.id === targetFiturId);
+    // FIX: cari dengan lowercase biar ?fitur=LCKH atau lckh atau Laporan... tetap ketemu
+    const normalizedId = targetFiturId.toLowerCase().trim();
+    const targetItem = MENU_ITEMS.find(item => item.id.toLowerCase() === normalizedId);
     
     if (targetItem) {
-      // Sembunyikan menu grid dan tombol kembali sejak awal
       const menuContainer = document.getElementById('subMenuContainer');
       const btnBack = document.getElementById('btnBackToMenu');
       if (menuContainer) menuContainer.style.display = 'none';
       if (btnBack) btnBack.style.display = 'inline-block';
-      
-      // Langsung load fitur tersebut
       loadFeature(targetItem, null);
     } else {
-      // Jika ID tidak ditemukan, tampilkan menu biasa
       renderMenu();
     }
   } else {
-    // Jika tidak ada parameter, tampilkan menu biasa
     renderMenu();
   }
 });
@@ -191,7 +187,6 @@ async function loadFeature(feature, clickedBtn) {
   const menuContainer = document.getElementById('subMenuContainer');
   const btnBack = document.getElementById('btnBackToMenu');
 
-  // Jika fitur belum dibuat (status soon)
   if (feature.status === 'soon') {
     contentDiv.innerHTML = `
       <div class="empty-state">
@@ -200,22 +195,20 @@ async function loadFeature(feature, clickedBtn) {
         <p style="margin-top:10px; font-size:13px; color:#9ca3af;">Silakan coba fitur lain yang sudah siap digunakan.</p>
       </div>
     `;
+    // Tetap hide menu untuk konsistensi
+    menuContainer.style.display = 'none';
+    if (btnBack) btnBack.style.display = 'inline-block';
     return;
   }
 
-  // Loading state
   contentDiv.innerHTML = '<div class="empty-state">⏳ Memuat modul...</div>';
 
   try {
-    // Dynamic import script fitur
     const module = await import(feature.path);
     
     if (typeof module.init === 'function') {
-      // ✅ HIDE MENU, SHOW TOMBOL KEMBALI
       menuContainer.style.display = 'none';
       if (btnBack) btnBack.style.display = 'inline-block';
-      
-      // Init fitur
       module.init(contentDiv, db);
     } else {
       throw new Error('Fungsi init() tidak ditemukan di modul');
@@ -227,8 +220,12 @@ async function loadFeature(feature, clickedBtn) {
         <h3> Gagal Memuat Modul</h3>
         <p>Tidak dapat memuat fitur "${feature.title}".</p>
         <p style="font-size:12px; color:#ef4444; margin-top:10px;">Error: ${error.message}</p>
+        <p style="font-size:12px; color:#6b7280; margin-top:5px;">Pastikan file ada di: ${feature.path}</p>
       </div>
     `;
+    // Tetap tampilkan tombol kembali
+    menuContainer.style.display = 'none';
+    if (btnBack) btnBack.style.display = 'inline-block';
   }
 }
 
@@ -238,20 +235,16 @@ window.backToMenu = function() {
   const contentDiv = document.getElementById('dynamicContent');
   const btnBack = document.getElementById('btnBackToMenu');
 
-  // 1. Hapus parameter ?fitur=... dari URL biar tidak auto-load lagi saat refresh
   if (window.history && window.history.replaceState) {
     const cleanUrl = window.location.pathname;
     window.history.replaceState({}, document.title, cleanUrl);
   }
 
-  // 2. Render ulang menu grid (PENTING: karena jika masuk via URL, renderMenu belum pernah dipanggil)
   renderMenu();
 
-  // 3. SHOW MENU, HIDE TOMBOL KEMBALI
   if (menuContainer) menuContainer.style.display = 'grid';
   if (btnBack) btnBack.style.display = 'none';
   
-  // 4. Reset konten
   if (contentDiv) {
     contentDiv.innerHTML = `
       <div class="empty-state">
@@ -260,6 +253,5 @@ window.backToMenu = function() {
     `;
   }
   
-  // 5. Scroll ke atas
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
