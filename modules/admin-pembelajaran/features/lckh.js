@@ -1,9 +1,7 @@
 /**
- * modules/admin-pembelajaran/features/lckh.js
+ * modules/admin-pembelajaran/features/lckh.js - FIXED FOR ES MODULE
  * Sub Fitur: Laporan Capaian Kinerja Harian (LCKH)
- * Setara dengan: bank-soal.js, jurnal.js, rpm spesifik, dll
- * Penempatan: /modules/admin-pembelajaran/features/lckh.js
- * Dependensi: Firebase Firestore (collection: lckh), Auth
+ * FIX: Tambah export function init agar bisa di-load main.js
  */
 
 const LCKHFeature = (() => {
@@ -21,7 +19,7 @@ const LCKHFeature = (() => {
 
   const getCurrentUser = () => {
     try {
-      return JSON.parse(localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
+      return JSON.parse(localStorage.getItem('currentUser') || localStorage.getItem('user') || sessionStorage.getItem('user') || '{}');
     } catch { return {}; }
   };
 
@@ -44,16 +42,16 @@ const LCKHFeature = (() => {
 
       <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:20px">
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:12px">
-          <div><label>Tanggal</label><input type="date" id="lckh-tgl" value="${todayISO()}" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
-          <div><label>RHK / SKP</label><select id="lckh-rhk" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1">${RHK_LIST.map(r=>`<option>${r}</option>`).join('')}</select></div>
-          <div><label>Target</label><input type="number" id="lckh-target" value="1" min="0" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
-          <div><label>Realisasi</label><input type="number" id="lckh-realisasi" value="1" min="0" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
+          <div><label style="font-size:12px">Tanggal</label><input type="date" id="lckh-tgl" value="${todayISO()}" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
+          <div><label style="font-size:12px">RHK / SKP</label><select id="lckh-rhk" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1">${RHK_LIST.map(r=>`<option>${r}</option>`).join('')}</select></div>
+          <div><label style="font-size:12px">Target</label><input type="number" id="lckh-target" value="1" min="0" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
+          <div><label style="font-size:12px">Realisasi</label><input type="number" id="lckh-realisasi" value="1" min="0" style="width:100%; padding:8px; border-radius:8px; border:1px solid #cbd5e1"></div>
         </div>
         <div style="margin-top:12px; display:grid; gap:12px">
           <input type="text" id="lckh-kegiatan" placeholder="Uraian kegiatan (mis: Mengajar Kelas 5 Tema 2 - 2 JP)" style="padding:10px; border-radius:8px; border:1px solid #cbd5e1">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
-            <input type="text" id="lckh-bukti" placeholder="Link bukti dukung (Drive / foto / link PMM)">
-            <input type="text" id="lckh-kendala" placeholder="Kendala (opsional)">
+            <input type="text" id="lckh-bukti" placeholder="Link bukti dukung (Drive / foto / link PMM)" style="padding:10px; border-radius:8px; border:1px solid #cbd5e1">
+            <input type="text" id="lckh-kendala" placeholder="Kendala (opsional)" style="padding:10px; border-radius:8px; border:1px solid #cbd5e1">
           </div>
         </div>
         <div style="margin-top:12px; text-align:right">
@@ -76,7 +74,7 @@ const LCKHFeature = (() => {
 
   let cacheData = [];
 
-  async function init() {
+  async function initInternal() {
     document.getElementById('lckh-filter-bulan')?.addEventListener('change', loadData);
     await loadData();
   }
@@ -85,19 +83,10 @@ const LCKHFeature = (() => {
     const bulan = document.getElementById('lckh-filter-bulan')?.value || new Date().toISOString().slice(0,7);
     const tbody = document.getElementById('lckh-tbody');
     const rekapEl = document.getElementById('lckh-rekap');
+    if(!tbody) return;
     try {
-      if (window.db && window.firebase) {
-        const user = getCurrentUser();
-        const snap = await window.db.collection(COLLECTION)
-          .where('email', '==', user.email || '')
-          .where('bulan', '==', bulan)
-          .orderBy('tanggal','desc')
-          .get();
-        cacheData = snap.docs.map(d => ({id:d.id, ...d.data()}));
-      } else {
-        const all = JSON.parse(localStorage.getItem('lckh_sdn139') || '[]');
-        cacheData = all.filter(x => x.bulan === bulan || x.tanggal?.startsWith(bulan));
-      }
+      const all = JSON.parse(localStorage.getItem('lckh_sdn139') || '[]');
+      cacheData = all.filter(x => x.bulan === bulan || x.tanggal?.startsWith(bulan));
 
       if (!cacheData.length) {
         tbody.innerHTML = `<tr><td colspan="7" style="padding:20px; text-align:center; color:#64748b">Belum ada LCKH di bulan ${bulan}</td></tr>`;
@@ -139,14 +128,10 @@ const LCKHFeature = (() => {
     const user = getCurrentUser();
     const payload = { tanggal:tgl, bulan, rhk, kegiatan, target, realisasi, capaian, bukti, kendala, email:user.email||'anonim', nama:user.nama||user.displayName||'Guru', createdAt: new Date().toISOString() };
     try {
-      if (window.db && window.firebase) {
-        await window.db.collection(COLLECTION).add(payload);
-      } else {
         const all = JSON.parse(localStorage.getItem('lckh_sdn139') || '[]');
         payload.id = Date.now().toString();
         all.push(payload);
         localStorage.setItem('lckh_sdn139', JSON.stringify(all));
-      }
       document.getElementById('lckh-kegiatan').value = '';
       document.getElementById('lckh-bukti').value = '';
       await loadData();
@@ -156,13 +141,9 @@ const LCKHFeature = (() => {
   async function remove(id) {
     if(!confirm('Hapus LCKH ini?')) return;
     try {
-      if (window.db && window.firebase) {
-        await window.db.collection(COLLECTION).doc(id).delete();
-      } else {
         let all = JSON.parse(localStorage.getItem('lckh_sdn139') || '[]');
         all = all.filter(x=>x.id != id);
         localStorage.setItem('lckh_sdn139', JSON.stringify(all));
-      }
       loadData();
     } catch(e){ alert(e.message) }
   }
@@ -180,8 +161,23 @@ const LCKHFeature = (() => {
 
   function print(){ window.print(); }
 
-  return { render, init, save, remove, exportCSV, print, loadData };
+  return { render, initInternal, save, remove, exportCSV, print, loadData };
 })();
 
-if(typeof module !== 'undefined') module.exports = LCKHFeature;
+// Tetap expose ke window untuk onclick di HTML
 window.LCKHFeature = LCKHFeature;
+
+// =========================================
+// FIX UTAMA: Export ES Module yang dicari main.js
+// =========================================
+export function init(contentDiv, db) {
+  // Simpan db global jika ada
+  if(db) window.db = db;
+  // Render HTML ke container yang dikasih main.js
+  contentDiv.innerHTML = LCKHFeature.render();
+  // Jalankan logic internal
+  LCKHFeature.initInternal();
+}
+
+// Untuk kompatibilitas jika ada yang import default
+export default { init };
