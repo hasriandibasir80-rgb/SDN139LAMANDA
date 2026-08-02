@@ -36,10 +36,10 @@ const MENU_ITEMS = [
     status: 'soon'
   },
   { 
-    id: 'coming-soon', 
+    id: 'LCKH', 
     icon: '📖', 
     title: 'coming-soon', 
-    path: './features/modul-ajar.js',
+    path: './features/Laporan capaian kinerja harian.js',
     status: 'soon'
   },
   { 
