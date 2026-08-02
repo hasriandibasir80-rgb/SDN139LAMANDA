@@ -90,12 +90,15 @@ function loadCSS(){
     .topik-card { background:#eff6ff; border:2px dashed #93c5fd; border-radius:10px; padding:14px; margin-bottom:12px; }
     .sub-list { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
     .sub-item { display:flex; gap:6px; }
+    .method-options { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+    .method-option { background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:6px; font-weight:600; font-size:12px; cursor:pointer; }
+    .method-option input { margin-right:5px; }
+    .tp-method-content { margin-top:8px; }
     .btn { padding:10px 18px; border:none; border-radius:8px; font-weight:600; cursor:pointer; color:#fff; display:inline-flex; gap:6px; align-items:center; }
     .btn-primary { background:linear-gradient(135deg, #2563eb, #7c3aed); } .btn-success { background:linear-gradient(135deg,#10b981,#059669); }
     .btn-warning { background:linear-gradient(135deg,#f59e0b,#d97706); } .btn-secondary { background:#6b7280; }
     .btn-mini { padding:5px 9px; font-size:11px; border:none; border-radius:6px; cursor:pointer; }
     .soal-card { background:#fff; border:1px solid #dbeafe; border-radius:10px; padding:14px; margin-bottom:10px; }
-    .soal-card.correct { border-left:4px solid #10b981; }
     .badge { font-size:11px; padding:3px 8px; border-radius:12px; background:#dbeafe; color:#1e40af; font-weight:600; }
     .toast { position:fixed; top:20px; right:20px; padding:12px 20px; border-radius:10px; color:#fff; font-weight:600; z-index:10001; }
     .toast-success { background:#10b981; } .toast-error { background:#ef4444; }
@@ -131,41 +134,82 @@ function renderUI(container){
       </div>
 
       <div class="soal-section">
-        <h3 class="soal-section-title">2. Informasi Soal</h3>
+        <h3 class="soal-section-title">2. Informasi Soal - Pembelajaran Mendalam</h3>
         <div class="form-grid">
           <div class="form-group"><label>📘 Mapel</label><select id="soal-mapel" class="form-control">${mapelOptions}</select></div>
           <div class="form-group"><label>🎓 Kelas / Fase</label><select id="soal-kelas" class="form-control">${kelasOptions}</select></div>
         </div>
         <div class="form-grid">
-          <div class="form-group"><label>📝 Bentuk Soal</label>
-            <select id="soal-bentuk" class="form-control">
-              <option value="Pilihan Ganda">Pilihan Ganda</option>
-              <option value="Isian Singkat">Isian Singkat</option>
-              <option value="Esai">Esai/Uraian</option>
-              <option value="Pilihan Ganda + Esai">PG + Esai</option>
-              <option value="Campuran">Campuran LOTS-MOTS-HOTS</option>
+          <div class="form-group"><label>📝 Jenis Asesmen (Pembelajaran Mendalam)</label>
+            <select id="soal-jenis-asesmen" class="form-control">
+              <option value="Asesmen Awal / Diagnostik">1. Asesmen Awal / Diagnostik</option>
+              <option value="Asesmen Formatif" selected>2. Asesmen Formatif - Proses</option>
+              <option value="Asesmen Sumatif">3. Asesmen Sumatif - Akhir</option>
+              <option value="Asesmen Pemahaman Bermakna" selected>4. Asesmen Pemahaman Bermakna</option>
+              <option value="Asesmen Otentik / Kontekstual">5. Asesmen Otentik / Kontekstual</option>
+              <option value="Asesmen Proyek - Deep Learning">6. Asesmen Proyek (Deep Learning)</option>
+              <option value="Asesmen Portofolio">7. Asesmen Portofolio</option>
+              <option value="Asesmen Reflektif & Metakognitif">8. Asesmen Reflektif & Metakognitif</option>
+              <option value="Asesmen Kolaboratif">9. Asesmen Kolaboratif</option>
+              <option value="Asesmen Berpikir Kritis & Kreatif">10. Asesmen Berpikir Kritis & Kreatif</option>
+              <option value="Asesmen Diferensiasi">11. Asesmen Diferensiasi</option>
+              <option value="PTS">12. PTS - Tengah Semester</option>
+              <option value="PAS">13. PAS - Akhir Semester</option>
             </select>
           </div>
-          <div class="form-group"><label>🔢 Jumlah Soal</label><input type="number" id="soal-jumlah" class="form-control" value="10" min="1" max="30"></div>
+          <div class="form-group"><label>🔢 Jumlah Soal</label><input type="number" id="soal-jumlah" class="form-control" value="10" min="1" max="50"></div>
         </div>
-        <div class="form-group"><label>📊 Distribusi Level</label>
-          <div style="display:flex; gap:10px;">
-            <label><input type="number" id="lots" value="40" style="width:60px;">% LOTS</label>
-            <label><input type="number" id="mots" value="40" style="width:60px;">% MOTS</label>
-            <label><input type="number" id="hots" value="20" style="width:60px;">% HOTS</label>
+        <div class="form-grid">
+          <div class="form-group"><label>📝 Bentuk Soal (Lengkap)</label>
+            <select id="soal-bentuk" class="form-control">
+              <option value="Pilihan Ganda">Pilihan Ganda</option>
+              <option value="Pilihan Ganda Kompleks">Pilihan Ganda Kompleks</option>
+              <option value="Menjodohkan">Menjodohkan</option>
+              <option value="Isian Singkat">Isian Singkat</option>
+              <option value="Esai">Esai / Uraian</option>
+              <option value="Pilihan Ganda + Isian">Pilihan Ganda + Isian</option>
+              <option value="Pilihan Ganda + Esai">Pilihan Ganda + Esai</option>
+              <option value="Isian + Esai">Isian + Esai</option>
+              <option value="Pilihan Ganda + Isian + Esai" selected>Pilihan Ganda + Isian + Esai (Campuran)</option>
+            </select>
+          </div>
+          <div class="form-group"><label>📊 Distribusi Level Kognitif</label>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <label style="background:#dcfce7; padding:6px 10px; border-radius:6px;"><input type="number" id="lots" value="30" style="width:50px; border:none; background:transparent;">% LOTS</label>
+              <label style="background:#fef3c7; padding:6px 10px; border-radius:6px;"><input type="number" id="mots" value="40" style="width:50px; border:none; background:transparent;">% MOTS</label>
+              <label style="background:#fee2e2; padding:6px 10px; border-radius:6px;"><input type="number" id="hots" value="30" style="width:50px; border:none; background:transparent;">% HOTS</label>
+            </div>
+            <small style="color:#64748b;">Pembelajaran Mendalam fokus ke MOTS & HOTS</small>
           </div>
         </div>
       </div>
 
       <div class="soal-section">
-        <h3 class="soal-section-title">3. Topik & Sub Topik (Dinamis - Sama seperti Kisi-Kisi)</h3>
+        <h3 class="soal-section-title">3. Topik & Sub Topik (Dinamis)</h3>
         <div id="soal-topik-container"></div>
         <button type="button" id="btnTambahTopikSoal" class="btn btn-secondary" style="margin-top:8px; width:100%;">➕ Tambah Topik</button>
       </div>
 
       <div class="soal-section">
-        <h3 class="soal-section-title">4. TP / Indikator</h3>
-        <textarea id="soal-tp" class="form-control" rows="4" placeholder="Paste TP dari Kisi-Kisi atau tulis manual..."></textarea>
+        <h3 class="soal-section-title">4. TP / Indikator - 3 Metode (ala CP-TP-ATP / RPM Spesifik)</h3>
+        <div class="method-options">
+          <label class="method-option"><input type="radio" name="tpMethod" value="master" checked> 1. Master Data</label>
+          <label class="method-option"><input type="radio" name="tpMethod" value="ai"> 2. Generate AI</label>
+          <label class="method-option"><input type="radio" name="tpMethod" value="manual"> 3. Input Manual</label>
+        </div>
+        <div id="tpMethodMaster" class="tp-method-content">
+          <button type="button" id="btnLoadMasterTP" class="btn btn-primary" style="width:100%; font-size:12px; padding:8px;">🔄 Muat TP dari Master Data (Filter Mapel + Topik)</button>
+          <select id="selectMasterTP" class="form-control" multiple size="5" style="min-height:100px; display:none; margin-top:8px;"></select>
+          <small id="masterTPHint" style="color:#64748b; display:none;">💡 Tahan Ctrl untuk pilih banyak TP</small>
+        </div>
+        <div id="tpMethodAI" class="tp-method-content" style="display:none;">
+          <button type="button" id="btnGenerateTP" class="btn btn-primary" style="width:100%; font-size:12px; padding:8px;">✨ Generate TP dengan AI</button>
+          <textarea id="inpTujuanAI" class="form-control" rows="2" readonly placeholder="TP hasil AI akan muncul..." style="margin-top:8px;"></textarea>
+        </div>
+        <div id="tpMethodManual" class="tp-method-content" style="display:none;">
+          <textarea id="inpTujuanManual" class="form-control" rows="3" placeholder="Tulis TP manual..."></textarea>
+        </div>
+        <textarea id="soal-tp" class="form-control" rows="4" placeholder="1. Siswa mampu... (akan terisi otomatis dari pilihan di atas)" style="margin-top:10px;"></textarea>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
           <button class="btn btn-primary" id="btnGenerateSoal">🤖 Generate Soal Presisi dengan AI</button>
           <button class="btn btn-success" id="btnSimpanBank">💾 Simpan ke Bank Soal</button>
@@ -175,7 +219,7 @@ function renderUI(container){
       </div>
 
       <div class="soal-section" id="preview-section" style="display:none;">
-        <h3 class="soal-section-title">👁️ Preview Soal (Editable)</h3>
+        <h3 class="soal-section-title">👁️ Preview Soal</h3>
         <div id="preview-content"></div>
       </div>
     </div>
@@ -250,6 +294,26 @@ async function loadKisiKisiDropdown(container){
 
 function attachEvents(container){
   container.querySelector('#btnTambahTopikSoal').addEventListener('click', ()=> addTopik(container));
+
+  // TP Method Switching ala CP-TP-ATP / RPM Spesifik
+  container.querySelectorAll('input[name="tpMethod"]').forEach(radio=>{
+    radio.addEventListener('change', (e)=>{
+      const method = e.target.value;
+      container.querySelector('#tpMethodMaster').style.display = method==='master' ? 'block' : 'none';
+      container.querySelector('#tpMethodAI').style.display = method==='ai' ? 'block' : 'none';
+      container.querySelector('#tpMethodManual').style.display = method==='manual' ? 'block' : 'none';
+    });
+  });
+  const btnLoadTP = container.querySelector('#btnLoadMasterTP');
+  if(btnLoadTP) btnLoadTP.addEventListener('click', ()=> loadMasterTP(container));
+  const selectTP = container.querySelector('#selectMasterTP');
+  if(selectTP) selectTP.addEventListener('change', ()=> syncTPSelection(container));
+  const btnGenTP = container.querySelector('#btnGenerateTP');
+  if(btnGenTP) btnGenTP.addEventListener('click', ()=> generateTPAI(container));
+  container.querySelector('#inpTujuanManual')?.addEventListener('input', (e)=>{
+    container.querySelector('#soal-tp').value = e.target.value;
+  });
+
   container.querySelector('#soal-kisi-select').addEventListener('change', (e)=>{
     const id = e.target.value;
     if(!id){
@@ -259,30 +323,26 @@ function attachEvents(container){
     const kisi = kisiListCache.find(k=>k.id===id);
     if(!kisi) return;
     const info = kisi.informasi||{};
-    // Auto set mapel & kelas
     if(info.mapelId) container.querySelector('#soal-mapel').value = info.mapelId;
     else if(info.mapel) {
       const found = dataMapel.find(m=>m.nama.toLowerCase().includes(info.mapel.toLowerCase()) || m.id===info.mapel.toLowerCase());
       if(found) container.querySelector('#soal-mapel').value = found.id;
     }
     if(info.kelas && info.fase) container.querySelector('#soal-kelas').value = `${info.kelas}|${info.fase}`;
+    if(info.jenis_asesmen) container.querySelector('#soal-jenis-asesmen').value = info.jenis_asesmen;
     if(info.tujuan_pembelajaran) container.querySelector('#soal-tp').value = info.tujuan_pembelajaran;
     if(info.jumlah_soal) container.querySelector('#soal-jumlah').value = info.jumlah_soal;
     if(info.bentuk_soal) container.querySelector('#soal-bentuk').value = info.bentuk_soal;
 
-    // Isi topik_list
     const wrap = container.querySelector('#soal-topik-container');
     wrap.innerHTML=''; topikCounter=0;
     const list = info.topik_list && info.topik_list.length ? info.topik_list : [{ tema: info.tema||info.topik||'', subTemas: [info.sub_tema||''] }];
     list.forEach(t=> addTopik(container, t));
 
-    // Info box
     const infoBox = container.querySelector('#kisi-info');
     infoBox.style.display='block';
     infoBox.innerHTML = `<b>✅ Kisi-Kisi Terhubung:</b> ${info.topik_list?.length||1} Topik, ${kisi.kisi_kisi?.length||0} indikator. TP otomatis terisi.`;
 
-    // Preview kisi di console
-    console.log('Kisi terpilih:', kisi);
     showToast('✅ Kisi-Kisi dimuat, topik presisi terisi!');
   });
 
@@ -295,13 +355,98 @@ function attachEvents(container){
     container.querySelector('#preview-content').innerHTML=''; container.querySelector('#preview-section').style.display='none';
     container.querySelector('#soal-kisi-select').value='';
     container.querySelector('#kisi-info').style.display='none';
+    container.querySelector('#selectMasterTP').style.display='none';
+    container.querySelector('#masterTPHint').style.display='none';
   });
+}
+
+function getAllKeywords(container){
+  const all = getTopikData(container);
+  return all.flatMap(t=> [t.tema, ...t.subTemas]).join(' ').toLowerCase();
+}
+async function loadMasterTP(container){
+  const mapelId = container.querySelector('#soal-mapel')?.value||'';
+  const keywords = getAllKeywords(container);
+  if(!mapelId){ showToast('Pilih Mapel dulu!','error'); return; }
+  if(!keywords.trim()){ showToast('Isi minimal 1 Topik dulu!','error'); return; }
+  const btn = container.querySelector('#btnLoadMasterTP');
+  const selectEl = container.querySelector('#selectMasterTP');
+  const hintEl = container.querySelector('#masterTPHint');
+  btn.disabled=true; btn.textContent='⏳ Mencari TP...';
+  try{
+    const q = query(collection(db,'data_tp'), where('userId','==', currentUser.uid));
+    const snap = await getDocs(q);
+    let allTP=[];
+    snap.forEach(ds=>{
+      const d=ds.data();
+      let list=[];
+      if(d.tujuan_pembelajaran){
+        if(Array.isArray(d.tujuan_pembelajaran)) list=d.tujuan_pembelajaran;
+        else list=d.tujuan_pembelajaran.toString().split('\n').filter(Boolean);
+      }
+      list.forEach(tpRaw=>{
+        const text=(typeof tpRaw==='string'?tpRaw:(tpRaw.deskripsi||'')).trim();
+        if(!text) return;
+        allTP.push({ text, mapel:(d.mapel||d.mapelId||'').toLowerCase(), mapelOriginal:d.mapel||d.mapelId||'', kelas:(d.kelas||'').toString().toLowerCase(), topik:(d.topik||d.tema||'').toLowerCase(), topikOriginal:d.topik||d.tema||'' });
+      });
+    });
+    let filtered = allTP.filter(item=>{
+      const sel = dataMapel.find(m=>m.id===mapelId);
+      const namaLower = sel ? sel.nama.toLowerCase() : '';
+      return item.mapel.includes(mapelId.toLowerCase()) || (namaLower && item.mapel.includes(namaLower));
+    });
+    if(!filtered.length) filtered = allTP; // fallback jika mapelId beda penamaan
+    const kwArr = keywords.split(/\s+/).filter(k=>k.length>2);
+    let finalFiltered = filtered.filter(item=>{
+      const hay = `${item.topik} ${item.text}`.toLowerCase();
+      return kwArr.some(kw=> hay.includes(kw));
+    });
+    if(!finalFiltered.length) finalFiltered = filtered.slice(0,30);
+    selectEl.innerHTML='';
+    finalFiltered.forEach((it,idx)=>{
+      const opt=document.createElement('option'); opt.value=it.text; opt.textContent=`${idx+1}. ${it.text.substring(0,120)} [${it.topikOriginal}]`;
+      selectEl.appendChild(opt);
+    });
+    selectEl.style.display='block';
+    if(hintEl){ hintEl.style.display='block'; hintEl.textContent=`✅ ${finalFiltered.length} TP ditemukan (filter: ${keywords.slice(0,60)}...)`; }
+    showToast(`✅ ${finalFiltered.length} TP ditemukan!`);
+  }catch(e){ showToast('❌ '+e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='🔄 Muat TP dari Master Data (Filter Mapel + Topik)'; }
+}
+function syncTPSelection(container){
+  const sel=container.querySelector('#selectMasterTP');
+  const tp=container.querySelector('#soal-tp');
+  if(!sel||!tp) return;
+  const selected=Array.from(sel.selectedOptions).map(o=>o.value);
+  if(selected.length) tp.value = selected.map((t,i)=> `${i+1}. ${t}`).join('\n');
+}
+async function generateTPAI(container){
+  const mapelId=container.querySelector('#soal-mapel')?.value;
+  const kelas=container.querySelector('#soal-kelas')?.value;
+  const combined=getTopikData(container).map(t=> `${t.tema} (${t.subTemas.join(', ')})`).join(' | ');
+  if(!mapelId||!kelas||!combined){ showToast('Lengkapi Mapel, Kelas, Topik!','error'); return; }
+  if(!groqApiKey){ showToast('API Key belum aktif','error'); return; }
+  const btn=container.querySelector('#btnGenerateTP');
+  btn.disabled=true; btn.textContent='⏳ Generating...';
+  try{
+    const mapelInfo=dataMapel.find(m=>m.id===mapelId);
+    const mapelNama=mapelInfo?mapelInfo.nama:mapelId;
+    const prompt=`Buatkan 4-6 Tujuan Pembelajaran (TP) untuk ${mapelNama} Kelas ${kelas} dengan topik "${combined}". Format nomor + deskripsi.`;
+    const res=await fetch(GROQ_API_URL,{ method:'POST', headers:{ 'Content-Type':'application/json','Authorization':`Bearer ${groqApiKey}` }, body:JSON.stringify({ model:GROQ_MODEL, messages:[{role:'user',content:prompt}], temperature:0.7 }) });
+    const data=await res.json();
+    const text=data.choices?.[0]?.message?.content||'';
+    container.querySelector('#inpTujuanAI').value=text;
+    container.querySelector('#soal-tp').value=text;
+    showToast('✅ TP berhasil di-generate AI!');
+  }catch(e){ showToast('❌ '+e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='✨ Generate TP dengan AI'; }
 }
 
 async function handleGenerate(container){
   const mapelId = container.querySelector('#soal-mapel').value;
   const kelasVal = container.querySelector('#soal-kelas').value;
   const bentuk = container.querySelector('#soal-bentuk').value;
+  const jenisAsesmen = container.querySelector('#soal-jenis-asesmen').value;
   const jumlah = parseInt(container.querySelector('#soal-jumlah').value)||10;
   const tp = container.querySelector('#soal-tp').value;
   const allTopik = getTopikData(container);
@@ -329,18 +474,23 @@ async function handleGenerate(container){
 Buatkan ${jumlah} soal untuk:
 Mapel: ${mapelNama} (${mapelId})
 Kelas: ${kelasNum} Fase ${fase}
-Bentuk: ${bentuk}
-Level: ${lots}% LOTS, ${mots}% MOTS, ${hots}% HOTS
+Jenis Asesmen (Pembelajaran Mendalam): ${jenisAsesmen}
+Bentuk: ${bentuk} (jika kombinasi, bagi proporsional: contoh PG+Isian berarti 60% PG, 40% Isian, dst)
+Level: ${lots}% LOTS, ${mots}% MOTS, ${hots}% HOTS (fokus Pembelajaran Mendalam ke MOTS & HOTS)
 Topik & Sub Topik Presisi:
 ${topikDetail}
 TP: ${tp}
 
-Aturan:
+Aturan Pembelajaran Mendalam:
 - Soal harus tersebar proporsional ke semua Topik
+- Utamakan pemahaman bermakna, penerapan, berpikir kritis
+- Jika Menjodohkan: buat pasangan 4-5 item kiri-kanan
 - Setiap soal harus mencantumkan topik_asal, sub_asal, level_kognitif (LOTS/MOTS/HOTS), TP_ref
 - Jika PG: beri 4 opsi A-D, kunci (A/B/C/D), pembahasan singkat
+- Jika PG Kompleks: beri opsi multiple correct
 - Jika Isian: beri kunci jawaban singkat
-- Jika Esai: beri kunci uraian
+- Jika Esai: beri kunci uraian dan rubrik
+- Jika Menjodohkan: beri pasangan kunci
 
 Kembalikan JSON array valid tanpa markdown, format:
 {
@@ -349,11 +499,12 @@ Kembalikan JSON array valid tanpa markdown, format:
   "sub_asal": "...",
   "level_kognitif": "LOTS/MOTS/HOTS",
   "pertanyaan": "...",
-  "jenis": "PG/Isian/Uraian",
-  "opsi": ["...","...","...","..."],
-  "kunci": "B atau jawaban",
+  "jenis": "PG/PG Kompleks/Menjodohkan/Isian/Esai",
+  "opsi": ["...","...","...","..."] atau untuk Menjodohkan: {"kiri":[...], "kanan":[...]},
+  "kunci": "B atau jawaban atau pasangan",
   "pembahasan": "...",
-  "tp_ref": "..."
+  "tp_ref": "...",
+  "asesmen_type": "${jenisAsesmen}"
 }
 `;
 
@@ -414,6 +565,8 @@ async function handleSimpanBank(container){
   if(!preview.dataset.soalJson){ showToast('Generate soal dulu!','error'); return; }
   const mapelId = container.querySelector('#soal-mapel').value;
   const kelasVal = container.querySelector('#soal-kelas').value;
+  const jenisAsesmen = container.querySelector('#soal-jenis-asesmen').value;
+  const bentuk = container.querySelector('#soal-bentuk').value;
   const [kelasNum, fase] = kelasVal.split('|');
   const kisiId = container.querySelector('#soal-kisi-select').value||null;
   let soalList=[];
@@ -424,14 +577,20 @@ async function handleSimpanBank(container){
   try{
     let count=0;
     for(const s of soalList){
+      // mapping jenis yang fleksibel
+      let jenisSimpan = s.jenis || bentuk;
+      if(jenisSimpan.includes('Pilihan Ganda') && jenisSimpan.includes('Isian') && jenisSimpan.includes('Esai')) jenisSimpan = 'Campuran';
+      
       await addDoc(collection(db,'bankSoal'),{
         mapelId,
         kelas: kelasNum,
         fase,
+        jenisAsesmen,
+        bentukSoal: bentuk,
         topik: s.topik_asal||'',
         subTopik: s.sub_asal||'',
         pertanyaan: s.pertanyaan,
-        jenis: s.jenis==='PG' ? 'PG' : s.jenis.includes('Isian') ? 'Isian' : 'Uraian',
+        jenis: jenisSimpan,
         opsi: s.opsi||[],
         kunci: s.kunci,
         pembahasan: s.pembahasan||'',
@@ -444,7 +603,7 @@ async function handleSimpanBank(container){
       });
       count++;
     }
-    showToast(`✅ ${count} soal disimpan ke Bank Soal (bankSoal)!`);
+    showToast(`✅ ${count} soal (${jenisAsesmen}) disimpan ke Bank Soal!`);
   }catch(err){
     console.error(err);
     showToast('❌ Gagal simpan: '+err.message,'error');
