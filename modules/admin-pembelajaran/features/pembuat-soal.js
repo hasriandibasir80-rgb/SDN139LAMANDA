@@ -1,7 +1,12 @@
 // modules/admin-pembelajaran/features/pembuat-soal.js
 // =========================================
-// FITUR: PEMBUAT SOAL PRESISI - V4
-// Terhubung: kisi-kisi.topik_list (dinamis) + data-mapel.js + bankSoal
+// FITUR: PEMBUAT SOAL PRESISI - V5 PM BERSIH
+// Revisi: 
+// - TP 3 opsi (Master/AI/Manual) ala CP-TP-ATP
+// - Bentuk soal: PG, PG Kompleks, Menjodohkan, Isian, Esai, PG+Isian, PG+Esai, Isian+Esai, PG+Isian+Esai (Campuran)
+// - Jenis Asesmen Pembelajaran Mendalam
+// - Output Word BERSIH tanpa [PAIBD - Kelas ...] (TP: ...)
+// - Terkoneksi: kisi_kisi.topik_list + data_tp + bankSoal
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -117,18 +122,18 @@ function renderUI(container){
   container.innerHTML = `
     <div class="soal-container">
       <div class="soal-header">
-        <h2 style="margin:0;">✍️ Pembuat Soal Presisi</h2>
-        <p style="margin:6px 0 0; opacity:.9;">Terhubung Kisi-Kisi Dinamis + Bank Soal • ${dataMapel.length} Mapel • <span>${aiReady}</span></p>
+        <h2 style="margin:0;">✍️ Pembuat Soal Presisi - PM</h2>
+        <p style="margin:6px 0 0; opacity:.9;">Kisi-Kisi Dinamis + Pembelajaran Mendalam • ${dataMapel.length} Mapel • <span>${aiReady}</span></p>
       </div>
 
       <div class="soal-section">
         <h3 class="soal-section-title">1. Sumber Kisi-Kisi (Presisi)</h3>
         <div class="form-group">
-          <label>📚 Pilih Kisi-Kisi Tersimpan (Otomatis isi Topik)</label>
+          <label>📚 Pilih Kisi-Kisi Tersimpan</label>
           <select id="soal-kisi-select" class="form-control">
             <option value="">-- Buat Manual / Pilih Kisi-Kisi --</option>
           </select>
-          <small style="color:#64748b;">Jika pilih Kisi-Kisi, Topik & Sub Topik otomatis terisi dari kisi_kisi.topik_list</small>
+          <small style="color:#64748b;">Topik & Sub Topik otomatis terisi dari kisi_kisi.topik_list</small>
         </div>
         <div id="kisi-info" style="display:none; background:#f0f9ff; border:1px solid #bae6fd; padding:10px; border-radius:8px; font-size:12px; margin-top:8px;"></div>
       </div>
@@ -145,7 +150,7 @@ function renderUI(container){
               <option value="Asesmen Awal / Diagnostik">1. Asesmen Awal / Diagnostik</option>
               <option value="Asesmen Formatif" selected>2. Asesmen Formatif - Proses</option>
               <option value="Asesmen Sumatif">3. Asesmen Sumatif - Akhir</option>
-              <option value="Asesmen Pemahaman Bermakna" selected>4. Asesmen Pemahaman Bermakna</option>
+              <option value="Asesmen Pemahaman Bermakna">4. Asesmen Pemahaman Bermakna</option>
               <option value="Asesmen Otentik / Kontekstual">5. Asesmen Otentik / Kontekstual</option>
               <option value="Asesmen Proyek - Deep Learning">6. Asesmen Proyek (Deep Learning)</option>
               <option value="Asesmen Portofolio">7. Asesmen Portofolio</option>
@@ -153,8 +158,8 @@ function renderUI(container){
               <option value="Asesmen Kolaboratif">9. Asesmen Kolaboratif</option>
               <option value="Asesmen Berpikir Kritis & Kreatif">10. Asesmen Berpikir Kritis & Kreatif</option>
               <option value="Asesmen Diferensiasi">11. Asesmen Diferensiasi</option>
-              <option value="PTS">12. PTS - Tengah Semester</option>
-              <option value="PAS">13. PAS - Akhir Semester</option>
+              <option value="PTS">12. PTS</option>
+              <option value="PAS">13. PAS</option>
             </select>
           </div>
           <div class="form-group"><label>🔢 Jumlah Soal</label><input type="number" id="soal-jumlah" class="form-control" value="10" min="1" max="50"></div>
@@ -179,7 +184,6 @@ function renderUI(container){
               <label style="background:#fef3c7; padding:6px 10px; border-radius:6px;"><input type="number" id="mots" value="40" style="width:50px; border:none; background:transparent;">% MOTS</label>
               <label style="background:#fee2e2; padding:6px 10px; border-radius:6px;"><input type="number" id="hots" value="30" style="width:50px; border:none; background:transparent;">% HOTS</label>
             </div>
-            <small style="color:#64748b;">Pembelajaran Mendalam fokus ke MOTS & HOTS</small>
           </div>
         </div>
       </div>
@@ -200,20 +204,20 @@ function renderUI(container){
         <div id="tpMethodMaster" class="tp-method-content">
           <button type="button" id="btnLoadMasterTP" class="btn btn-primary" style="width:100%; font-size:12px; padding:8px;">🔄 Muat TP dari Master Data (Filter Mapel + Topik)</button>
           <select id="selectMasterTP" class="form-control" multiple size="5" style="min-height:100px; display:none; margin-top:8px;"></select>
-          <small id="masterTPHint" style="color:#64748b; display:none;">💡 Tahan Ctrl untuk pilih banyak TP</small>
+          <small id="masterTPHint" style="color:#64748b; display:none;"></small>
         </div>
         <div id="tpMethodAI" class="tp-method-content" style="display:none;">
           <button type="button" id="btnGenerateTP" class="btn btn-primary" style="width:100%; font-size:12px; padding:8px;">✨ Generate TP dengan AI</button>
-          <textarea id="inpTujuanAI" class="form-control" rows="2" readonly placeholder="TP hasil AI akan muncul..." style="margin-top:8px;"></textarea>
+          <textarea id="inpTujuanAI" class="form-control" rows="2" readonly placeholder="TP hasil AI..." style="margin-top:8px;"></textarea>
         </div>
         <div id="tpMethodManual" class="tp-method-content" style="display:none;">
           <textarea id="inpTujuanManual" class="form-control" rows="3" placeholder="Tulis TP manual..."></textarea>
         </div>
-        <textarea id="soal-tp" class="form-control" rows="4" placeholder="1. Siswa mampu... (akan terisi otomatis dari pilihan di atas)" style="margin-top:10px;"></textarea>
+        <textarea id="soal-tp" class="form-control" rows="4" placeholder="TP terisi otomatis di sini..." style="margin-top:10px;"></textarea>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-primary" id="btnGenerateSoal">🤖 Generate Soal Presisi dengan AI</button>
+          <button class="btn btn-primary" id="btnGenerateSoal">🤖 Generate Soal Presisi</button>
           <button class="btn btn-success" id="btnSimpanBank">💾 Simpan ke Bank Soal</button>
-          <button class="btn btn-warning" id="btnExportWord">📄 Export Word</button>
+          <button class="btn btn-warning" id="btnExportWord">📄 Export Word Bersih</button>
           <button class="btn btn-secondary" id="btnResetSoal">🔄 Reset</button>
         </div>
       </div>
@@ -239,43 +243,43 @@ function addTopik(container, data = { tema:'', subTemas:[''] }){
       <b>📂 Topik ${id}</b>
       <button class="btn-mini" style="background:#fee2e2; color:#991b1b;" data-action="hapusTopik">🗑️ Hapus</button>
     </div>
-    <input type="text" class="form-control input-tema" placeholder="Contoh: Aku Cinta Al-Quran" value="${data.tema||''}">
-    <div style="margin-top:8px; font-size:12px; font-weight:600;">Sub Topik / Materi:</div>
-    <div class="sub-list"></div>
-    <button class="btn-mini" style="background:#dcfce7; color:#166534; margin-top:6px;" data-action="tambahSub">➕ Tambah Sub</button>
+    <div class="form-group"><input type="text" class="form-control" placeholder="Nama Topik" data-role="tema" value="${data.tema||''}"></div>
+    <div class="sub-list">
+      ${(data.subTemas||['']).map((s,i)=> `<div class="sub-item"><input type="text" class="form-control" placeholder="Sub Topik ${i+1}" data-role="sub" value="${s}"><button class="btn-mini" style="background:#fee2e2;" data-action="hapusSub">✕</button></div>`).join('')}
+    </div>
+    <button class="btn-mini" style="background:#dbeafe; color:#1e40af; margin-top:6px;" data-action="tambahSub">➕ Sub</button>
   `;
   wrap.appendChild(div);
-  const subList = div.querySelector('.sub-list');
-  (data.subTemas?.length ? data.subTemas : ['']).forEach(s => addSub(subList, s));
-  div.querySelector('[data-action="hapusTopik"]').addEventListener('click', ()=>{
-    if(wrap.children.length<=1){ showToast('Minimal 1 topik','error'); return; }
-    div.remove();
-  });
-  div.querySelector('[data-action="tambahSub"]').addEventListener('click', ()=> addSub(subList,''));
-}
-function addSub(listEl, value=''){
-  const item = document.createElement('div');
-  item.className = 'sub-item';
-  item.innerHTML = `<input type="text" class="form-control input-sub" placeholder="Sub materi..." value="${value}" style="flex:1;"><button class="btn-mini" style="background:#fee2e2;">✕</button>`;
-  listEl.appendChild(item);
-  item.querySelector('button').addEventListener('click', ()=>{
-    if(listEl.children.length<=1){ item.querySelector('input').value=''; } else item.remove();
+  div.querySelectorAll('[data-action]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const act = e.target.dataset.action;
+      if(act==='hapusTopik') div.remove();
+      if(act==='hapusSub') e.target.closest('.sub-item').remove();
+      if(act==='tambahSub'){
+        const list = div.querySelector('.sub-list');
+        const item = document.createElement('div'); item.className='sub-item';
+        item.innerHTML=`<input type="text" class="form-control" placeholder="Sub Topik" data-role="sub"><button class="btn-mini" style="background:#fee2e2;" data-action="hapusSub">✕</button>`;
+        list.appendChild(item);
+        item.querySelector('[data-action="hapusSub"]').addEventListener('click',()=> item.remove());
+      }
+    });
   });
 }
+
 function getTopikData(container){
   const cards = container.querySelectorAll('.topik-card');
   const res=[];
   cards.forEach(c=>{
-    const tema = c.querySelector('.input-tema')?.value.trim()||'';
-    const subs = Array.from(c.querySelectorAll('.input-sub')).map(i=>i.value.trim()).filter(Boolean);
-    if(tema||subs.length) res.push({ tema, subTemas: subs });
+    const tema = c.querySelector('[data-role="tema"]')?.value.trim();
+    const subs = Array.from(c.querySelectorAll('[data-role="sub"]')).map(i=>i.value.trim()).filter(Boolean);
+    if(tema) res.push({ tema, subTemas: subs.length? subs : [''] });
   });
   return res;
 }
 
 async function loadKisiKisiDropdown(container){
   try{
-    const q = query(collection(db,'kisi_kisi'), where('userId','==', currentUser.uid));
+    const q = query(collection(db,'kisi_kisi'), where('userId','==', currentUser.uid), orderBy('createdAt','desc'));
     const snap = await getDocs(q);
     const select = container.querySelector('#soal-kisi-select');
     kisiListCache = [];
@@ -295,7 +299,6 @@ async function loadKisiKisiDropdown(container){
 function attachEvents(container){
   container.querySelector('#btnTambahTopikSoal').addEventListener('click', ()=> addTopik(container));
 
-  // TP Method Switching ala CP-TP-ATP / RPM Spesifik
   container.querySelectorAll('input[name="tpMethod"]').forEach(radio=>{
     radio.addEventListener('change', (e)=>{
       const method = e.target.value;
@@ -304,12 +307,9 @@ function attachEvents(container){
       container.querySelector('#tpMethodManual').style.display = method==='manual' ? 'block' : 'none';
     });
   });
-  const btnLoadTP = container.querySelector('#btnLoadMasterTP');
-  if(btnLoadTP) btnLoadTP.addEventListener('click', ()=> loadMasterTP(container));
-  const selectTP = container.querySelector('#selectMasterTP');
-  if(selectTP) selectTP.addEventListener('change', ()=> syncTPSelection(container));
-  const btnGenTP = container.querySelector('#btnGenerateTP');
-  if(btnGenTP) btnGenTP.addEventListener('click', ()=> generateTPAI(container));
+  container.querySelector('#btnLoadMasterTP')?.addEventListener('click', ()=> loadMasterTP(container));
+  container.querySelector('#selectMasterTP')?.addEventListener('change', ()=> syncTPSelection(container));
+  container.querySelector('#btnGenerateTP')?.addEventListener('click', ()=> generateTPAI(container));
   container.querySelector('#inpTujuanManual')?.addEventListener('input', (e)=>{
     container.querySelector('#soal-tp').value = e.target.value;
   });
@@ -324,10 +324,6 @@ function attachEvents(container){
     if(!kisi) return;
     const info = kisi.informasi||{};
     if(info.mapelId) container.querySelector('#soal-mapel').value = info.mapelId;
-    else if(info.mapel) {
-      const found = dataMapel.find(m=>m.nama.toLowerCase().includes(info.mapel.toLowerCase()) || m.id===info.mapel.toLowerCase());
-      if(found) container.querySelector('#soal-mapel').value = found.id;
-    }
     if(info.kelas && info.fase) container.querySelector('#soal-kelas').value = `${info.kelas}|${info.fase}`;
     if(info.jenis_asesmen) container.querySelector('#soal-jenis-asesmen').value = info.jenis_asesmen;
     if(info.tujuan_pembelajaran) container.querySelector('#soal-tp').value = info.tujuan_pembelajaran;
@@ -341,9 +337,8 @@ function attachEvents(container){
 
     const infoBox = container.querySelector('#kisi-info');
     infoBox.style.display='block';
-    infoBox.innerHTML = `<b>✅ Kisi-Kisi Terhubung:</b> ${info.topik_list?.length||1} Topik, ${kisi.kisi_kisi?.length||0} indikator. TP otomatis terisi.`;
-
-    showToast('✅ Kisi-Kisi dimuat, topik presisi terisi!');
+    infoBox.innerHTML = `<b>✅ Kisi-Kisi Terhubung:</b> ${info.topik_list?.length||1} Topik, ${kisi.kisi_kisi?.length||0} indikator.`;
+    showToast('✅ Kisi-Kisi dimuat!');
   });
 
   container.querySelector('#btnGenerateSoal').addEventListener('click', ()=> handleGenerate(container));
@@ -356,7 +351,6 @@ function attachEvents(container){
     container.querySelector('#soal-kisi-select').value='';
     container.querySelector('#kisi-info').style.display='none';
     container.querySelector('#selectMasterTP').style.display='none';
-    container.querySelector('#masterTPHint').style.display='none';
   });
 }
 
@@ -387,7 +381,7 @@ async function loadMasterTP(container){
       list.forEach(tpRaw=>{
         const text=(typeof tpRaw==='string'?tpRaw:(tpRaw.deskripsi||'')).trim();
         if(!text) return;
-        allTP.push({ text, mapel:(d.mapel||d.mapelId||'').toLowerCase(), mapelOriginal:d.mapel||d.mapelId||'', kelas:(d.kelas||'').toString().toLowerCase(), topik:(d.topik||d.tema||'').toLowerCase(), topikOriginal:d.topik||d.tema||'' });
+        allTP.push({ text, mapel:(d.mapel||d.mapelId||'').toLowerCase(), topik:(d.topik||d.tema||'').toLowerCase(), topikOriginal:d.topik||d.tema||'' });
       });
     });
     let filtered = allTP.filter(item=>{
@@ -395,7 +389,7 @@ async function loadMasterTP(container){
       const namaLower = sel ? sel.nama.toLowerCase() : '';
       return item.mapel.includes(mapelId.toLowerCase()) || (namaLower && item.mapel.includes(namaLower));
     });
-    if(!filtered.length) filtered = allTP; // fallback jika mapelId beda penamaan
+    if(!filtered.length) filtered = allTP;
     const kwArr = keywords.split(/\s+/).filter(k=>k.length>2);
     let finalFiltered = filtered.filter(item=>{
       const hay = `${item.topik} ${item.text}`.toLowerCase();
@@ -408,7 +402,7 @@ async function loadMasterTP(container){
       selectEl.appendChild(opt);
     });
     selectEl.style.display='block';
-    if(hintEl){ hintEl.style.display='block'; hintEl.textContent=`✅ ${finalFiltered.length} TP ditemukan (filter: ${keywords.slice(0,60)}...)`; }
+    if(hintEl){ hintEl.style.display='block'; hintEl.textContent=`✅ ${finalFiltered.length} TP ditemukan`; }
     showToast(`✅ ${finalFiltered.length} TP ditemukan!`);
   }catch(e){ showToast('❌ '+e.message,'error'); }
   finally{ btn.disabled=false; btn.textContent='🔄 Muat TP dari Master Data (Filter Mapel + Topik)'; }
@@ -475,7 +469,7 @@ Buatkan ${jumlah} soal untuk:
 Mapel: ${mapelNama} (${mapelId})
 Kelas: ${kelasNum} Fase ${fase}
 Jenis Asesmen (Pembelajaran Mendalam): ${jenisAsesmen}
-Bentuk: ${bentuk} (jika kombinasi, bagi proporsional: contoh PG+Isian berarti 60% PG, 40% Isian, dst)
+Bentuk: ${bentuk} (jika kombinasi, bagi proporsional: contoh PG+Isian berarti 60% PG, 40% Isian)
 Level: ${lots}% LOTS, ${mots}% MOTS, ${hots}% HOTS (fokus Pembelajaran Mendalam ke MOTS & HOTS)
 Topik & Sub Topik Presisi:
 ${topikDetail}
@@ -532,7 +526,7 @@ Kembalikan JSON array valid tanpa markdown, format:
     preview.innerHTML=`<div style="color:red; padding:10px;">❌ Gagal: ${err.message}</div>`;
     showToast('❌ Gagal generate','error');
   }finally{
-    btn.disabled=false; btn.textContent='🤖 Generate Soal Presisi dengan AI';
+    btn.disabled=false; btn.textContent='🤖 Generate Soal Presisi';
   }
 }
 
@@ -540,7 +534,8 @@ function renderPreview(container, soalList){
   const preview = container.querySelector('#preview-content');
   let html = '';
   soalList.forEach((s,i)=>{
-    const opsiHtml = s.opsi && s.opsi.length ? `<div style="margin:8px 0 0 20px;">${s.opsi.map((o,idx)=> `<div>${String.fromCharCode(65+idx)}. ${o} ${String.fromCharCode(65+idx)===s.kunci ? '<b style="color:green;">✓</b>' : ''}</div>`).join('')}</div>` : '';
+    const opsiHtml = s.opsi && s.opsi.length && Array.isArray(s.opsi) ? `<div style="margin:8px 0 0 20px;">${s.opsi.map((o,idx)=> `<div>${String.fromCharCode(65+idx)}. ${o}</div>`).join('')}</div>` : 
+      (s.opsi && s.opsi.kiri ? `<div style="display:flex; gap:20px;"><div>${s.opsi.kiri.map((k,idx)=>`${idx+1}. ${k}`).join('<br>')}</div><div>${s.opsi.kanan.map((k,idx)=>`${String.fromCharCode(65+idx)}. ${k}`).join('<br>')}</div></div>` : '');
     html+=`
       <div class="soal-card">
         <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
@@ -552,7 +547,7 @@ function renderPreview(container, soalList){
         <div><b>${i+1}. ${s.pertanyaan}</b></div>
         ${opsiHtml}
         <div style="margin-top:8px; font-size:12px; background:#f9fafb; padding:8px; border-radius:6px;">
-          <b>Kunci:</b> ${s.kunci}<br><b>Pembahasan:</b> ${s.pembahasan||'-'}<br><b>TP Ref:</b> ${s.tp_ref||'-'}
+          <b>Kunci:</b> ${s.kunci}<br><b>Pembahasan:</b> ${s.pembahasan||'-'}
         </div>
       </div>
     `;
@@ -577,10 +572,7 @@ async function handleSimpanBank(container){
   try{
     let count=0;
     for(const s of soalList){
-      // mapping jenis yang fleksibel
       let jenisSimpan = s.jenis || bentuk;
-      if(jenisSimpan.includes('Pilihan Ganda') && jenisSimpan.includes('Isian') && jenisSimpan.includes('Esai')) jenisSimpan = 'Campuran';
-      
       await addDoc(collection(db,'bankSoal'),{
         mapelId,
         kelas: kelasNum,
@@ -619,24 +611,41 @@ function handleExportWord(container){
   const mapelNama = mapelInfo ? mapelInfo.nama : mapelId;
   const kelasVal = container.querySelector('#soal-kelas').value;
   const [kelasNum, fase] = kelasVal.split('|');
+  const jenisAsesmen = container.querySelector('#soal-jenis-asesmen').value;
 
   let html = `
     <html><head><meta charset="utf-8"><title>Soal - ${mapelNama}</title>
-    <style>body{font-family:'Times New Roman',serif; margin:2cm;} h1{text-align:center;} .soal{margin-bottom:16px;} .opsi{margin-left:20px;} .kunci{margin-top:30px; border-top:1px solid #000; padding-top:10px;}</style>
+    <style>
+      body{font-family:'Times New Roman',serif; margin:2cm; font-size:12pt;}
+      h1{text-align:center; font-size:14pt;} h2{font-size:12pt;}
+      .soal{margin-bottom:14px; line-height:1.5;} .opsi{margin-left:20px; margin-top:4px;}
+      .kop{ text-align:center; border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:20px; }
+      .kunci{margin-top:30px; border-top:1px solid #000; padding-top:10px;}
+    </style>
     </head><body>
-    <h1>SOAL ${mapelNama.toUpperCase()} - Kelas ${kelasNum} Fase ${fase}</h1>
-    <p>Tanggal: ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</p>
+    <div class="kop">
+      <h1>SOAL ${jenisAsesmen.toUpperCase()}<br>${mapelNama.toUpperCase()} - KELAS ${kelasNum} FASE ${fase}</h1>
+    </div>
+    <p>Tanggal: ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})} | Bentuk: ${container.querySelector('#soal-bentuk').value}</p>
     <hr>
   `;
   soalList.forEach((s,i)=>{
-    html+=`<div class="soal"><p><b>${i+1}. [${s.topik_asal} - ${s.sub_asal} - ${s.level_kognitif}]</b><br>${s.pertanyaan}</p>${s.opsi?.length? `<div class="opsi">${s.opsi.map((o,idx)=> `${String.fromCharCode(65+idx)}. ${o}<br>`).join('')}</div>`:''}</div>`;
+    // OUTPUT BERSIH TANPA [PAIBD - ...] dan tanpa (TP: ...)
+    let opsiBlock = '';
+    if(s.opsi && Array.isArray(s.opsi) && s.opsi.length){
+      opsiBlock = `<div class="opsi">${s.opsi.map((o,idx)=> `${String.fromCharCode(65+idx)}. ${o}<br>`).join('')}</div>`;
+    } else if(s.opsi && s.opsi.kiri){
+      opsiBlock = `<div style="display:flex; gap:40px; margin-left:20px;"><div>${s.opsi.kiri.map((k,idx)=>`${idx+1}. ${k}<br>`).join('')}</div><div>${s.opsi.kanan.map((k,idx)=>`${String.fromCharCode(65+idx)}. ${k}<br>`).join('')}</div></div>`;
+    }
+    html+=`<div class="soal"><p><b>${i+1}.</b> ${s.pertanyaan}</p>${opsiBlock}</div>`;
   });
-  html+=`<div class="kunci"><h3>KUNCI & PEMBAHASAN</h3>${soalList.map((s,i)=> `<p>${i+1}. Kunci: <b>${s.kunci}</b> - ${s.pembahasan||''} (TP: ${s.tp_ref||'-'})</p>`).join('')}</div></body></html>`;
+  // Halaman kunci terpisah dan bersih
+  html+=`<div style="page-break-before:always;"></div><div class="kunci"><h2>KUNCI JAWABAN - ${mapelNama}</h2><p>${jenisAsesmen} | Kelas ${kelasNum}</p>${soalList.map((s,i)=> `<p>${i+1}. <b>${s.kunci}</b></p>`).join('')}<br><h2>PEMBAHASAN UNTUK GURU</h2>${soalList.map((s,i)=> `<p><b>${i+1}.</b> ${s.pembahasan||'-'}</p>`).join('')}</div></body></html>`;
 
   const blob = new Blob(['\ufeff', html], {type:'application/msword'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=`Soal-${mapelId}-Kelas${kelasNum}-${new Date().toISOString().slice(0,10)}.doc`; document.body.appendChild(a); a.click(); setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },100);
-  showToast('📄 Word berhasil diunduh!');
+  const a = document.createElement('a'); a.href=url; a.download=`Soal-${jenisAsesmen}-${mapelId}-Kelas${kelasNum}-${new Date().toISOString().slice(0,10)}.doc`; document.body.appendChild(a); a.click(); setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); },100);
+  showToast('📄 Word BERSIH berhasil diunduh!');
 }
 
 function showToast(msg,type='success'){
