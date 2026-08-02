@@ -40,7 +40,7 @@ const MENU_ITEMS = [
     icon: '📖', 
     title: 'coming-soon', 
     path: './features/Laporan capaian kinerja harian.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'jurnal', 
