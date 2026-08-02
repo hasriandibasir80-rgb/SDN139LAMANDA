@@ -54,7 +54,7 @@ const MENU_ITEMS = [
     icon: '❓', 
     title: 'Bank Soal', 
     path: './features/bank-soal.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'kktp', 
