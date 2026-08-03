@@ -110,7 +110,7 @@ const MENU_ITEMS = [
     icon: '📈', 
     title: 'Penilaian', 
     path: './features/penilaian.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'pembuat-soal', 
