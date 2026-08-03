@@ -1,12 +1,13 @@
 // =========================================
-// MODUL: SIMPAN FILE - MATCHING PERFECT GS
+// MODUL: SIMPAN FILE - FIX MINIMAL DIFF - BARIS TETAP ±251
+// FIX: Chunking, sumber, dan penyimpanan driveId yang benar
 // =========================================
 
 import { db } from '../firebase-config.js';
 import { collection, addDoc, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2J3v7J-qQREY7pNsITzExSMEX1eaDaTfAgr4IZ15548auxyQ3pScZnT3X9LuH3pkl/exec";
+const APP_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyFEttY-1C1uPvblg5nOZVl55kvPDV6zH6wd2zc1lORS2A_hHyq5tQQI-dnQqLhN_DjAQ/exec"; // [FIX] Samakan dengan upload.js agar 1 Drive
 const FOLDER_URL = "https://drive.google.com/drive/folders/1kxmr2eqt50QLbWZBE14buYTC82eLglZS";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -70,17 +71,22 @@ function fileToBase64(file) {
   });
 }
 
+function blobToBase64(blob) { // [FIX-ADD] Helper yang hilang di versi ori
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 async function sendToAppsScript(action, payload) {
   const url = `${APP_SCRIPT_URL}?action=${action}`;
-  
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'text/plain;charset=utf-8'
-    },
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(payload)
   });
-  
   return await response.json();
 }
 
@@ -105,14 +111,11 @@ form.addEventListener('submit', async (e) => {
   btnText.textContent = '⏳ Memproses...';
 
   try {
-    // 1. Convert file
-    showStatus('info', '🔄 Mengkonversi file...');
-    const base64String = await fileToBase64(file);
-
-    // 2. Init Upload
+    // 1. Init Upload - Tetap dipertahankan
     showStatus('info', '📡 Memulai session upload...');
     
     let uploadId;
+    let fileId;
     let initSuccess = false;
     
     try {
@@ -127,31 +130,34 @@ form.addEventListener('submit', async (e) => {
 
       if (initResult && initResult.status === 'ready') {
         uploadId = initResult.uploadId;
+        fileId = initResult.fileId; // [FIX] Ambil fileId dari init
         initSuccess = true;
       } else {
-        console.warn('Response tidak bisa dibaca, generate uploadId di frontend');
-        uploadId = 'upload_' + Date.now();
-        initSuccess = true;
+        throw new Error('Init gagal');
       }
     } catch (initError) {
-      console.warn('Init error, generate uploadId di frontend:', initError.message);
-      uploadId = 'upload_' + Date.now();
-      initSuccess = true;
+      console.warn('Init error:', initError.message);
+      throw new Error('Gagal inisialisasi: ' + initError.message);
     }
 
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+    let finalResult = null;
 
-    // 3. Upload Chunks
+    // 2. Upload Chunks - [FIX KASUS 2 & 3] Perbaikan slice yang benar
     for (let i = 0; i < totalChunks; i++) {
+      // [FIX] Slice FILE, bukan base64 string - ini akar masalah ID palsu
       const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, base64String.length);
-      const chunkData = base64String.slice(start, end);
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+      const base64ChunkFull = await blobToBase64(chunk);
+      const chunkData = base64ChunkFull.split(',')[1];
 
       showStatus('info', `📦 Mengupload bagian ${i + 1} dari ${totalChunks}...`);
 
       try {
         const chunkResult = await sendToAppsScript('uploadChunk', {
           uploadId: uploadId,
+          fileId: fileId,
           chunkIndex: i,
           totalChunks: totalChunks,
           data: chunkData
@@ -160,34 +166,29 @@ form.addEventListener('submit', async (e) => {
         console.log(`Chunk ${i} Result:`, chunkResult);
 
         if (chunkResult && chunkResult.status === 'error') {
-          console.warn('Chunk error:', chunkResult.message);
+          throw new Error(chunkResult.message);
         }
         
         if (chunkResult && chunkResult.status === 'complete') {
           console.log('✅ File selesai digabung di Drive:', chunkResult.url);
-          console.log('📎 File ID:', chunkResult.id);
-          
-          // SIMPAN INFORMASI FILE KE LOCALSTORAGE
-          localStorage.setItem('lastUploadedFile', JSON.stringify({
-            url: chunkResult.url,
-            id: chunkResult.id,
-            name: chunkResult.name
-          }));
+          finalResult = chunkResult;
         }
       } catch (chunkError) {
         console.warn(`Chunk ${i} error:`, chunkError.message);
+        throw chunkError;
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // Tunggu server selesai
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // 4. Ambil informasi file dari localStorage
-    const lastFile = JSON.parse(localStorage.getItem('lastUploadedFile') || '{}');
-    
-    // 5. Simpan ke Firestore DENGAN driveId dan driveUrl
+    // 3. Simpan ke Firestore dengan driveId yang VALID
+    const driveIdToSave = finalResult?.id || fileId;
+    const driveUrlToSave = finalResult?.url || `https://drive.google.com/file/d/${fileId}/view`;
+
+    if (!driveIdToSave) throw new Error('Drive ID tidak didapat dari server');
+
     showStatus('info', '💾 Menyimpan metadata...');
     await simpanKeFirestore({ 
       namaDokumen, 
@@ -195,12 +196,9 @@ form.addEventListener('submit', async (e) => {
       deskripsi, 
       file, 
       fileName,
-      driveId: lastFile.id || null,
-      driveUrl: lastFile.url || null
+      driveId: driveIdToSave,
+      driveUrl: driveUrlToSave
     });
-
-    // Bersihkan localStorage
-    localStorage.removeItem('lastUploadedFile');
 
   } catch (error) {
     console.error('❌ Error:', error);
@@ -218,8 +216,9 @@ async function simpanKeFirestore(data) {
       levelAkses: 'publik',
       deskripsi: data.deskripsi,
       namaFile: data.fileName,
-      driveId: data.driveId,  // ← BARU: Simpan Drive ID
-      driveUrl: data.driveUrl, // ← BARU: Simpan URL file langsung
+      driveId: data.driveId,
+      driveUrl: data.driveUrl,
+      urlFile: data.driveUrl, // [FIX] Samakan field agar katalog baca
       ukuranFile: data.file.size,
       tipeFile: data.file.type,
       folderUrl: FOLDER_URL,
@@ -227,7 +226,8 @@ async function simpanKeFirestore(data) {
       uploaderEmail: currentUser.email,
       uploaderNama: currentUser.namaLengkap || 'User',
       tanggalUpload: serverTimestamp(),
-      status: 'aktif'
+      status: 'aktif',
+      sumber: 'simpan-file' // [FIX KASUS 1] Bedakan sumber
     });
 
     showStatus('success', '🎉 Berhasil! File dan data arsip telah disimpan.');
