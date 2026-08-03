@@ -1,5 +1,6 @@
 // =========================================
-// MODUL: ARSIP KATALOG (PREVIEW & DOWNLOAD FIXED)
+// MODUL: ARSIP KATALOG - FIX MINIMAL DIFF - BARIS TETAP ±160
+// FIX KASUS 2 & 3: Validasi ID agar tidak pakai ID Firestore palsu
 // =========================================
 
 import { db } from '../firebase-config.js';
@@ -51,7 +52,7 @@ async function muatSemuaDokumen() {
 
 // 5. CEK AKSES DOKUMEN
 function bisaAkses(levelAkses) {
-  if (levelAkses === 'publik') return true;
+  if (levelAkses === 'publik' || !levelAkses) return true; // [FIX] Data lama tanpa levelAkses anggap publik
   if (levelAkses === 'guru' && (userRole === 'admin' || userRole === 'guru')) return true;
   if (levelAkses === 'admin' && userRole === 'admin') return true;
   return false;
@@ -93,29 +94,54 @@ function renderKatalog(daftarDokumen) {
     };
     const icon = iconMap[doc.tipeFile] || '📄';
     
-    const ukuranMB = (doc.ukuranFile / (1024 * 1024)).toFixed(2);
+    const ukuranMB = doc.ukuranFile ? (doc.ukuranFile / (1024 * 1024)).toFixed(2) : '-';
     
     // =========================================
-    // ✅ PERBAIKAN: GUNAKAN driveId UNTUK LINK LANGSUNG
+    // FIX KASUS 2 & 3: Validasi driveId
     // =========================================
-    
-    // Prioritas: driveId > fileId > namaDokumen untuk search
-    const fileId = doc.driveId || doc.fileId || doc.id;
-    
-    // Link Lihat: Gunakan URL Drive langsung jika ada fileId
-    const linkLihat = fileId 
-      ? `https://drive.google.com/file/d/${fileId}/view`
-      : `https://drive.google.com/drive/search?q=${encodeURIComponent(doc.namaDokumen)}`;
-    
-    // Link Download: Gunakan URL download langsung
-    const linkDownload = fileId
-      ? `https://drive.google.com/uc?export=download&id=${fileId}`
-      : linkLihat;
+    const isValidDriveId = (id) => {
+      if (!id) return false;
+      if (typeof id !== 'string') return false;
+      if (id.length < 25) return false; // Firestore ID 20 char, Drive ID 33+ char - ini yang bikin screenshot 384 error
+      if (id.includes(' ')) return false;
+      return true;
+    };
 
-    const actions = akses
-      ? `<a href="${linkLihat}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
-         <a href="${linkDownload}" target="_blank" class="btn-action btn-download">⬇️ Unduh</a>`
-      : `<button class="btn-action btn-locked" disabled>🔒 Akses Terbatas</button>`;
+    let fileId = null;
+    let linkLihat = '';
+    let linkDownload = '';
+    let isInvalid = false;
+
+    if (isValidDriveId(doc.driveId)) {
+      fileId = doc.driveId;
+      linkLihat = `https://drive.google.com/file/d/${fileId}/view`;
+      linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    } else if (doc.driveUrl && doc.driveUrl.includes('drive.google.com')) {
+      linkLihat = doc.driveUrl;
+      const m = doc.driveUrl.match(/\/d\/([^\/]+)/);
+      if (m && isValidDriveId(m[1])) {
+        fileId = m[1];
+        linkDownload = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      } else {
+        linkDownload = doc.driveUrl;
+      }
+    } else if (doc.urlFile && doc.urlFile.includes('drive.google.com')) {
+      linkLihat = doc.urlFile;
+      linkDownload = doc.urlFile;
+    } else {
+      isInvalid = true;
+    }
+
+    let actions = '';
+    if (!akses) {
+      actions = `<button class="btn-action btn-locked" disabled>🔒 Akses Terbatas</button>`;
+    } else if (isInvalid) {
+      actions = `<button class="btn-action" disabled style="background:#fca5a5;">⚠️ File Lama Rusak - Upload Ulang</button>
+                 <div style="font-size:10px;color:#999;margin-top:4px;">ID: ${doc.driveId || 'null'} (tidak valid)</div>`;
+    } else {
+      actions = `<a href="${linkLihat}" target="_blank" class="btn-action btn-view">👁️ Lihat</a>
+                 <a href="${linkDownload}" target="_blank" class="btn-action btn-download">⬇️ Unduh</a>`;
+    }
     
     const card = `
       <div class="dokumen-card ${akses ? '' : 'access-denied'}">
@@ -124,7 +150,7 @@ function renderKatalog(daftarDokumen) {
         <div class="doc-desc">${doc.deskripsi || 'Tidak ada deskripsi.'}</div>
         <div class="doc-meta">
           <span class="meta-badge kategori">📁 ${doc.kategori}</span>
-          <span class="meta-badge ${doc.levelAkses}">🔒 ${doc.levelAkses}</span>
+          <span class="meta-badge ${doc.levelAkses}">🔒 ${doc.levelAkses || 'publik'}</span>
           <span class="meta-badge">📅 ${tanggal}</span>
           <span class="meta-badge">📦 ${ukuranMB} MB</span>
         </div>
