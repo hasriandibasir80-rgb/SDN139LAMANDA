@@ -1,454 +1,452 @@
-/**
- * FILE: modules/admin-pembelajaran/features/penilaian.js
- * REVISI: Tarik data dari Global-Monitoring > Data Peserta Didik + Master Data TP (sinkron RPM Spesifik)
- * STANDAR: KurMer + Pembelajaran Mendalam
- * Compatible dengan main.js loader (status ready)
- */
+// modules/admin-pembelajaran/features/penilaian.js
+// =========================================
+// FITUR: PENILAIAN KURIKULUM MERDEKA + PEMBELAJARAN MENDALAM
+// REVISI: Sinkron Data Peserta Didik (Firebase) + Data Mapel (js/config/data-mapel.js) + Master TP
+// Pola adopsi dari kktp.js (hasriandibasir80-rgb)
+// =========================================
 
-(function () {
-  const STORAGE_PENILAIAN = 'sdn139_penilaian_kurmer_pm';
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  // ===== HELPER: TARIK DATA PESERTA DIDIK DARI GLOBAL MONITORING =====
-  function getDataPesertaDidik() {
-    // Coba semua kemungkinan key yang dipakai di project SDN139
-    const possibleKeys = [
-      'data-peserta-didik',
-      'sdn139_data_peserta_didik',
-      'sdn139_peserta_didik',
-      'SDN139_PESERTA_DIDIK',
-      'global-monitoring-peserta-didik',
-      'dataPesertaDidik',
-      'pesertaDidik',
-      'siswa',
-      'data_siswa'
-    ];
+const database = getDatabase();
 
-    for (let key of possibleKeys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-        // Bisa berbentuk array langsung atau object {data:[]}
-        const arr = Array.isArray(parsed) ? parsed : (parsed.data || parsed.peserta || []);
-        if (arr.length > 0 && (arr[0].nama || arr[0].nama_lengkap)) {
-          console.log(`✅ Peserta Didik ditemukan di key: ${key}`, arr.length);
-          return arr.map(normalizePeserta);
-        }
-      } catch (e) {}
-    }
+const CSS_PATH = '../../../css/modules/analisis-kktp.css';
+const CSS_ID = 'penilaian-kurmer-css';
 
-    // Scan semua localStorage cari yang mirip peserta didik
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && /peserta|siswa/i.test(k)) {
-        try {
-          const raw = localStorage.getItem(k);
-          const parsed = JSON.parse(raw);
-          const arr = Array.isArray(parsed) ? parsed : (parsed.data || []);
-          if (arr.length > 5) { // asumsi data peserta >5
-            console.log(`✅ Peserta Didik ditemukan via scan: ${k}`);
-            return arr.map(normalizePeserta);
-          }
-        } catch (e) {}
-      }
-    }
+let dataSiswa = []; // dari Firebase
+let dataPenilaian = JSON.parse(localStorage.getItem('sdn139_penilaian_final') || '[]');
 
-    console.warn('⚠️ Data Peserta Didik belum ditemukan, pakai fallback kosong');
-    return [];
-  }
+// Fallback Mapel - sama seperti kktp.js + dari screenshot data-mapel.js
+const FALLBACK_MAPEL = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📿' }
+];
 
-  function normalizePeserta(item) {
-    // Normalisasi struktur berbeda-beda dari Global-Monitoring
-    return {
-      nisn: item.nisn || item.nis || item.id || '',
-      nama: (item.nama || item.nama_lengkap || item.name || '').toUpperCase().trim(),
-      kelas: (item.kelas || item.rombel || item.kelas_rombel || item.kelas_saat_ini || 'Tanpa Kelas').toString(),
-      jk: item.jk || item.jenis_kelamin || '',
-      // simpan original untuk debug
-      _raw: item
-    };
-  }
+export async function init(container, db) {
+  loadCSS();
+  renderUI(container);
+  attachEvents();
+  await loadMataPelajaran(); // dari assets/data-mapel.json + js/config/data-mapel.js
+}
 
-  // ===== HELPER: TARIK MASTER DATA TP / CP =====
-  function getMasterTP() {
-    const possibleKeys = [
-      'data-tp',
-      'master-tp',
-      'data_tp',
-      'sdn139_data_tp',
-      'SDN139_TP',
-      'cp-tp-atp',
-      'rpm-spesifik-data-tp',
-      'dataTP',
-      'masterDataTP'
-    ];
+export function cleanup() {
+  const css = document.getElementById(CSS_ID);
+  if (css) css.remove();
+}
 
-    for (let key of possibleKeys) {
-      try {
-        const raw = localStorage.getItem(key);
-        if (!raw) continue;
-        const parsed = JSON.parse(raw);
-        const arr = Array.isArray(parsed) ? parsed : (parsed.data || parsed.tp || []);
-        if (arr.length > 0 && (arr[0].tp || arr[0].tujuan || arr[0].deskripsi)) {
-          console.log(`✅ Master TP ditemukan di key: ${key}`, arr.length);
-          return arr.map(normalizeTP);
-        }
-      } catch (e) {}
-    }
-
-    // scan
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && /tp|cp.*atp/i.test(k)) {
-        try {
-          const parsed = JSON.parse(localStorage.getItem(k));
-          const arr = Array.isArray(parsed) ? parsed : (parsed.data || []);
-          if (arr.length > 3) {
-            return arr.map(normalizeTP);
-          }
-        } catch (e) {}
-      }
-    }
-    return [];
-  }
-
-  function normalizeTP(item) {
-    return {
-      id: item.id || item.kode || Date.now() + Math.random(),
-      fase: item.fase || item.kelas_fase || 'Fase B',
-      mapel: item.mapel || item.mata_pelajaran || item.mapel_kode || 'Umum',
-      cp: item.cp || item.capaian || '',
-      tp: item.tp || item.tujuan_pembelajaran || item.tujuan || item.deskripsi || '',
-      atp: item.atp || item.alur || '',
-      _raw: item
-    };
-  }
-
-  const getPredikat = (nilai, kktp = 70) => {
-    if (nilai >= 90) return { kode: 'BSB', label: 'Berkembang Sangat Baik', color: '#15803d', bg: '#dcfce7' };
-    if (nilai >= 80) return { kode: 'BSH', label: 'Berkembang Sesuai Harapan', color: '#1d4ed8', bg: '#dbeafe' };
-    if (nilai >= kktp) return { kode: 'MB', label: 'Mulai Berkembang', color: '#a16207', bg: '#fef9c3' };
-    return { kode: 'BB', label: 'Belum Berkembang', color: '#b91c1c', bg: '#fee2e2' };
+function loadCSS() {
+  if (document.getElementById(CSS_ID)) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = CSS_PATH;
+  link.id = CSS_ID;
+  link.onerror = () => {
+    const style = document.createElement('style');
+    style.id = CSS_ID + '-inline';
+    style.textContent = `
+      .kktp-container{max-width:1200px;margin:0 auto;font-family:'Segoe UI',sans-serif}
+      .btn-action{padding:10px 20px;border:none;border-radius:8px;font-weight:600;cursor:pointer}
+      .form-control{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px}
+      .siswa-table{width:100%;border-collapse:collapse}
+      .siswa-table th{background:#2563eb;color:white;padding:10px}
+      .siswa-table td{padding:8px;border:1px solid #e2e8f0;text-align:center}
+      .siswa-table .nama-cell{text-align:left;font-weight:600}
+      .nilai-cell{cursor:pointer;background:#f8fafc}
+      .nilai-cell:hover{background:#dbeafe}
+      .nilai-cell.editing{background:#fef9c3}
+    `;
+    document.head.appendChild(style);
   };
+  document.head.appendChild(link);
+}
 
-  const getTindak = (kode) => ({
-    'BB': 'Remedial berdiferensiasi + pendampingan mindful',
-    'MB': 'Penguatan bermakna + latihan kontekstual',
-    'BSH': 'Pengayaan joyful + tantangan HOTS',
-    'BSB': 'Tutor sebaya + proyek kepemimpinan'
-  }[kode]);
+async function loadMataPelajaran() {
+  const selectMapel = document.getElementById('inpMapelPenilaian');
+  if (!selectMapel) return;
 
-  const load = () => JSON.parse(localStorage.getItem(STORAGE_PENILAIAN) || '[]');
-  const save = (d) => localStorage.setItem(STORAGE_PENILAIAN, JSON.stringify(d));
+  // Coba 3 sumber: assets/data-mapel.json , js/config/data-mapel.js (ESM), fallback
+  try {
+    const res = await fetch('../../../assets/data-mapel.json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.mataPelajaran?.length) {
+        populateMapel(data.mataPelajaran);
+        return;
+      }
+    }
+  } catch (e) {}
 
-  // ===== RENDER =====
-  function render() {
-    const pesertaDidik = getDataPesertaDidik();
-    const masterTP = getMasterTP();
+  try {
+    // Coba import data-mapel.js config
+    const mod = await import('../../../js/config/data-mapel.js');
+    const list = mod.default || mod.DATA_MAPEL || mod.mataPelajaran || [];
+    if (list.length) {
+      populateMapel(list);
+      return;
+    }
+  } catch (e) {
+    console.log('data-mapel.js belum bisa di-import, pakai fallback');
+  }
 
-    // Group peserta by kelas untuk filter
-    const kelasUnik = [...new Set(pesertaDidik.map(p => p.kelas))].sort();
+  populateMapel(FALLBACK_MAPEL);
+}
 
-    const rootCandidates = ['#app', '#content', '#main-content', '#fitur-container', '.content-wrapper', 'main'];
-    let root = null;
-    for (let s of rootCandidates) { root = document.querySelector(s); if (root) break; }
-    if (!root) root = document.body;
+function populateMapel(list) {
+  const selectMapel = document.getElementById('inpMapelPenilaian');
+  if (!selectMapel) return;
+  selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
+  list.forEach(mapel => {
+    const opt = document.createElement('option');
+    opt.value = mapel.nama;
+    opt.textContent = `${mapel.icon || '📚'} ${mapel.singkatan || mapel.nama}`;
+    selectMapel.appendChild(opt);
+  });
+}
 
-    root.innerHTML = `
-    <div id="fitur-penilaian" style="font-family:Inter,Segoe UI,sans-serif; max-width:1250px; margin:0 auto; padding:10px;">
-      <div style="background:linear-gradient(135deg,#2563eb,#1e40af); color:white; padding:20px 24px; border-radius:16px; margin-bottom:16px;">
-        <h2 style="margin:0; font-size:22px;">📎 Penilaian KurMer - Pembelajaran Mendalam</h2>
-        <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">Sinkron: Data Peserta Didik (Global Monitoring) + Master TP (RPM Spesifik) • Total Siswa: ${pesertaDidik.length} • Total TP: ${masterTP.length}</p>
-        ${pesertaDidik.length===0 ? `<div style="margin-top:10px; background:#fef08a; color:#713f12; padding:8px 12px; border-radius:8px; font-size:12px;">⚠️ Data Peserta Didik belum terbaca. Pastikan kamu sudah pernah buka fitur Data Peserta Didik di Global-Monitoring agar data tersimpan di localStorage. <br>Key dicari: ${['data-peserta-didik','sdn139_data_peserta_didik'].join(', ')}</div>` : ''}
+function getMasterTP() {
+  const keys = ['data-tp','master-tp','sdn139_data_tp','cp-tp-atp','rpm-spesifik-data-tp'];
+  for (let k of keys) {
+    try {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const parsed = JSON.parse(raw);
+      const arr = Array.isArray(parsed) ? parsed : (parsed.data || parsed.tp || []);
+      if (arr.length) return arr;
+    } catch {}
+  }
+  return [];
+}
+
+function renderUI(container) {
+  container.innerHTML = `
+    <div class="kktp-container">
+      <!-- TOMBOL KEMBALI KE MENU (ATAS) -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
+        <button onclick="window.location.href='adm-pembelajaran.html'" style="background:#0f172a;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;">← Kembali ke Menu</button>
+        <div style="font-size:12px; background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:20px;">🧠 KurMer + Pembelajaran Mendalam (Sadar, Makna, Gembira)</div>
       </div>
 
-      <div style="display:grid; grid-template-columns:360px 1fr; gap:16px;" class="penilaian-grid">
-        <!-- FORM -->
-        <div style="background:white; border:1px solid #e2e8f0; border-radius:14px; padding:18px; height:fit-content; position:sticky; top:10px;">
-          
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px;">
-            <div>
-              <label style="font-size:11px; font-weight:700;">FILTER KELAS</label>
-              <select id="p-filter-kelas" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
-                <option value="">Semua Kelas</option>
-                ${kelasUnik.map(k => `<option value="${k}">${k}</option>`).join('')}
-              </select>
-            </div>
-            <div>
-              <label style="font-size:11px; font-weight:700;">KKTP</label>
-              <input id="p-kktp" type="number" value="70" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px;">
-            </div>
+      <div style="background:linear-gradient(135deg,#2563eb,#1e40af);color:white;padding:20px 24px;border-radius:14px;margin-bottom:20px;">
+        <h2 style="margin:0;">📎 Penilaian Kurikulum Merdeka</h2>
+        <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">Tarik Data Siswa dari Global Monitoring (Firebase) + Mapel dari data-mapel.js + TP dari Master TP • Nilai bisa diklik untuk edit</p>
+      </div>
+
+      <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;">
+          <div>
+            <label style="font-size:12px;font-weight:700;">🎓 Kelas / Fase (dari KKTP)</label>
+            <select id="inpKelasPenilaian" class="form-control">
+              <option value="">-- Pilih Kelas --</option>
+              <option value="1">1 / Fase A</option>
+              <option value="2">2 / Fase A</option>
+              <option value="3">3 / Fase B</option>
+              <option value="4">4 / Fase B</option>
+              <option value="5">5 / Fase C</option>
+              <option value="6">6 / Fase C</option>
+            </select>
           </div>
-
-          <label style="font-size:11px; font-weight:700;">JENIS ASESMEN</label>
-          <select id="p-jenis" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin:4px 0 10px;">
-            <option value="diagnostik-kognitif">Diagnostik Kognitif</option>
-            <option value="diagnostik-non-kognitif">Diagnostik Non-Kognitif</option>
-            <option value="formatif">Formatif (Harian)</option>
-            <option value="formatif-proyek">Formatif Proyek PM</option>
-            <option value="sumatif-lingkup">Sumatif Lingkup Materi</option>
-            <option value="sumatif-akhir">Sumatif Akhir (STS/SAS)</option>
-          </select>
-
-          <label style="font-size:11px; font-weight:700;">MAPEL (dari Master TP)</label>
-          <select id="p-mapel" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin:4px 0 10px;">
-            <option value="">-- Pilih Mapel --</option>
-            ${[...new Set(masterTP.map(t=>t.mapel))].map(m=>`<option value="${m}">${m}</option>`).join('')}
-            <option value="__manual__">Input Manual...</option>
-          </select>
-          <input id="p-mapel-manual" placeholder="Ketik Mapel manual jika tidak ada di master" style="display:none; width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:10px;">
-
-          <label style="font-size:11px; font-weight:700;">TUJUAN PEMBELAJARAN (dari Master TP)</label>
-          <select id="p-tp" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin:4px 0 10px;">
-            <option value="">-- Pilih TP --</option>
-            ${masterTP.map(t=>`<option value="${t.tp}" data-mapel="${t.mapel}" data-cp="${t.cp.replace(/"/g,'&quot;')}">${t.mapel} - ${t.tp.substring(0,60)}...</option>`).join('')}
-          </select>
-          <textarea id="p-tp-manual" rows="2" placeholder="Atau ketik TP manual" style="display:none; width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:10px;"></textarea>
-          <div id="p-cp-preview" style="display:none; font-size:11px; background:#f8fafc; border:1px solid #e2e8f0; padding:8px; border-radius:8px; margin-bottom:10px;"></div>
-
-          <label style="font-size:11px; font-weight:700;">PESERTA DIDIK (dari Data Peserta Didik)</label>
-          <select id="p-siswa" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin:4px 0 10px; max-height:200px;">
-            <option value="">-- Pilih Siswa --</option>
-            ${pesertaDidik.map(p=>`<option value="${p.nisn}" data-kelas="${p.kelas}" data-nama="${p.nama}">${p.nama} - ${p.kelas} (${p.nisn})</option>`).join('')}
-          </select>
-
-          <label style="font-size:11px; font-weight:700;">NILAI (0-100)</label>
-          <input id="p-nilai" type="number" min="0" max="100" placeholder="Contoh: 85" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin:4px 0 10px;">
-
-          <label style="font-size:11px; font-weight:700;">PRINSIP PM</label>
-          <div style="display:flex; gap:6px; margin:6px 0 10px; flex-wrap:wrap;">
-            <label style="font-size:12px; background:#eff6ff; padding:6px 10px; border-radius:20px;"><input type="checkbox" id="p-sadar" checked> Sadar</label>
-            <label style="font-size:12px; background:#f0fdf4; padding:6px 10px; border-radius:20px;"><input type="checkbox" id="p-makna" checked> Makna</label>
-            <label style="font-size:12px; background:#fefce8; padding:6px 10px; border-radius:20px;"><input type="checkbox" id="p-gembira" checked> Gembira</label>
+          <div>
+            <label style="font-size:12px;font-weight:700;">📚 Mata Pelajaran (dari data-mapel.js)</label>
+            <select id="inpMapelPenilaian" class="form-control">
+              <option value="">-- Pilih Mapel --</option>
+            </select>
           </div>
-
-          <textarea id="p-deskripsi" rows="2" placeholder="Deskripsi capaian (otomatis jika kosong)" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:8px;"></textarea>
-          <textarea id="p-refleksi" rows="2" placeholder="Refleksi PM siswa" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:12px;"></textarea>
-
-          <button id="p-simpan" style="width:100%; background:#2563eb; color:white; border:0; padding:12px; border-radius:10px; font-weight:700; cursor:pointer;">💾 Simpan Penilaian</button>
-          <button id="p-export" style="width:100%; background:white; border:1px solid #cbd5e1; padding:10px; border-radius:10px; margin-top:8px; cursor:pointer;">⬇ Export CSV</button>
-          <button id="p-bulk" style="width:100%; background:#f1f5f9; border:1px dashed #94a3b8; padding:10px; border-radius:10px; margin-top:8px; cursor:pointer; font-size:12px;">📋 Input Nilai Massal (1 Kelas)</button>
+          <div>
+            <label style="font-size:12px;font-weight:700;">📝 Jenis Penilaian</label>
+            <select id="inpJenisPenilaian" class="form-control">
+              <option value="diagnostik-kognitif">Diagnostik Kognitif</option>
+              <option value="diagnostik-non-kognitif">Diagnostik Non-Kognitif</option>
+              <option value="formatif">Formatif</option>
+              <option value="formatif-proyek">Formatif Proyek PM</option>
+              <option value="sumatif-lingkup">Sumatif Lingkup Materi</option>
+              <option value="sumatif-akhir">Sumatif Akhir</option>
+            </select>
+          </div>
         </div>
 
-        <!-- TABLE -->
-        <div>
-          <div id="p-stats" style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;"></div>
-          <div style="background:white; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden;">
-            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0; display:flex; gap:8px;">
-              <input id="p-search" placeholder="Cari nama / kelas / TP..." style="flex:1; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px;">
-              <select id="p-filter-jenis" style="padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px;">
-                <option value="">Semua</option>
-                <option value="diagnostik">Diagnostik</option>
-                <option value="formatif">Formatif</option>
-                <option value="sumatif">Sumatif</option>
-              </select>
-            </div>
-            <div style="overflow:auto; max-height:70vh;">
-              <table style="width:100%; border-collapse:collapse; font-size:13px;">
-                <thead style="position:sticky; top:0; background:#f8fafc;"><tr><th style="padding:10px; text-align:left; border-bottom:1px solid #e2e8f0;">Siswa</th><th style="padding:10px; text-align:left; border-bottom:1px solid #e2e8f0;">Asesmen</th><th style="padding:10px; text-align:center; border-bottom:1px solid #e2e8f0;">Nilai</th><th style="padding:10px; text-align:left; border-bottom:1px solid #e2e8f0;">Deskripsi + PM</th><th style="padding:10px; border-bottom:1px solid #e2e8f0;">Aksi</th></tr></thead>
-                <tbody id="p-tbody"></tbody>
-              </table>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:15px;margin-top:15px;">
+          <div>
+            <label style="font-size:12px;font-weight:700;">🎯 TP (dari Master TP / RPM Spesifik)</label>
+            <select id="inpTP" class="form-control">
+              <option value="">-- Pilih TP dari Master Data --</option>
+            </select>
+            <input id="inpTPManual" placeholder="Atau ketik TP manual jika belum ada" class="form-control" style="margin-top:8px;display:none;">
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;">KKTP</label>
+            <input id="inpKKTP" type="number" value="70" class="form-control">
+            <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+              <label style="font-size:11px;background:#dbeafe;padding:4px 8px;border-radius:12px;"><input type="checkbox" id="pmSadar" checked> Sadar</label>
+              <label style="font-size:11px;background:#dcfce7;padding:4px 8px;border-radius:12px;"><input type="checkbox" id="pmMakna" checked> Makna</label>
+              <label style="font-size:11px;background:#fef9c3;padding:4px 8px;border-radius:12px;"><input type="checkbox" id="pmGembira" checked> Gembira</label>
             </div>
           </div>
+        </div>
+
+        <div style="margin-top:15px;background:#fffbeb;border-left:4px solid #f59e0b;padding:10px;border-radius:6px;font-size:12px;display:none;" id="infoSiswaBox">
+          ✅ Data siswa dimuat dari Firebase: <span id="infoSiswaCount">0</span> siswa. Klik angka nilai untuk edit langsung jika salah input.
+        </div>
+      </div>
+
+      <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <h4 style="margin:0 0 12px;">👥 Daftar Nilai Peserta Didik (Tarik dari Data Peserta Didik)</h4>
+        <div style="overflow:auto;">
+          <table class="siswa-table" id="tabelPenilaian">
+            <thead>
+              <tr>
+                <th style="width:40px;">No</th>
+                <th>Nama Peserta Didik</th>
+                <th style="width:120px;">Kelas</th>
+                <th style="width:130px;">Nilai (Klik untuk Edit)</th>
+                <th>Predikat & Tindak Lanjut PM</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPenilaian">
+              <tr><td colspan="5" style="padding:20px;color:#64748b;">Pilih Kelas terlebih dahulu (1/Fase A - 6/Fase C)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TOMBOL BAWAH: UNDUH, SIMPAN, EDIT -->
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
+          <button class="btn-action" id="btnSimpanPenilaian" style="background:#3b82f6;color:white;">💾 Simpan Penilaian</button>
+          <button class="btn-action" id="btnEditMode" style="background:#f59e0b;color:white;">✏️ Mode Edit: ON</button>
+          <button class="btn-action" id="btnUnduhPenilaian" style="background:#10b981;color:white;">⬇ Unduh Rekap (CSV)</button>
+          <button class="btn-action" id="btnExportWord" style="background:#8b5cf6;color:white;">📄 Export Word</button>
         </div>
       </div>
     </div>
-    <style>@media(max-width:900px){.penilaian-grid{grid-template-columns:1fr !important;}}</style>
-    `;
+  `;
+}
 
-    bindEvents(pesertaDidik, masterTP);
-    refresh();
-  }
+function attachEvents() {
+  document.getElementById('inpKelasPenilaian').addEventListener('change', function() {
+    const kelas = this.value;
+    if (kelas) loadSiswaPenilaian(kelas);
+  });
 
-  function bindEvents(pesertaDidik, masterTP) {
-    // Mapel manual toggle
-    document.getElementById('p-mapel')?.addEventListener('change', (e) => {
-      const manual = document.getElementById('p-mapel-manual');
-      if (e.target.value === '__manual__') manual.style.display = 'block';
-      else manual.style.display = 'none';
-
-      // Filter TP berdasarkan mapel
-      const tpSelect = document.getElementById('p-tp');
-      const selectedMapel = e.target.value;
-      tpSelect.innerHTML = `<option value="">-- Pilih TP --</option>` + masterTP
-        .filter(t => !selectedMapel || selectedMapel === '__manual__' || t.mapel === selectedMapel)
-        .map(t => `<option value="${t.tp}" data-mapel="${t.mapel}" data-cp="${t.cp.replace(/"/g,'&quot;')}">${t.mapel} - ${t.tp.substring(0,70)}...</option>`).join('') +
-        `<option value="__manual__">Input Manual...</option>`;
-    });
-
-    document.getElementById('p-tp')?.addEventListener('change', (e) => {
-      const manual = document.getElementById('p-tp-manual');
-      const preview = document.getElementById('p-cp-preview');
-      const opt = e.target.selectedOptions[0];
-      if (e.target.value === '__manual__') {
-        manual.style.display = 'block';
-        preview.style.display = 'none';
-      } else {
-        manual.style.display = 'none';
-        if (opt && opt.dataset.cp) {
-          preview.style.display = 'block';
-          preview.innerHTML = `<b>CP Terkait:</b> ${opt.dataset.cp}`;
-          // auto set mapel if belum
-          const mapelSel = document.getElementById('p-mapel');
-          if (mapelSel && !mapelSel.value) mapelSel.value = opt.dataset.mapel || '';
-        }
-      }
-    });
-
-    // Filter kelas -> filter siswa
-    document.getElementById('p-filter-kelas')?.addEventListener('change', (e) => {
-      const kelas = e.target.value;
-      const siswaSel = document.getElementById('p-siswa');
-      siswaSel.innerHTML = `<option value="">-- Pilih Siswa --</option>` + pesertaDidik
-        .filter(p => !kelas || p.kelas === kelas)
-        .map(p => `<option value="${p.nisn}" data-kelas="${p.kelas}" data-nama="${p.nama}">${p.nama} - ${p.kelas} (${p.nisn})</option>`).join('');
-    });
-
-    document.getElementById('p-simpan')?.addEventListener('click', handleSimpan);
-    document.getElementById('p-export')?.addEventListener('click', exportCSV);
-    document.getElementById('p-search')?.addEventListener('input', refreshTable);
-    document.getElementById('p-filter-jenis')?.addEventListener('change', refreshTable);
-    document.getElementById('p-bulk')?.addEventListener('click', handleBulk);
-  }
-
-  function handleSimpan() {
-    const jenis = document.getElementById('p-jenis').value;
-    let mapel = document.getElementById('p-mapel').value;
-    if (mapel === '__manual__' || !mapel) mapel = document.getElementById('p-mapel-manual').value.trim();
+  document.getElementById('inpMapelPenilaian').addEventListener('change', function() {
+    const mapel = this.value;
+    const tpSelect = document.getElementById('inpTP');
+    const master = getMasterTP();
+    const filtered = master.filter(t => !mapel || (t.mapel && t.mapel.toLowerCase().includes(mapel.toLowerCase())) || (t.mata_pelajaran && t.mata_pelajaran.toLowerCase().includes(mapel.toLowerCase())));
     
-    let tp = document.getElementById('p-tp').value;
-    if (tp === '__manual__' || !tp) tp = document.getElementById('p-tp-manual').value.trim();
+    tpSelect.innerHTML = '<option value="">-- Pilih TP --</option>';
+    if (filtered.length) {
+      filtered.forEach(t => {
+        const opt = document.createElement('option');
+        const tpText = t.tp || t.tujuan || t.deskripsi || '';
+        opt.value = tpText;
+        opt.textContent = tpText.substring(0,80) + '...';
+        tpSelect.appendChild(opt);
+      });
+    } else {
+      tpSelect.innerHTML += '<option value="__manual__">TP belum ada di Master, ketik manual</option>';
+    }
+  });
 
-    const kktp = parseInt(document.getElementById('p-kktp').value) || 70;
-    const nilai = parseInt(document.getElementById('p-nilai').value);
-    const nisn = document.getElementById('p-siswa').value;
+  document.getElementById('inpTP').addEventListener('change', function() {
+    const manual = document.getElementById('inpTPManual');
+    if (this.value === '__manual__' || this.value === '') manual.style.display = 'block';
+    else manual.style.display = 'none';
+  });
 
-    if (!nisn) return alert('Pilih Peserta Didik dulu! Data diambil dari Global-Monitoring > Data Peserta Didik');
-    if (!mapel || !tp || isNaN(nilai)) return alert('Lengkapi Mapel, TP (dari Master Data TP), dan Nilai');
+  document.getElementById('btnSimpanPenilaian').addEventListener('click', simpanPenilaian);
+  document.getElementById('btnUnduhPenilaian').addEventListener('click', unduhCSV);
+  document.getElementById('btnExportWord').addEventListener('click', exportWord);
+  document.getElementById('btnEditMode').addEventListener('click', toggleEditMode);
+}
 
-    const peserta = getDataPesertaDidik().find(p => p.nisn == nisn);
-    const pred = getPredikat(nilai, kktp);
-    let deskripsi = document.getElementById('p-deskripsi').value.trim();
-    const refleksi = document.getElementById('p-refleksi').value.trim();
+let editMode = true;
 
-    if (!deskripsi) {
-      deskripsi = `${peserta.nama} ${pred.label.toLowerCase()} dalam ${tp}. ${getTindak(pred.kode)}.`;
+function toggleEditMode() {
+  editMode = !editMode;
+  document.getElementById('btnEditMode').textContent = editMode ? '✏️ Mode Edit: ON' : '🔒 Mode Edit: OFF';
+  document.getElementById('btnEditMode').style.background = editMode ? '#f59e0b' : '#6b7280';
+  document.querySelectorAll('.nilai-cell').forEach(c => {
+    c.style.pointerEvents = editMode ? 'auto' : 'none';
+    c.style.opacity = editMode ? '1' : '0.6';
+  });
+}
+
+async function loadSiswaPenilaian(kelas) {
+  const tbody = document.getElementById('tbodyPenilaian');
+  tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;">⏳ Memuat data siswa kelas ' + kelas + ' dari Firebase...</td></tr>';
+
+  try {
+    const snapshot = await get(ref(database, `siswa/${kelas}`));
+    if (!snapshot.exists()) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;color:#ef4444;">⚠️ Belum ada data siswa untuk kelas ' + kelas + ' di Firebase. Isi dulu di Global Monitoring > Data Peserta Didik.</td></tr>';
+      return;
     }
 
-    const item = {
-      id: Date.now(),
-      tgl: new Date().toISOString().slice(0,10),
-      jenis, mapel, tp, kktp, nilai,
-      nisn, nama: peserta.nama, kelas: peserta.kelas,
-      ...pred,
-      deskripsi, refleksi,
-      prinsip: {
-        sadar: document.getElementById('p-sadar').checked,
-        makna: document.getElementById('p-makna').checked,
-        gembira: document.getElementById('p-gembira').checked,
-      },
-      tindak: getTindak(pred.kode)
-    };
+    const raw = snapshot.val();
+    const list = Object.keys(raw).map(k => ({ id: k, ...raw[k] })).sort((a,b) => (a.nama||'').localeCompare(b.nama||''));
+    dataSiswa = list;
 
-    const data = load();
-    data.unshift(item);
-    save(data);
-    document.getElementById('p-nilai').value = '';
-    document.getElementById('p-deskripsi').value = '';
-    document.getElementById('p-refleksi').value = '';
-    refresh();
-  }
+    document.getElementById('infoSiswaBox').style.display = 'block';
+    document.getElementById('infoSiswaCount').textContent = list.length;
 
-  function handleBulk() {
-    const kelas = document.getElementById('p-filter-kelas').value;
-    if (!kelas) return alert('Pilih Filter Kelas dulu di atas, baru bisa input massal 1 kelas!');
-    const peserta = getDataPesertaDidik().filter(p => p.kelas === kelas);
-    if (!peserta.length) return alert('Tidak ada siswa di kelas ' + kelas);
-    const nilai = prompt(`Input nilai massal untuk kelas ${kelas} (${peserta.length} siswa)\nFormat: nilai yang sama untuk semua, atau kosongkan untuk input satu-satu`);
-    if (nilai === null) return;
-    const mapel = document.getElementById('p-mapel').value || document.getElementById('p-mapel-manual').value;
-    const tp = document.getElementById('p-tp').value || document.getElementById('p-tp-manual').value;
-    if (!mapel || !tp) return alert('Pilih Mapel & TP dulu');
-    const data = load();
-    peserta.forEach(p => {
-      const n = parseInt(nilai) || 75;
-      const pred = getPredikat(n, parseInt(document.getElementById('p-kktp').value) || 70);
-      data.unshift({
-        id: Date.now() + Math.random(),
-        tgl: new Date().toISOString().slice(0,10),
-        jenis: document.getElementById('p-jenis').value,
-        mapel, tp, kktp: parseInt(document.getElementById('p-kktp').value)||70,
-        nilai: n, nisn: p.nisn, nama: p.nama, kelas: p.kelas, ...pred,
-        deskripsi: `${p.nama} ${pred.label.toLowerCase()} dalam ${tp}`,
-        refleksi: '', prinsip: {sadar:true, makna:true, gembira:true},
-        tindak: getTindak(pred.kode)
-      });
+    tbody.innerHTML = '';
+    list.forEach((siswa, idx) => {
+      const nama = (siswa.nama || 'Tanpa Nama').toUpperCase();
+      const tr = document.createElement('tr');
+      tr.dataset.nisn = siswa.nis || siswa.nisn || siswa.id;
+      tr.dataset.nama = nama;
+      tr.dataset.kelas = kelas;
+
+      // Cek apakah sudah ada penilaian sebelumnya
+      const existing = dataPenilaian.find(d => d.nisn == (siswa.nis || siswa.nisn) && d.kelas == kelas);
+      const nilaiAwal = existing ? existing.nilai : '';
+
+      tr.innerHTML = `
+        <td>${idx+1}</td>
+        <td class="nama-cell">${nama}</td>
+        <td>${kelas} / Fase ${kelas<=2?'A':kelas<=4?'B':'C'}</td>
+        <td class="nilai-cell" data-nilai="${nilaiAwal}" onclick="editNilai(this)">${nilaiAwal !== '' ? nilaiAwal : '<span style=color:#94a3b8;>Klik isi</span>'}</td>
+        <td class="predikat-cell" style="font-size:12px;">${existing ? getPredikatLabel(existing.nilai, existing.kktp) : '-'}</td>
+      `;
+      tbody.appendChild(tr);
     });
-    save(data);
-    refresh();
-    alert(`Berhasil input ${peserta.length} siswa kelas ${kelas}`);
+
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = '<tr><td colspan="5" style="color:#ef4444;">Gagal memuat: ' + err.message + '</td></tr>';
   }
+}
 
-  function refresh() { renderStats(); refreshTable(); }
+function getPredikatLabel(nilai, kktp=70) {
+  if (nilai >= 90) return '<span style="background:#dcfce7;color:#166534;padding:4px 8px;border-radius:12px;font-size:11px;">BSB - Sangat Baik</span> <span style="font-size:11px;">Tutor sebaya</span>';
+  if (nilai >= 80) return '<span style="background:#dbeafe;color:#1e40af;padding:4px 8px;border-radius:12px;font-size:11px;">BSH - Sesuai Harapan</span> <span style="font-size:11px;">Pengayaan joyful</span>';
+  if (nilai >= kktp) return '<span style="background:#fef9c3;color:#854d0e;padding:4px 8px;border-radius:12px;font-size:11px;">MB - Mulai Berkembang</span> <span style="font-size:11px;">Penguatan bermakna</span>';
+  return '<span style="background:#fee2e2;color:#991b1b;padding:4px 8px;border-radius:12px;font-size:11px;">BB - Belum Berkembang</span> <span style="font-size:11px;">Remedial mindful</span>';
+}
 
-  function renderStats() {
-    const data = load();
-    const el = document.getElementById('p-stats');
-    if (!el) return;
-    const total = data.length;
-    const avg = total ? (data.reduce((a,b)=>a+b.nilai,0)/total).toFixed(1) : 0;
-    el.innerHTML = `
-      <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:12px;"><div style="font-size:11px;">Rata-rata</div><div style="font-size:20px; font-weight:800;">${avg}</div></div>
-      <div style="background:white; border:1px solid #e2e8f0; padding:12px; border-radius:12px;"><div style="font-size:11px;">Total</div><div style="font-size:20px; font-weight:800;">${total}</div></div>
-      <div style="background:#fefce8; border:1px solid #fde68a; padding:12px; border-radius:12px;"><div style="font-size:11px;">BB/MB</div><div style="font-size:20px; font-weight:800;">${data.filter(d=>['BB','MB'].includes(d.kode)).length}</div></div>
-      <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:12px;"><div style="font-size:11px;">BSB</div><div style="font-size:20px; font-weight:800;">${data.filter(d=>d.kode==='BSB').length}</div></div>
-    `;
+window.editNilai = function(td) {
+  if (!editMode) return;
+  if (td.querySelector('input')) return; // sudah edit
+
+  const current = td.dataset.nilai || '';
+  td.classList.add('editing');
+  td.innerHTML = `<input type="number" min="0" max="100" value="${current}" style="width:70px;padding:6px;text-align:center;border:2px solid #2563eb;border-radius:6px;" onblur="selesaiEdit(this)" onkeydown="if(event.key==='Enter') this.blur()" autofocus>`;
+
+  const input = td.querySelector('input');
+  input.focus();
+  input.select();
+};
+
+window.selesaiEdit = function(input) {
+  const td = input.parentElement;
+  let val = parseInt(input.value);
+  if (isNaN(val) || input.value === '') {
+    td.dataset.nilai = '';
+    td.innerHTML = '<span style=color:#94a3b8;>Klik isi</span>';
+    td.nextElementSibling.innerHTML = '-';
+  } else {
+    if (val < 0) val = 0; if (val > 100) val = 100;
+    td.dataset.nilai = val;
+    td.innerHTML = val;
+    const kktp = parseInt(document.getElementById('inpKKTP').value) || 70;
+    td.nextElementSibling.innerHTML = getPredikatLabel(val, kktp);
   }
+  td.classList.remove('editing');
+};
 
-  function refreshTable() {
-    const tbody = document.getElementById('p-tbody');
-    if (!tbody) return;
-    let data = load();
-    const q = (document.getElementById('p-search')?.value || '').toLowerCase();
-    const f = (document.getElementById('p-filter-jenis')?.value || '').toLowerCase();
-    if (q) data = data.filter(d => `${d.nama} ${d.kelas} ${d.tp} ${d.mapel}`.toLowerCase().includes(q));
-    if (f) data = data.filter(d => d.jenis.includes(f));
-    if (!data.length) { tbody.innerHTML = `<tr><td colspan="5" style="padding:30px; text-align:center; color:#94a3b8;">Belum ada data penilaian</td></tr>`; return; }
-    tbody.innerHTML = data.map(d => `
-      <tr>
-        <td style="padding:10px; border-bottom:1px solid #f1f5f9;"><b>${d.nama}</b><br><span style="font-size:11px; color:#64748b;">${d.kelas} • ${d.nisn} • ${d.tgl}</span></td>
-        <td style="padding:10px; border-bottom:1px solid #f1f5f9;"><span style="background:#f1f5f9; padding:3px 8px; border-radius:20px; font-size:11px;">${d.jenis}</span><br><b style="font-size:12px;">${d.mapel}</b><br><span style="font-size:11px;">${d.tp.substring(0,80)}...</span></td>
-        <td style="padding:10px; text-align:center; border-bottom:1px solid #f1f5f9;"><div style="width:38px; height:38px; border-radius:50%; background:${d.color}; color:white; display:flex; align-items:center; justify-content:center; font-weight:800; margin:0 auto;">${d.nilai}</div><div style="font-size:11px; font-weight:700; color:${d.color};">${d.kode}</div></td>
-        <td style="padding:10px; border-bottom:1px solid #f1f5f9; max-width:300px;"><div style="font-size:12px;">${d.deskripsi}</div><div style="font-size:11px; background:#f8fafc; padding:4px 6px; border-radius:6px; margin-top:4px;">↳ ${d.tindak}</div></td>
-        <td style="padding:10px; border-bottom:1px solid #f1f5f9;"><button onclick="window.hapusPenilaian(${d.id})" style="border:1px solid #fecaca; color:#dc2626; background:white; padding:6px 10px; border-radius:6px; cursor:pointer;">Hapus</button></td>
-      </tr>
-    `).join('');
-  }
+function simpanPenilaian() {
+  const kelas = document.getElementById('inpKelasPenilaian').value;
+  let mapel = document.getElementById('inpMapelPenilaian').value;
+  let tp = document.getElementById('inpTP').value;
+  const tpManual = document.getElementById('inpTPManual').value.trim();
+  if (tp === '__manual__' || !tp) tp = tpManual;
+  const kktp = parseInt(document.getElementById('inpKKTP').value) || 70;
+  const jenis = document.getElementById('inpJenisPenilaian').value;
 
-  function exportCSV() {
-    const data = load();
-    if (!data.length) return alert('Belum ada data');
-    const header = ['Tgl','NISN','Nama','Kelas','Jenis','Mapel','TP','KKTP','Nilai','Predikat','Deskripsi','Tindak'];
-    const rows = data.map(d => [d.tgl,d.nisn,`"${d.nama}"`,d.kelas,d.jenis,`"${d.mapel}"`,`"${d.tp.replace(/"/g,'""')}"`,d.kktp,d.nilai,d.kode,`"${d.deskripsi.replace(/"/g,'""')}"`,`"${d.tindak}"`].join(','));
-    const csv = [header.join(','), ...rows].join('\n');
-    const blob = new Blob([csv], {type:'text/csv'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Penilaian_${new Date().toISOString().slice(0,10)}.csv`; a.click();
-  }
+  if (!kelas || !mapel) return alert('Pilih Kelas (1/Fase A - 6/Fase C) dan Mapel dari data-mapel.js dulu!');
+  if (!tp) return alert('Pilih TP dari Master TP atau ketik manual!');
 
-  window.hapusPenilaian = (id) => {
-    if (!confirm('Hapus?')) return;
-    let data = load(); data = data.filter(d=>d.id!==id); save(data); refresh();
-  };
+  const rows = document.querySelectorAll('#tbodyPenilaian tr');
+  let count = 0;
+  rows.forEach(row => {
+    const nisn = row.dataset.nisn;
+    const nama = row.dataset.nama;
+    const nilaiCell = row.querySelector('.nilai-cell');
+    const nilai = parseInt(nilaiCell?.dataset.nilai);
+    if (isNaN(nilai)) return;
 
-  window.renderPenilaian = render;
-  window.Penilaian = { render };
+    // hapus data lama untuk nisn + mapel + tp yang sama
+    dataPenilaian = dataPenilaian.filter(d => !(d.nisn == nisn && d.mapel == mapel && d.tp == tp));
 
-  // Auto render
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('fitur') === 'penilaian') {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
-    else setTimeout(render, 300);
-  }
+    dataPenilaian.push({
+      id: Date.now() + Math.random(),
+      tgl: new Date().toISOString().slice(0,10),
+      nisn, nama, kelas,
+      mapel, tp, kktp, jenis,
+      nilai,
+      prinsip: {
+        sadar: document.getElementById('pmSadar').checked,
+        makna: document.getElementById('pmMakna').checked,
+        gembira: document.getElementById('pmGembira').checked
+      }
+    });
+    count++;
+  });
 
-  console.log('✅ penilaian.js REVISI sinkron Global-Monitoring + Master TP loaded');
-})();
+  if (count === 0) return alert('Belum ada nilai yang diisi! Klik kolom nilai untuk edit.');
+
+  localStorage.setItem('sdn139_penilaian_final', JSON.stringify(dataPenilaian));
+
+  // Simpan juga ke Firebase untuk backup (opsional)
+  try {
+    set(ref(database, `penilaian/${kelas}/${mapel.replace(/\s+/g,'_')}_${Date.now()}`), {
+      mapel, tp, kelas, kktp, jenis,
+      jumlah: count,
+      tanggal: new Date().toISOString(),
+      data: dataPenilaian.filter(d => d.kelas == kelas && d.mapel == mapel).slice(-count)
+    });
+  } catch (e) { console.log('Firebase save skip', e); }
+
+  alert(`✅ ${count} data penilaian berhasil disimpan! (Sinkron dengan KKTP)`);
+}
+
+function unduhCSV() {
+  if (!dataPenilaian.length) return alert('Belum ada data penilaian!');
+  const header = ['Tanggal','NISN','Nama','Kelas','Fase','Mapel','TP','Jenis','KKTP','Nilai','Predikat','Prinsip PM'];
+  const rows = dataPenilaian.map(d => {
+    const fase = d.kelas<=2?'Fase A':d.kelas<=4?'Fase B':'Fase C';
+    const pred = d.nilai>=90?'BSB':d.nilai>=80?'BSH':d.nilai>=d.kktp?'MB':'BB';
+    const prinsip = `${d.prinsip?.sadar?'Sadar ':''}${d.prinsip?.makna?'Makna ':''}${d.prinsip?.gembira?'Gembira':''}`.trim();
+    return [d.tgl,d.nisn,`"${d.nama}"`,`${d.kelas} / ${fase}`,fase,`"${d.mapel}"`,`"${d.tp.replace(/"/g,'""')}"`,d.jenis,d.kktp,d.nilai,pred,`"${prinsip}"`].join(',');
+  });
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Penilaian_KurMer_Fase_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+}
+
+function exportWord() {
+  if (!dataPenilaian.length) return alert('Belum ada data!');
+  const kelas = document.getElementById('inpKelasPenilaian').value || 'Semua';
+  const mapel = document.getElementById('inpMapelPenilaian').value || 'Semua Mapel';
+  
+  let table = '<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;font-family:Times;"><tr><th>No</th><th>NISN</th><th>Nama</th><th>Kelas</th><th>Nilai</th><th>Predikat</th><th>TP</th></tr>';
+  dataPenilaian.filter(d => kelas=='Semua' || d.kelas==kelas).forEach((d,i)=>{
+    const pred = d.nilai>=90?'BSB':d.nilai>=80?'BSH':d.nilai>=d.kktp?'MB':'BB';
+    table+=`<tr><td>${i+1}</td><td>${d.nisn}</td><td>${d.nama}</td><td>${d.kelas} / ${d.kelas<=2?'A':d.kelas<=4?'B':'C'}</td><td>${d.nilai}</td><td>${pred}</td><td>${d.tp}</td></tr>`;
+  });
+  table+='</table>';
+
+  const html = `<html><head><meta charset="utf-8"></head><body><h2 style="text-align:center;">REKAP PENILAIAN KURIKULUM MERDEKA</h2><p>Kelas: ${kelas} | Mapel: ${mapel}</p>${table}</body></html>`;
+  const blob = new Blob(['\ufeff', html], {type:'application/msword'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Penilaian_${mapel}_${kelas}.doc`; a.click();
+}
+
+// Agar kompatibel dengan loader lama yang pakai window.render
+window.renderPenilaian = (container) => init(container);
+window.Penilaian = { init };
