@@ -82,7 +82,7 @@ const MENU_ITEMS = [
     icon: '📆', 
     title: 'Kalender Pendidikan', 
     path: './features/kalender.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'jadwal', 
