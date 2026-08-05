@@ -15,6 +15,13 @@ export const konfigurasiFitur = {
       icon: 'https://portal.simpkb.id/favicon.ico',
       link: 'modules/simpkb.html',
       isExternal: true
+    },
+    // ✨ TAMBAHAN BARU: Data Perpustakaan ✨
+    { 
+      nama: 'Data Perpustakaan', 
+      icon: '📚', // Anda bisa menggantinya dengan URL favicon jika ada (misal: 'https://data.perpusnas.go.id/favicon.ico')
+      link: 'https://data.perpusnas.go.id/login',
+      isExternal: true
     }
   ],
   
@@ -52,7 +59,7 @@ export const konfigurasiFitur = {
     { nama: 'Pembuat Kisi-kisi', icon: '📋', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=kisi-kisi' },
     { nama: 'coming-soon', icon: '📝', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=coming-soon' },
     { nama: 'RPM Spesifik', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=rpm-spesifik' },
-      { nama: 'Bantuan AI', icon: '🤖', link: 'modules/bantuan-ai/bantuan-ai.html' }
+    { nama: 'Bantuan AI', icon: '🤖', link: 'modules/bantuan-ai/bantuan-ai.html' }
   ],
   
   // ⏳ PLACEHOLDER (Belum ada implementasi)
