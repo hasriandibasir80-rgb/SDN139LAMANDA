@@ -114,7 +114,7 @@ function renderAbsensiUI(container) {
         <div class="form-row">
           <div class="form-group">
             <label>📅 Tahun Pelajaran</label>
-            <input type="text" id="tahunPelajaran" class="form-control" placeholder="2026/2027">
+            <input type="text" id="tahunPelajaran" class="form-control" placeholder="2026-2027">
           </div>
           <div class="form-group">
             <label>🏫 Kelas</label>
@@ -206,6 +206,9 @@ function renderAbsensiUI(container) {
     </div>
   `;
 
+  // ⭐ ISI DEFAULT TANGGAL OTOMATIS
+  setDefaultTanggal();
+
   // Tambah 5 baris kosong default
   for (let i = 0; i < 5; i++) {
     tambahBarisSiswa();
@@ -219,8 +222,42 @@ function generateTanggalHeaders() {
 }
 
 /**
- * ⭐ FUNGSI 1 YANG DI-UPDATE: TAMBAH BARIS SISWA
- * Tambah parameter siswaId untuk sinkronisasi
+ * ⭐ FUNGSI BARU: Mengisi default Tahun Pelajaran, Bulan, dan Tahun
+ * Berdasarkan tanggal saat ini (sistem waktu lokal)
+ */
+function setDefaultTanggal() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth(); // 0 (Jan) - 11 (Des)
+
+  const bulanIndonesia = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+
+  const currentBulan = bulanIndonesia[currentMonthIndex];
+
+  // Logika Tahun Pelajaran:
+  // Juli - Desember → tahun ini / tahun+1 (misal: 2026-2027)
+  // Januari - Juni  → tahun lalu / tahun ini (misal: 2025-2026)
+  let tpStart = currentYear;
+  if (currentMonthIndex < 6) { // Sebelum Juli
+    tpStart = currentYear - 1;
+  }
+  const tahunPelajaran = `${tpStart}-${tpStart + 1}`;
+
+  // Isi nilai ke form
+  const elTahunPelajaran = document.getElementById('tahunPelajaran');
+  const elPilihBulan = document.getElementById('pilihBulan');
+  const elPilihTahun = document.getElementById('pilihTahun');
+
+  if (elTahunPelajaran) elTahunPelajaran.value = tahunPelajaran;
+  if (elPilihBulan) elPilihBulan.value = currentBulan;
+  if (elPilihTahun) elPilihTahun.value = currentYear;
+}
+
+/**
+ * ⭐ FUNGSI: TAMBAH BARIS SISWA
  */
 function tambahBarisSiswa(nama = '', lp = 'L', absensiData = {}, siswaId = null) {
   const tabelBody = document.getElementById('tabelBody');
@@ -228,7 +265,6 @@ function tambahBarisSiswa(nama = '', lp = 'L', absensiData = {}, siswaId = null)
 
   const row = document.createElement('tr');
   
-  // ⭐ Simpan siswaId di data attribute untuk sinkronisasi
   if (siswaId) {
     row.dataset.siswaId = siswaId;
   }
@@ -331,26 +367,50 @@ function updateNomorUrut() {
   });
 }
 
+/**
+ * ⭐ FUNGSI YANG DIPERBARUI: Event Listeners dengan Auto-Load
+ */
 function attachEventListeners(container) {
   const loadBtn = container.querySelector('#loadBtn');
   const addRowBtn = container.querySelector('#addRowBtn');
   const saveBtn = container.querySelector('#saveBtn');
   const resetBtn = container.querySelector('#resetBtn');
   const printBtn = container.querySelector('#printBtn');
+  
+  const pilihKelas = container.querySelector('#pilihKelas');
+  const pilihBulan = container.querySelector('#pilihBulan');
+  const pilihTahun = container.querySelector('#pilihTahun');
+  const tahunPelajaran = container.querySelector('#tahunPelajaran');
 
+  // Event tombol manual
   if (loadBtn) loadBtn.addEventListener('click', loadDataAbsensi);
   if (addRowBtn) addRowBtn.addEventListener('click', () => tambahBarisSiswa());
   if (saveBtn) saveBtn.addEventListener('click', simpanAbsensi);
   if (resetBtn) resetBtn.addEventListener('click', resetAbsensi);
   if (printBtn) printBtn.addEventListener('click', () => window.print());
+
+  // ⭐ Fungsi bantuan: Auto-load jika kelas sudah dipilih
+  const autoLoadJikaKelasTerpilih = () => {
+    if (pilihKelas && pilihKelas.value !== "") {
+      loadDataAbsensi();
+    }
+  };
+
+  // ⭐ Event listeners otomatis untuk semua filter
+  if (pilihKelas) pilihKelas.addEventListener('change', autoLoadJikaKelasTerpilih);
+  if (pilihBulan) pilihBulan.addEventListener('change', autoLoadJikaKelasTerpilih);
+  if (pilihTahun) pilihTahun.addEventListener('change', autoLoadJikaKelasTerpilih);
+  
+  // Untuk input teks Tahun Pelajaran, gunakan 'change' (fire saat blur/enter)
+  if (tahunPelajaran) tahunPelajaran.addEventListener('change', autoLoadJikaKelasTerpilih);
 }
 
 /**
- * ⭐ FUNGSI 2 YANG DI-UPDATE: LOAD DATA ABSENSI
- * Kirim siswaId ke tambahBarisSiswa untuk sinkronisasi
+ * ⭐ FUNGSI YANG DIPERBARUI: LOAD DATA ABSENSI
+ * Dengan sanitasi Tahun Pelajaran
  */
 async function loadDataAbsensi() {
-  const tahunPelajaran = document.getElementById('tahunPelajaran').value;
+  let tahunPelajaran = document.getElementById('tahunPelajaran').value;
   const kelas = document.getElementById('pilihKelas').value;
   const bulan = document.getElementById('pilihBulan').value;
   const tahun = document.getElementById('pilihTahun').value;
@@ -359,6 +419,10 @@ async function loadDataAbsensi() {
     showInfo('⚠️ Mohon lengkapi Tahun Pelajaran, Kelas, Bulan, dan Tahun terlebih dahulu!');
     return;
   }
+
+  // ⭐ SANITASI: Ganti '/' dengan '-' agar aman untuk path Firebase
+  tahunPelajaran = tahunPelajaran.replace(/\//g, '-');
+  document.getElementById('tahunPelajaran').value = tahunPelajaran;
 
   showLoading(true);
   hideError();
@@ -397,7 +461,7 @@ async function loadDataAbsensi() {
     if (siswaSnapshot.exists()) {
       const siswaData = siswaSnapshot.val();
       const siswaList = Object.keys(siswaData).map(id => ({ 
-        id,  // ⭐ Simpan ID asli dari database
+        id,
         ...siswaData[id] 
       }));
       siswaList.sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
@@ -410,17 +474,16 @@ async function loadDataAbsensi() {
           }
         });
         
-        // ⭐ Kirim siswa.id ke tambahBarisSiswa
         tambahBarisSiswa(
           siswa.nama, 
           siswa.jenisKelamin || 'L', 
           absensiSiswa,
-          siswa.id  // ⭐ BARIS BARU: kirim ID asli
+          siswa.id
         );
         jumlahSiswa++;
       });
     } else {
-      // Jika belum ada data siswa di RTDB, sediakan 5 baris kosong untuk input manual
+      // Jika belum ada data siswa di RTDB, sediakan 5 baris kosong
       for (let i = 0; i < 5; i++) tambahBarisSiswa();
       showInfo('ℹ️ Belum ada data siswa di database untuk kelas ini. Silakan input manual lalu Simpan.');
     }
@@ -450,11 +513,11 @@ async function loadDataAbsensi() {
 }
 
 /**
- * ⭐ FUNGSI 3 YANG DI-UPDATE: SIMPAN ABSENSI
- * Gunakan ID yang sudah ada, tidak buat duplikat
+ * ⭐ FUNGSI YANG DIPERBARUI: SIMPAN ABSENSI
+ * Dengan sanitasi Tahun Pelajaran
  */
 async function simpanAbsensi() {
-  const tahunPelajaran = document.getElementById('tahunPelajaran').value;
+  let tahunPelajaran = document.getElementById('tahunPelajaran').value;
   const kelas = document.getElementById('pilihKelas').value;
   const bulan = document.getElementById('pilihBulan').value;
   const tahun = document.getElementById('pilihTahun').value;
@@ -467,6 +530,10 @@ async function simpanAbsensi() {
   }
 
   if (!confirm('Yakin ingin menyimpan data absensi ini ke database?')) return;
+
+  // ⭐ SANITASI: Ganti '/' dengan '-' agar aman untuk path Firebase
+  tahunPelajaran = tahunPelajaran.replace(/\//g, '-');
+  document.getElementById('tahunPelajaran').value = tahunPelajaran;
 
   showLoading(true);
 
@@ -494,14 +561,11 @@ async function simpanAbsensi() {
       const lp = lpSelect.value;
 
       if (nama) {
-        // ⭐ PERBAIKAN: Gunakan ID yang sudah ada dari data attribute
         let siswaId = row.dataset.siswaId;
         
-        // Jika baris ini siswa baru (belum punya ID), buat ID baru
         if (!siswaId) {
           siswaId = `siswa_${kelas}_${Date.now()}_${index}`;
           
-          // ⭐ HANYA simpan siswa baru ke database (tidak duplikasi)
           updates[`siswa/${kelas}/${siswaId}`] = {
             nama: nama,
             jenisKelamin: lp,
