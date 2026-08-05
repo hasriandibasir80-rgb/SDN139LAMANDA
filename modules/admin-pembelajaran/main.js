@@ -33,7 +33,7 @@ const MENU_ITEMS = [
     icon: '🗓️', 
     title: 'Program Semester', 
     path: './features/promes.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'lckh',
