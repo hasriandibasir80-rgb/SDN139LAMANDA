@@ -131,7 +131,7 @@ const MENU_ITEMS = [
     icon: '📝', 
     title: 'BANK RPM', 
     path: './features/bank-rpm.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'rpm-spesifik', 
