@@ -57,7 +57,7 @@ export const konfigurasiFitur = {
     { nama: 'Penilaian', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=penilaian' },
     { nama: 'Pembuat Soal', icon: '✍️', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=pembuat-soal' },
     { nama: 'Pembuat Kisi-kisi', icon: '📋', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=kisi-kisi' },
-    { nama: 'coming-soon', icon: '📝', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=coming-soon' },
+    { nama: 'BANK RPM', icon: '📝', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=bank-rpm' },
     { nama: 'RPM Spesifik', icon: '', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=rpm-spesifik' },
     { nama: 'Bantuan AI', icon: '🤖', link: 'modules/bantuan-ai/bantuan-ai.html' }
   ],
