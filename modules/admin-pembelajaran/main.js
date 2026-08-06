@@ -127,10 +127,10 @@ const MENU_ITEMS = [
     status: 'ready'
   },
   { 
-    id: 'coming-soon', 
+    id: 'Bank RPM', 
     icon: '📝', 
-    title: 'comong-soon', 
-    path: './features/rpm-standar.js',
+    title: 'BANK RPM', 
+    path: './features/bank-rpm.js',
     status: 'soon'
   },
   { 
