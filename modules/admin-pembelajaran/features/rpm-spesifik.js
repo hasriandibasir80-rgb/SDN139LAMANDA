@@ -3,10 +3,10 @@
 // FITUR: RPM SPESIFIK (Rencana Pembelajaran Mendalam)
 // TEMPLATE KHUSUS PER METODE PEMBELAJARAN
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
-// UPDATE: 3 Opsi untuk CP & TP dengan Fuzzy Matching (seperti LKPD)
-// REVISI (sesuai perintah): (1) nama siswa ikut di Export Word,
-// (2) CP/TP Master Data via checklist (hanya tercentang masuk output),
-// (3) tombol Simpan tidak memicu Reset.
+// REVISI FINAL:
+//  (1) Nama siswa ikut di Export Word & bertahan saat Generate AI
+//  (2) CP/TP Master Data via checklist (hanya tercentang masuk output)
+//  (3) Tombol Simpan tidak memicu Reset
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -27,28 +27,22 @@ const CSS_ID = 'rpm-spesifik-css';
 let currentEditId = null;
 let dataMapel = [];
 
-// Helper: Ambil nilai Tema & Sub Tema (pengganti Topik/Materi)
-
 // ⭐ FIX FINAL: Normalisasi mapel agar paibd == PAI & budi pekerti dll tetap match
 function normalizeMapelId(str) {
   if (!str) return '';
   const s = str.toLowerCase().trim();
-  // Cari di dataMapel global
   for (const m of dataMapel) {
     const id = (m.id||'').toLowerCase();
     const nama = (m.nama||'').toLowerCase();
     const sing = (m.singkatan||'').toLowerCase();
     if (s === id || s === nama || s === sing) return id;
     if (nama.includes(s) || s.includes(nama) || s.includes(id) || id.includes(s) || sing.includes(s) || s.includes(sing)) {
-      // untuk kasus paibd
       if (id === 'paibd' && (s.includes('pabp') || s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti'))) return 'paibd';
       if (s.length > 3) {
-        // kembalikan id yang paling cocok
         if (nama.includes(s) || s.includes(id)) return id;
       }
     }
   }
-  // fallback khusus
   if (s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti') || s === 'paibd') return 'paibd';
   return s;
 }
@@ -60,26 +54,22 @@ function isMapelMatch(dbMapel, inputMapel) {
   if (db === inp) return true;
   const dbL = dbMapel.toLowerCase();
   const inL = inputMapel.toLowerCase();
-  // fuzzy includes
   return dbL.includes(inL) || inL.includes(dbL) || db.includes(inp) || inp.includes(db);
 }
 
 function isTopikMatch(dbTopik, inputTopik) {
-  if (!dbTopik || !inputTopik) return true; // jika salah satu kosong, anggap match untuk CP
+  if (!dbTopik || !inputTopik) return true;
   const db = dbTopik.toLowerCase();
   const inp = inputTopik.toLowerCase();
   if (db.includes(inp) || inp.includes(db)) return true;
-  // token matching > 3 huruf
   const dbWords = db.split(/\s+/).filter(w=>w.length>3);
   const inpWords = inp.split(/\s+/).filter(w=>w.length>3);
-  // jika ada 1 kata penting yang sama, anggap match (untuk handle typo al-quan vs alquran)
   for (const w of inpWords) {
     if (db.includes(w)) return true;
   }
   for (const w of dbWords) {
     if (inp.includes(w)) return true;
   }
-  // khusus alquran
   if ((db.includes('alquran') || db.includes('al-quran') || db.includes('alquan')) && (inp.includes('alquran') || inp.includes('al-quran') || inp.includes('alquan') || inp.includes('quran') || inp.includes('kitabku'))) return true;
   return false;
 }
@@ -93,7 +83,6 @@ function getTemaSubTema(container) {
   const searchCombined = [tema, subTema].filter(Boolean).join(' ').trim();
   return { tema, subTema, combined, searchCombined };
 }
-
 
 // Default Tanda Tangan
 const DEFAULT_TTD = {
@@ -341,7 +330,7 @@ function renderUI(container) {
               <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
             </div>
             <div class="rpm-form-group">
-              <label>👩‍🏫 Nama Guru</label>
+              <label>👩‍ Nama Guru</label>
               <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
           </div>
@@ -560,7 +549,7 @@ function renderUI(container) {
         <div class="rpm-section">
           <h3 class="rpm-section-title"> 7. Refleksi</h3>
           <div class="rpm-form-group">
-            <label>🧑‍🏫 Refleksi Guru</label>
+            <label>🧑‍ Refleksi Guru</label>
             <textarea id="rpm-refleksi-guru" class="rpm-form-control" rows="2"></textarea>
           </div>
           <div class="rpm-form-group">
@@ -599,7 +588,7 @@ function renderUI(container) {
           </div>
           <div class="rpm-form-grid">
             <div class="rpm-form-group">
-              <label>👩‍🏫 Nama Guru Pengampu</label>
+              <label>👩‍ Nama Guru Pengampu</label>
               <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
             </div>
             <div class="rpm-form-group">
@@ -776,7 +765,7 @@ function debouncedAutoLoad(container) {
 }
 
 // ============================================
-// ⭐ FITUR BARU: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
+// ⭐ FITUR: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
 // Untuk bagian 2. Analisis Kesiapan Murid
 // ============================================
 
@@ -987,7 +976,6 @@ async function loadMasterCP(container) {
   btn.textContent = '⏳ Memuat...';
 
   try {
-    // Query hanya berdasarkan userId untuk menghindari index issue
     const q = query(
       collection(db, 'data_cp'),
       where('userId', '==', currentUser.uid)
@@ -1008,7 +996,6 @@ async function loadMasterCP(container) {
           if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
             data.elemen_cp.forEach((elemen) => {
               const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
-              // Deduplikasi CP berdasarkan teks
               if (items.some(i => i.value === cpText)) return;
               items.push({ value: cpText, label: `${elemen.elemen} — ${elemen.deskripsi}`, docId: docSnap.id });
             });
@@ -1120,7 +1107,6 @@ async function loadMasterTP(container) {
   btn.textContent = '⏳ Memuat...';
 
   try {
-    // Query hanya berdasarkan userId untuk menghindari index issue
     const q = query(
       collection(db, 'data_tp'),
       where('userId', '==', currentUser.uid)
@@ -1141,7 +1127,6 @@ async function loadMasterTP(container) {
         if (matchMapel && matchKelas && matchTopik) {
           if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
             data.tujuan_pembelajaran.forEach((tp) => {
-              // Deduplikasi TP berdasarkan teks yang sama
               if (items.some(i => i.value === tp)) return;
               items.push({ value: tp, label: data.topik ? `${tp} (${data.topik})` : tp, docId: docSnap.id });
             });
@@ -1460,12 +1445,21 @@ PENTING:
     if (parsed.sarana_prasarana) container.querySelector('#rpm-sarana-prasarana').value = parsed.sarana_prasarana;
 
     if (parsed.analisis_kesiapan) {
-      container.querySelector('#rpm-belum-siap').value = parsed.analisis_kesiapan.belum_siap || '';
-      container.querySelector('#rpm-siap').value = parsed.analisis_kesiapan.siap || '';
-      container.querySelector('#rpm-mahir').value = parsed.analisis_kesiapan.mahir || '';
+      // ⭐ REVISI #1: amankan baris "Nama: ..." hasil tombol hijau SEBELUM ditimpa AI
+      const ambil = (id) => {
+        const v = container.querySelector(id)?.value || '';
+        const m = v.match(/^Nama:[^\n]*/m);
+        return m ? m[0].trim() : '';
+      };
+      const nB = ambil('#rpm-belum-siap');
+      const nS = ambil('#rpm-siap');
+      const nM = ambil('#rpm-mahir');
+      const gabung = (n, t) => n ? `${n}\n${t || ''}` : (t || '');
+      container.querySelector('#rpm-belum-siap').value = gabung(nB, parsed.analisis_kesiapan.belum_siap);
+      container.querySelector('#rpm-siap').value = gabung(nS, parsed.analisis_kesiapan.siap);
+      container.querySelector('#rpm-mahir').value = gabung(nM, parsed.analisis_kesiapan.mahir);
     }
     if (parsed.cp) {
-      // Jika ada CP dari AI, tampilkan di area yang sesuai dengan metode aktif
       const activeCPMethod = container.querySelector('input[name="cpMethod"]:checked').value;
       if (activeCPMethod === 'ai') {
         container.querySelector('#inpCpAI').value = parsed.cp;
@@ -1474,7 +1468,6 @@ PENTING:
       }
     }
     if (parsed.tujuan_pembelajaran) {
-      // Jika ada TP dari AI, tampilkan di area yang sesuai dengan metode aktif
       const activeTPMethod = container.querySelector('input[name="tpMethod"]:checked').value;
       if (activeTPMethod === 'ai') {
         container.querySelector('#inpTujuanAI').value = parsed.tujuan_pembelajaran.join('\n');
@@ -1659,7 +1652,7 @@ async function handleSimpan(container) {
     }
     
     saveTTDDefaults();
-    // ⭐ REVISI #3: TIDAK auto-reset setelah simpan (baris #btn-reset.click() dihapus)
+    // ⭐ REVISI #3: TIDAK auto-reset setelah simpan
   } catch (error) {
     console.error('Error saving:', error);
     showToast('❌ Gagal menyimpan: ' + error.message, 'error');
@@ -1669,7 +1662,6 @@ async function handleSimpan(container) {
 function loadRPMList(container) {
   const listContainer = container.querySelector('#rpm-list-container');
   
-  // Query sederhana tanpa orderBy untuk menghindari index issue
   const q = query(
     collection(db, 'rpm_data'),
     where('userId', '==', currentUser.uid),
@@ -1682,7 +1674,6 @@ function loadRPMList(container) {
       return;
     }
 
-    // Sort manually by createdAt
     const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
     docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
@@ -1734,7 +1725,6 @@ window.editRPM = async function(id) {
     
     document.querySelector('#rpm-metode').dispatchEvent(new Event('change'));
 
-    // Load data Target & Sarana
     document.querySelector('#rpm-target-peserta-didik').value = d.target_peserta_didik || '';
     document.querySelector('#rpm-sarana-prasarana').value = d.sarana_prasarana || '';
 
