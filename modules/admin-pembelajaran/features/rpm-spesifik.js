@@ -205,30 +205,53 @@ async function loadGroqApiKey() {
 }
 
 async function loadMataPelajaran() {
-  const possiblePaths = [
-    '../../../assets/data-mapel.json',
-    '/SDN139LAMANDA/assets/data-mapel.json',
-    '/assets/data-mapel.json',
-    './assets/data-mapel.json',
-    '../assets/data-mapel.json',
-    '../../assets/data-mapel.json'
-  ];
-  
+  const origin = window.location.origin;
+  const pathname = window.location.pathname;
+  let repoBase = '';
+  const repoIdx = pathname.indexOf('/SDN139LAMANDA');
+  if (repoIdx !== -1) {
+    repoBase = pathname.substring(0, repoIdx + '/SDN139LAMANDA'.length);
+  } else {
+    const modIdx = pathname.indexOf('/modules/');
+    if (modIdx !== -1) repoBase = pathname.substring(0, modIdx);
+  }
+  const tryUrls = [];
+  if (repoBase) {
+    tryUrls.push(`${origin}${repoBase}/assets/data-mapel.json`);
+    tryUrls.push(`${repoBase}/assets/data-mapel.json`);
+  }
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.url) {
+      tryUrls.push(new URL('../../../assets/data-mapel.json', import.meta.url).href);
+      tryUrls.push(new URL('../../assets/data-mapel.json', import.meta.url).href);
+    }
+  } catch(e){}
+  tryUrls.push(new URL('../../../assets/data-mapel.json', window.location.href).href);
+  tryUrls.push(new URL('../../assets/data-mapel.json', window.location.href).href);
+  tryUrls.push(new URL('../assets/data-mapel.json', window.location.href).href);
+  tryUrls.push(new URL('./assets/data-mapel.json', window.location.href).href);
+  tryUrls.push('../../../assets/data-mapel.json');
+  tryUrls.push('/SDN139LAMANDA/assets/data-mapel.json');
+  tryUrls.push('/assets/data-mapel.json');
+  const possiblePaths = [...new Set(tryUrls)];
   for (const path of possiblePaths) {
     try {
-      const response = await fetch(path);
+      const response = await fetch(path, { cache: 'no-store' });
       if (!response.ok) continue;
       const data = await response.json();
-      dataMapel = data.mataPelajaran || [];
-      if (dataMapel.length > 0) {
-        console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
+      const arr = data.mataPelajaran || data.data || data;
+      if (Array.isArray(arr) && arr.length > 0) {
+        dataMapel = arr;
+        console.log(`✅ Data mapel dimuat dari ${path}: ${dataMapel.length}`);
         return;
       }
-    } catch (error) {
-      continue;
-    }
+      if (data.mataPelajaran && data.mataPelajaran.length > 0) {
+        dataMapel = data.mataPelajaran;
+        console.log(`✅ Data mapel dimuat dari ${path}: ${dataMapel.length}`);
+        return;
+      }
+    } catch (error) { continue; }
   }
-  
   console.warn('⚠️ Menggunakan data mapel fallback');
   dataMapel = FALLBACK_MAPEL;
 }
@@ -1017,8 +1040,10 @@ async function generateCPWithAI(container) {
     return;
   }
   const mapel = container.querySelector('#rpm-mapel').value;
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const [kelasNum, fase] = kelas.split('|');
+  const kelasRaw = (container || document).querySelector('#rpm-kelas')?.value || '';
+  const kelasParts = (kelasRaw || '|').split('|');
+  const kelasNum = kelasParts[0] || '';
+  const fase = kelasParts[1] || '';
 
   if (!mapel || !fase) {
     showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
@@ -1775,23 +1800,26 @@ window.deleteRPM = async function(id) {
 };
 
 // ⭐ FIX #1: Export Word dengan esc/fmt agar nama siswa & multiline tampil rapi
+// ✅ FIX EXPORT WORD - REVISI 4 - robust, tidak crash, nama siswa ikut kebawa
 function handleExportWord(container) {
-  const data = gatherFormData(container);
-  if (!data.identitas.tema && !data.identitas.topik) {
-    showToast('⚠️ Isi data terlebih dahulu!', 'error');
-    return;
-  }
-
-  const d = data;
-  let html = `
+  try {
+    const root = container || document;
+    const data = gatherFormData(root);
+    if (!data || !data.identitas || (!data.identitas.tema && !data.identitas.topik)) {
+      showToast('⚠️ Isi Tema/Topik terlebih dahulu!', 'error');
+      return;
+    }
+    const d = data;
+    const safeFile = (s) => String(s || 'data').replace(/[^\w\- ]+/g, '_').replace(/\s+/g, '_').substring(0, 60);
+    let html = `
     <html><head><meta charset="utf-8"><title>RPM Spesifik - ${esc(d.identitas.tema || d.identitas.topik)}</title>
     <style>
-      body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
+      body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; font-size: 12pt; }
       h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
       h2 { font-size: 13pt; border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 20px; }
       h3 { font-size: 12pt; margin-top: 15px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-      th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+      th, td { border: 1px solid #000; padding: 8px; text-align: left; vertical-align: top; }
       th { background: #f0f0f0; }
       ul { margin: 5px 0; padding-left: 20px; }
       .ttd-section { margin-top: 50px; }
@@ -1801,8 +1829,7 @@ function handleExportWord(container) {
     </style></head><body>
     <h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
     <h2 style="text-align: center; border: none;">${esc(d.identitas.tema || '')}${d.identitas.sub_tema ? ' - ' + esc(d.identitas.sub_tema) : ''}</h2>
-    <p style="text-align: center; font-style: italic;">Metode: ${esc(d.metode_pembelajaran)}</p>
-    
+    <p style="text-align: center; font-style: italic;">Metode: ${esc(d.metode_pembelajaran || '-')}</p>
     <h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
     <table>
       <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>${esc(d.identitas.sekolah)}</td></tr>
@@ -1816,46 +1843,38 @@ function handleExportWord(container) {
       <tr><td><strong>Target Peserta Didik</strong></td><td>${fmt(d.target_peserta_didik) || '-'}</td></tr>
       <tr><td><strong>Sarana & Prasarana</strong></td><td>${fmt(d.sarana_prasarana) || '-'}</td></tr>
     </table>
-
     <h2>B. ANALISIS KESIAPAN MURID</h2>
-    <p><strong>🔴 Kelompok Belum Siap:</strong><br>${fmt(d.analisis_kesiapan.belum_siap) || '-'}</p>
-    <p><strong>🟡 Kelompok Siap:</strong><br>${fmt(d.analisis_kesiapan.siap) || '-'}</p>
-    <p><strong>🟢 Kelompok Mahir:</strong><br>${fmt(d.analisis_kesiapan.mahir) || '-'}</p>
-
+    <p><strong>Kelompok Belum Siap:</strong><br>${fmt(d.analisis_kesiapan.belum_siap) || '-'}</p>
+    <p><strong>Kelompok Siap:</strong><br>${fmt(d.analisis_kesiapan.siap) || '-'}</p>
+    <p><strong>Kelompok Mahir:</strong><br>${fmt(d.analisis_kesiapan.mahir) || '-'}</p>
     <h2>C. TUJUAN & PROFIL LULUSAN</h2>
     <p><strong>Capaian Pembelajaran (CP) terpilih:</strong><br>${fmt(d.tujuan_dan_profil.cp) || '-'}</p>
     <h3>Tujuan Pembelajaran (TP) terpilih:</h3>
     <ul>${(d.tujuan_dan_profil.tujuan_pembelajaran || []).map(t => `<li>${fmt(t)}</li>`).join('') || '<li>-</li>'}</ul>
     <h3>Profil Lulusan:</h3>
     <ul>${(d.tujuan_dan_profil.profil_lulusan || []).map(p => `<li>${esc(p)}</li>`).join('') || '<li>-</li>'}</ul>
-
     <h2>D. LANGKAH PEMBELAJARAN</h2>
     ${(d.langkah_pembelajaran || []).map(p => `
       <h3>${esc(p.judul)}</h3>
       <p><strong>A. Memahami:</strong><br>${fmt(p.memahami)}</p>
       <p><strong>B. Mengaplikasikan:</strong><br>${fmt(p.mengaplikasikan)}</p>
       <p><strong>C. Merefleksikan:</strong><br>${fmt(p.merefleksikan)}</p>
-    `).join('')}
-
+    `).join('') || '<p>-</p>'}
     <h2>E. ASESMEN</h2>
     <p><strong>Diagnostik:</strong><br>${fmt(d.asesmen.diagnostik) || '-'}</p>
     <p><strong>Formatif:</strong><br>${fmt(d.asesmen.formatif) || '-'}</p>
     <p><strong>Sumatif:</strong><br>${fmt(d.asesmen.sumatif) || '-'}</p>
     <p><strong>Rubrik:</strong><br>${fmt(d.asesmen.rubrik_penilaian) || '-'}</p>
-
     <h2>F. DIFERENSIASI</h2>
     <p><strong>Remedial:</strong><br>${fmt(d.diferensiasi.remedial) || '-'}</p>
     <p><strong>Pengayaan:</strong><br>${fmt(d.diferensiasi.pengayaan) || '-'}</p>
-
     <h2>G. REFLEKSI</h2>
     <p><strong>Guru:</strong><br>${fmt(d.refleksi.guru) || '-'}</p>
     <p><strong>Siswa:</strong><br>${fmt(d.refleksi.siswa) || '-'}</p>
-
     <h2>H. LAMPIRAN</h2>
     <p><strong>LKPD:</strong><br>${fmt(d.lampiran.lkpd) || '-'}</p>
     <p><strong>Bahan Bacaan:</strong><br>${fmt(d.lampiran.bahan_bacaan) || '-'}</p>
     <p><strong>Glosarium:</strong><br>${fmt(d.lampiran.glosarium) || '-'}</p>
-
     <div class="ttd-section">
       <table class="ttd-table">
         <tr>
@@ -1876,21 +1895,25 @@ function handleExportWord(container) {
     </div>
     </body></html>
   `;
-
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `RPM_Spesifik_${(d.metode_pembelajaran || 'metode').replace(/\s+/g, '_')}_${(d.identitas.mapel || 'mapel').replace(/\s+/g, '_')}_${(d.identitas.tema || d.identitas.topik || 'tema').replace(/\s+/g, '_')}.doc`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast('📥 Word berhasil diunduh!');
+    const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RPM_Spesifik_${safeFile(d.metode_pembelajaran)}_${safeFile(d.identitas.mapel)}_${safeFile(d.identitas.tema || d.identitas.topik)}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+    showToast('📥 Word berhasil diunduh!');
+  } catch (err) {
+    console.error('Export Word Error:', err);
+    showToast('❌ Gagal Export Word: ' + (err.message || err), 'error');
+  }
 }
 
+function gatherFormData
 function gatherFormData(container) {
-  const kelas = container.querySelector('#rpm-kelas').value;
+  const root = container || document;
+  const kelas = root.querySelector('#rpm-kelas')?.value || '';
   const [kelasNum, fase] = kelas.split('|');
   const tema = container.querySelector('#rpm-tema').value;
   const subTema = container.querySelector('#rpm-subtema').value;
