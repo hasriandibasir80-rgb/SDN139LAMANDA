@@ -11,6 +11,10 @@
 //    - MATERI = input "Topik/Materi" pada form generator
 //    - ELEMEN = Sub Tema
 //    - KELAS  = tetap diambil dari select Kelas
+// 5. NORMALISASI MAPEL: input mapel dicocokkan (case-insensitive) dengan daftar
+//    mapel resmi sebelum disimpan, agar konsisten dengan filter Master Data.
+// 6. NORMALISASI KUNCI AI: deskripsi/items tetap terisi meski AI memakai
+//    variasi kunci JSON, sehingga kolom CP tidak kosong.
 //    Seluruh logic lama (generate, parse, print, download, save, sync, toast)
 //    dipertahankan 100%.
 // =========================================
@@ -25,10 +29,25 @@ const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
 let lastGeneratedData = null; // ⭐ TAMBAHAN: Menyimpan data hasil generate terakhir untuk sinkronisasi
+let dataMapel = [];
 
 // Konstanta CSS
 const CSS_PATH = '../../../css/modules/cp-generator.css';
 const CSS_ID = 'cp-generator-css';
+
+const FALLBACK_MAPEL = [
+  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
+];
 
 /**
 Init - Dipanggil oleh main.js
@@ -36,6 +55,7 @@ Init - Dipanggil oleh main.js
 export async function init(container, db) {
   loadFeatureCSS();
   await loadGroqApiKey();
+  await loadMataPelajaran();
   renderCTAGenerator(container);
   attachEventListeners(container);
   loadCTAData(container);
@@ -62,6 +82,27 @@ function loadFeatureCSS() {
     document.head.appendChild(style);
   };
   document.head.appendChild(cssLink);
+}
+
+// ========== NORMALISASI MAPEL (BARU 07/08/2026) ==========
+async function loadMataPelajaran() {
+  try {
+    const response = await fetch('../../../assets/data-mapel.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    dataMapel = data.mataPelajaran || [];
+  } catch (error) {
+    console.warn('⚠️ Menggunakan data mapel fallback');
+    dataMapel = FALLBACK_MAPEL;
+  }
+}
+
+function normalizeMapel(input) {
+  const raw = (input || '').trim();
+  const low = raw.toLowerCase();
+  const found = dataMapel.find(m =>
+    (m.nama || '').toLowerCase() === low || (m.singkatan || '').toLowerCase() === low);
+  return found ? found.nama : raw;
 }
 
 function getInlineCSS() {
@@ -91,6 +132,8 @@ function renderCTAGenerator(container) {
   const aiReady = groqApiKey ? true : false;
   const userNama = currentUser.namaLengkap || '';
   const userSekolah = currentUser.namaSekolah || 'SDN 139 LAMANDA';
+  // Datalist saran mapel resmi (aditif, tidak mengubah logic)
+  const mapelDatalist = dataMapel.map(m => `<option value="${m.nama}">`).join('');
   container.innerHTML = `
  <div id="cp-generator-root">
  <div class="cp-card">
@@ -143,7 +186,8 @@ ${aiReady
        </div>
        <div class="cp-form-group">
          <label class="cp-label" for="cp-mapel">📚 Mata Pelajaran</label>
-         <input type="text" id="cp-mapel" class="cp-input" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
+         <input type="text" id="cp-mapel" class="cp-input" list="cp-mapel-list" placeholder="Contoh: Matematika, PAI, Bahasa Indonesia" required>
+         <datalist id="cp-mapel-list">${mapelDatalist}</datalist>
        </div>
        <div class="cp-section-title">✏️ 2. Input Topik & Sub Tema</div>
        <p style="font-size: 13px; color: #6b7280; margin-bottom: 15px;">
@@ -269,7 +313,8 @@ async function handleGenerate(container) {
   const jenjang = container.querySelector('#cp-jenjang')?.value;
   const kelas = container.querySelector('#cp-kelas')?.value;
   const semester = container.querySelector('#cp-semester')?.value;
-  const mapel = container.querySelector('#cp-mapel')?.value.trim();
+  // PERBAIKAN 07/08/2026: normalisasi mapel ke nama resmi (PJOK, bukan pjok)
+  const mapel = normalizeMapel(container.querySelector('#cp-mapel')?.value);
   const sekolah = container.querySelector('#cp-kop-sekolah')?.value;
   const tahun = container.querySelector('#cp-kop-tahun')?.value;
   const guru = container.querySelector('#cp-guru')?.value;
@@ -397,22 +442,47 @@ function parseAIResponse(aiResponse) {
   }
 }
 
+// PERBAIKAN 07/08/2026: normalisasi kunci AI agar kolom CP/TP/ATP tidak kosong
 function validateAndFixData(data) {
   if (!data || !data.cp || !data.tp || !data.atp) {
     return {
-      cp: data?.cp || [{ subTema: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini sesuai kurikulum." }],
-      tp: data?.tp || [{ subTema: "Umum", items: ["1.1 Siswa mampu memahami konsep dasar", "1.2 Siswa mampu menerapkan konsep"] }],
-      atp: data?.atp || [{ subTema: "Umum", items: ["1.1 Guru menjelaskan konsep dasar", "1.2 Siswa mengerjakan latihan soal"] }]
+      cp: data?.cp || [{ subTema: 'Umum', deskripsi: 'Silakan edit manual capaian pembelajaran ini sesuai kurikulum.' }],
+      tp: data?.tp || [{ subTema: 'Umum', items: ['1.1 Siswa mampu memahami konsep dasar', '1.2 Siswa mampu menerapkan konsep'] }],
+      atp: data?.atp || [{ subTema: 'Umum', items: ['1.1 Guru menjelaskan konsep dasar', '1.2 Siswa mengerjakan latihan soal'] }]
     };
+  }
+  if (Array.isArray(data.cp)) {
+    data.cp = data.cp.map(item => typeof item === 'string'
+      ? { subTema: 'Umum', deskripsi: item }
+      : {
+          subTema: item.subTema || item.sub_tema || item.elemen || 'Umum',
+          deskripsi: item.deskripsi || item.cp || item.capaian || item.deskripsiCP || ''
+        });
+  }
+  if (Array.isArray(data.tp)) {
+    data.tp = data.tp.map(item => typeof item === 'string'
+      ? { subTema: 'Umum', items: [item] }
+      : {
+          subTema: item.subTema || item.sub_tema || item.elemen || 'Umum',
+          items: Array.isArray(item.items) ? item.items : (item.items ? [item.items] : [])
+        });
+  }
+  if (Array.isArray(data.atp)) {
+    data.atp = data.atp.map(item => typeof item === 'string'
+      ? { subTema: 'Umum', items: [item] }
+      : {
+          subTema: item.subTema || item.sub_tema || item.elemen || 'Umum',
+          items: Array.isArray(item.items) ? item.items : (item.items ? [item.items] : [])
+        });
   }
   return data;
 }
 
 function getFallbackData() {
   return {
-    cp: [{ subTema: "Umum", deskripsi: "Silakan edit manual capaian pembelajaran ini." }],
-    tp: [{ subTema: "Umum", items: ["1.1 Tujuan pembelajaran 1", "1.2 Tujuan pembelajaran 2"] }],
-    atp: [{ subTema: "Umum", items: ["1.1 Alur pembelajaran 1", "1.2 Alur pembelajaran 2"] }]
+    cp: [{ subTema: 'Umum', deskripsi: 'Silakan edit manual capaian pembelajaran ini.' }],
+    tp: [{ subTema: 'Umum', items: ['1.1 Tujuan pembelajaran 1', '1.2 Tujuan pembelajaran 2'] }],
+    atp: [{ subTema: 'Umum', items: ['1.1 Alur pembelajaran 1', '1.2 Alur pembelajaran 2'] }]
   };
 }
 
@@ -497,7 +567,6 @@ function getMateriForSubTema(materiMap, subTema, fallback) {
 
 /**
 ⭐ BARU: AUTO-SAVE CP KE MASTER DATA (data_cp collection)
-Menyimpan CP yang di-generate ke collection 'data_cp' untuk jadi referensi global
 UPDATE 07/08/2026: baris elemen_cp kini {kelas, elemen, deskripsi, materi}
 */
 async function autoSaveCPToMasterData(result, metadata, dataTopik = []) {
@@ -510,8 +579,7 @@ async function autoSaveCPToMasterData(result, metadata, dataTopik = []) {
     const materiMap = buildMateriMap(dataTopik);
     const fallbackMateri = (dataTopik[0] && dataTopik[0].topik) || 'Umum';
     // Format CP untuk disimpan ke data_cp
-    // Struktur: elemen_cp adalah array dari object {kelas, elemen, deskripsi, materi}
-    //   elemen = subTema | materi = Topik/Materi | kelas = tetap diambil
+    // elemen = subTema | materi = Topik/Materi | kelas = tetap diambil
     const elemenCP = result.cp.map(cpItem => ({
       kelas: metadata.kelas || '',
       elemen: cpItem.subTema || 'Umum',
@@ -543,7 +611,7 @@ function downloadCTAResult(container) {
     showToast('⚠️ Generate data dulu sebelum download!', 'warning');
     return;
   }
-  const mapel = container.querySelector('#cp-mapel')?.value || 'Mapel';
+  const mapel = normalizeMapel(container.querySelector('#cp-mapel')?.value) || 'Mapel';
   const kelas = container.querySelector('#cp-kelas')?.value || '';
   const semester = container.querySelector('#cp-semester')?.value || '';
   const sekolah = container.querySelector('#cp-kop-sekolah')?.value || '';
@@ -599,12 +667,7 @@ async function handleSave(container) {
 }
 
 /**
-SINKRONISASI KE GLOBAL MONITORING (MASTER DATA TP)
-Memetakan hasil generate AI ke struktur collection 'data_tp'
-*/
-/**
 ⭐ NEW: AUTO-SAVE TP KE MASTER DATA (data_tp) - 100% kompatibel dengan data-tp.js
-DITAMBAHKAN TANPA MENGHAPUS FUNGSI LAMA
 UPDATE 07/08/2026: payload kini menyertakan tp_rows {kelas, elemen, tp, materi}
 */
 async function autoSaveTPToMasterData(result, metadata, dataTopik = []) {
