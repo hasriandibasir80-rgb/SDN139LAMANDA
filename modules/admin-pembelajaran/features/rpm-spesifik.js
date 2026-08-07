@@ -4,6 +4,9 @@
 // TEMPLATE KHUSUS PER METODE PEMBELAJARAN
 // TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
 // UPDATE: 3 Opsi untuk CP & TP dengan Fuzzy Matching (seperti LKPD)
+// REVISI (sesuai perintah): (1) nama siswa ikut di Export Word,
+// (2) CP/TP Master Data via checklist (hanya tercentang masuk output),
+// (3) tombol Simpan tidak memicu Reset.
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -291,6 +294,11 @@ function loadCSS() {
     .method-options { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
     .method-option { font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
     .tp-method-content, .cp-method-content { margin-top: 10px; }
+    .rpm-check-list { max-height: 240px; overflow-y: auto; background: white; border: 2px solid #fbcfe8; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
+    .rpm-check-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px dashed #fbcfe8; font-size: 12px; cursor: pointer; font-weight: normal; color: #831843; }
+    .rpm-check-item:last-child { border-bottom: none; }
+    .rpm-check-item input { margin-top: 3px; cursor: pointer; }
+    .rpm-check-item span { line-height: 1.4; }
     @media (max-width: 768px) { .rpm-form-grid { grid-template-columns: 1fr; } .rpm-actions { flex-direction: column; } .rpm-btn { width: 100%; justify-content: center; } }
   `;
   document.head.appendChild(style);
@@ -427,13 +435,18 @@ function renderUI(container) {
               </label>
             </div>
 
-            <!-- Opsi 1: Master Data CP -->
+            <!-- Opsi 1: Master Data CP (REVISI #2: CHECKLIST) -->
             <div id="cpMethodMaster" class="cp-method-content">
               <button type="button" id="btnLoadMasterCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
                 🔄 Muat CP dari Master Data (Berdasarkan Mapel & Fase di atas)
               </button>
-              <select id="selectMasterCP" class="rpm-form-control" multiple size="3" style="min-height: 120px; display: none;"></select>
-              <small id="masterCPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu elemen CP.</small>
+              <div id="cpToolbar" style="display: none; margin-bottom: 8px;">
+                <button type="button" id="btnCPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
+                <button type="button" id="btnCPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
+                <span id="cpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
+              </div>
+              <div id="listMasterCP" class="rpm-check-list" style="display: none;"></div>
+              <small id="masterCPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA CP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
             </div>
 
             <!-- Opsi 2: AI -->
@@ -464,13 +477,18 @@ function renderUI(container) {
               </label>
             </div>
 
-            <!-- Opsi 1: Master Data TP -->
+            <!-- Opsi 1: Master Data TP (REVISI #2: CHECKLIST) -->
             <div id="tpMethodMaster" class="tp-method-content">
               <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
                 🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas, Tema & Sub Tema di atas)
               </button>
-              <select id="selectMasterTP" class="rpm-form-control" multiple size="4" style="min-height: 100px; display: none;"></select>
-              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Tahan Ctrl (Windows) atau Cmd (Mac) untuk memilih lebih dari satu TP.</small>
+              <div id="tpToolbar" style="display: none; margin-bottom: 8px;">
+                <button type="button" id="btnTPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
+                <button type="button" id="btnTPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
+                <span id="tpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
+              </div>
+              <div id="listMasterTP" class="rpm-check-list" style="display: none;"></div>
+              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA TP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
             </div>
 
             <!-- Opsi 2: AI -->
@@ -700,6 +718,15 @@ function attachEvents(container) {
         }
       });
       container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
+      // ⭐ REVISI #2: bersihkan checklist CP & TP saat reset
+      const lcp = container.querySelector('#listMasterCP');
+      if (lcp) { lcp.innerHTML = ''; lcp.style.display = 'none'; }
+      const ltp = container.querySelector('#listMasterTP');
+      if (ltp) { ltp.innerHTML = ''; ltp.style.display = 'none'; }
+      const tbcp = container.querySelector('#cpToolbar');
+      if (tbcp) tbcp.style.display = 'none';
+      const tbtp = container.querySelector('#tpToolbar');
+      if (tbtp) tbtp.style.display = 'none';
       container.querySelector('#rpm-metode').value = '';
       container.querySelector('#metode-info-container').innerHTML = '';
       container.querySelector('#rpm-pertemuan-container').innerHTML = '';
@@ -718,6 +745,12 @@ function attachEvents(container) {
   // Event listener untuk tombol CP
   container.querySelector('#btnLoadMasterCP').addEventListener('click', () => loadMasterCP(container));
   container.querySelector('#btnGenerateCP').addEventListener('click', () => generateCPWithAI(container));
+
+  // ⭐ REVISI #2: Toolbar Pilih Semua / Kosongkan
+  container.querySelector('#btnCPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterCP', true));
+  container.querySelector('#btnCPClear').addEventListener('click', () => setCheckAll(container, '#listMasterCP', false));
+  container.querySelector('#btnTPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterTP', true));
+  container.querySelector('#btnTPClear').addEventListener('click', () => setCheckAll(container, '#listMasterTP', false));
   
   // Event listener untuk tombol TP
   container.querySelector('#btnLoadMasterTP').addEventListener('click', () => loadMasterTP(container));
@@ -746,12 +779,6 @@ function debouncedAutoLoad(container) {
 // ⭐ FITUR BARU: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
 // Untuk bagian 2. Analisis Kesiapan Murid
 // ============================================
-// OLD FETCH DISABLED
-
-
-
-
-
 
 async function fetchDaftarNamaPesertaDidik(kelas) {
   const kelasStr = String(kelas).trim();
@@ -759,10 +786,6 @@ async function fetchDaftarNamaPesertaDidik(kelas) {
   
   try {
     const rtdb = getDatabase();
-    // Struktur di data-peserta-didik.js: siswa/{kelas}/{id} -> {nama, nisn, ...}
-    // Jadi ada node siswa/1, siswa/2, dst
-    
-    // Coba ambil spesifik kelas dulu
     let allNames = [];
     
     // 1. Coba ambil hanya kelas yang diminta: siswa/1
@@ -784,27 +807,20 @@ async function fetchDaftarNamaPesertaDidik(kelas) {
       const snapAll = await get(ref(rtdb, 'siswa'));
       if (snapAll.exists()) {
         snapAll.forEach(kelasSnap => {
-          const kelasKey = kelasSnap.key; // '1','2', etc
-          // Jika user minta kelas 1, hanya ambil kelas 1. Jika tidak, ambil semua untuk fallback
-          if (kelasStr && kelasKey !== kelasStr) {
-            // Untuk debug: di screenshot kamu kelas 1 cuma ada 1 anak (ADILA), jadi tetap kita ambil hanya yang sesuai
-            // Tapi kalau kelas 1 tidak ketemu banyak, kita akan fallback ambil semua
-          }
+          const kelasKey = kelasSnap.key;
           kelasSnap.forEach(siswaSnap => {
             const data = siswaSnap.val();
             const nama = data.nama || data.nama_lengkap;
             if (nama) {
-              // Simpan dengan info kelas untuk filter nanti
               allNames.push({ nama: nama.trim(), kelas: kelasKey });
             }
           });
         });
         
-        // Filter sesuai kelas yang diminta
         let filtered = allNames.filter(item => !kelasStr || item.kelas === kelasStr);
         if (filtered.length === 0 && allNames.length > 0) {
           console.warn(`Kelas ${kelasStr} tidak ada, menampilkan semua ${allNames.length} siswa sebagai fallback`);
-          filtered = allNames; // fallback tampilkan semua jika kelas kosong
+          filtered = allNames;
         }
         
         const finalNames = [...new Set(filtered.map(f=>f.nama))];
@@ -849,7 +865,8 @@ async function handleAutoFillKesiapan(container) {
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengambil data...'; }
 
   try {
-    const namaList = await fetchDaftarNamaPesertaDidik(kelas);
+    // ⭐ REVISI #1: 'let' agar fallback tidak error re-assign
+    let namaList = await fetchDaftarNamaPesertaDidik(kelas);
     
     if (!namaList || namaList.length === 0) {
       showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Coba pilih Kelas 2 atau cek Data Siswa.', 'error');
@@ -917,7 +934,43 @@ async function autoLoadCPandTP(container) {
   }
 }
 
-// ========== FUNGSI CP: LOAD DARI MASTER DATA (FUZZY MATCHING) ==========
+// ⭐ REVISI #2: Helper checklist CP/TP
+function renderCheckList(container, listSel, items) {
+  const list = container.querySelector(listSel);
+  if (!list) return;
+  const prev = new Set(Array.from(list.querySelectorAll('input:checked')).map(i => i.value));
+  list.innerHTML = '';
+  items.forEach(it => {
+    const label = document.createElement('label');
+    label.className = 'rpm-check-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.value = it.value;
+    cb.dataset.docId = it.docId || '';
+    if (prev.has(it.value)) cb.checked = true;
+    cb.addEventListener('change', () => updateCheckCount(container, listSel));
+    const span = document.createElement('span');
+    span.textContent = it.label;
+    label.appendChild(cb);
+    label.appendChild(span);
+    list.appendChild(label);
+  });
+  updateCheckCount(container, listSel);
+}
+
+function updateCheckCount(container, listSel) {
+  const total = container.querySelectorAll(`${listSel} input`).length;
+  const checked = container.querySelectorAll(`${listSel} input:checked`).length;
+  const countEl = container.querySelector(listSel === '#listMasterCP' ? '#cpCount' : '#tpCount');
+  if (countEl) countEl.textContent = `${checked} / ${total} terpilih`;
+}
+
+function setCheckAll(container, listSel, state) {
+  container.querySelectorAll(`${listSel} input`).forEach(i => i.checked = state);
+  updateCheckCount(container, listSel);
+}
+
+// ========== FUNGSI CP: LOAD DARI MASTER DATA (REVISI #2: CHECKLIST) ==========
 async function loadMasterCP(container) {
   const mapelInput = container.querySelector('#rpm-mapel').value.trim();
   const kelasFull = container.querySelector('#rpm-kelas').value;
@@ -931,7 +984,7 @@ async function loadMasterCP(container) {
   const btn = container.querySelector('#btnLoadMasterCP');
   const originalText = btn.textContent;
   btn.disabled = true;
-  btn.textContent = ' Memuat...';
+  btn.textContent = '⏳ Memuat...';
 
   try {
     // Query hanya berdasarkan userId untuk menghindari index issue
@@ -941,65 +994,47 @@ async function loadMasterCP(container) {
     );
     
     const snapshot = await getDocs(q);
-    const select = container.querySelector('#selectMasterCP');
-    select.innerHTML = '';
 
     console.log('🔍 Load CP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
 
-    if (snapshot.empty) {
-      select.innerHTML = '<option value="" disabled>❌ Tidak ada CP di Master Data. Coba Opsi 2 atau 3.</option>';
-      select.style.display = 'block';
-      container.querySelector('#masterCPHint').style.display = 'none';
-    } else {
-      let foundCount = 0;
-      
+    const items = [];
+    if (!snapshot.empty) {
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        const dbMapel = (data.mapel || '').toLowerCase();
-        const dbFase = data.fase || '';
-        const mapelLower = mapelInput.toLowerCase();
-        
-        console.log('Checking CP - DB Mapel:', dbMapel, 'DB Fase:', dbFase);
-        
-        // ⭐ FIX: Gunakan normalisasi mapel agar paibd == PAI
         const matchMapel = isMapelMatch(data.mapel, mapelInput);
-        const matchFase = dbFase === fase || !fase || !dbFase;
+        const matchFase = data.fase === fase || !fase || !data.fase;
 
         if (matchMapel && matchFase) {
-          console.log('✅ Match found!');
           if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
             data.elemen_cp.forEach((elemen) => {
               const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
-              // ⭐ Deduplikasi CP berdasarkan teks
-              if ([...select.options].some(o=>o.value===cpText)) return;
-              const option = document.createElement('option');
-              option.value = cpText;
-              option.textContent = `${elemen.elemen}`;
-              option.title = elemen.deskripsi;
-              option.dataset.docId = docSnap.id;
-              option.selected = true;
-              select.appendChild(option);
-              foundCount++;
+              // Deduplikasi CP berdasarkan teks
+              if (items.some(i => i.value === cpText)) return;
+              items.push({ value: cpText, label: `${elemen.elemen} — ${elemen.deskripsi}`, docId: docSnap.id });
             });
           }
         }
       });
+    }
 
-      console.log('Total CP found:', foundCount);
+    console.log('Total CP found:', items.length);
 
-      if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled>❌ Tidak ada CP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Fase: ${fase}<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
-        select.style.display = 'block';
-        container.querySelector('#masterCPHint').style.display = 'none';
-      } else {
-        select.style.display = 'block';
-        container.querySelector('#masterCPHint').style.display = 'block';
-        // ⭐ FINAL: Auto-select semua CP yang ditemukan
-        Array.from(select.options).forEach(opt => opt.selected = true);
-        // Simpan mapping id untuk relasi
-        select.dataset.loadedIds = JSON.stringify([...new Set(Array.from(select.options).map(o=>o.dataset.docId).filter(Boolean))]);
-        showToast(`✅ Ditemukan ${foundCount} elemen CP yang cocok! (Auto-terpilih)`);
-      }
+    const list = container.querySelector('#listMasterCP');
+    const toolbar = container.querySelector('#cpToolbar');
+    const hint = container.querySelector('#masterCPHint');
+
+    if (items.length === 0) {
+      list.style.display = 'none';
+      toolbar.style.display = 'none';
+      hint.style.display = 'block';
+      hint.textContent = '❌ Tidak ada CP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3.';
+    } else {
+      // ⭐ REVISI #2: render checklist, TIDAK auto-select semua
+      renderCheckList(container, '#listMasterCP', items);
+      list.style.display = 'block';
+      toolbar.style.display = 'block';
+      hint.style.display = 'block';
+      showToast(`✅ Ditemukan ${items.length} elemen CP — silakan centang yang dibutuhkan.`);
     }
   } catch (error) {
     console.error(' Error loading Master CP:', error);
@@ -1067,7 +1102,7 @@ Deskripsi: Siswa mampu menerapkan keterampilan proses...`;
   }
 }
 
-// ========== FUNGSI TP: LOAD DARI MASTER DATA (FUZZY MATCHING) ==========
+// ========== FUNGSI TP: LOAD DARI MASTER DATA (REVISI #2: CHECKLIST) ==========
 async function loadMasterTP(container) {
   const mapelInput = container.querySelector('#rpm-mapel').value.trim();
   const kelasFull = container.querySelector('#rpm-kelas').value;
@@ -1092,67 +1127,47 @@ async function loadMasterTP(container) {
     );
     
     const snapshot = await getDocs(q);
-    const select = container.querySelector('#selectMasterTP');
-    select.innerHTML = '';
 
     console.log('🔍 Load TP - Mapel:', mapelInput, 'Kelas:', kelas, 'Topik:', topikInput, 'Total docs:', snapshot.size);
 
-    if (snapshot.empty) {
-      select.innerHTML = '<option value="" disabled>❌ Tidak ada TP di Master Data. Coba Opsi 2 atau 3.</option>';
-      select.style.display = 'block';
-      container.querySelector('#masterTPHint').style.display = 'none';
-    } else {
-      let foundCount = 0;
-      
+    const items = [];
+    if (!snapshot.empty) {
       snapshot.forEach(docSnap => {
         const data = docSnap.data();
-        const dbMapel = (data.mapel || '').toLowerCase();
-        const dbKelas = data.kelas || '';
-        const dbTopik = (data.topik || '').toLowerCase();
-        const mapelLower = mapelInput.toLowerCase();
-        const topikLower = topikInput.toLowerCase();
-        
-        console.log('Checking TP - DB Mapel:', dbMapel, 'DB Kelas:', dbKelas, 'DB Topik:', dbTopik);
-        
-        // ⭐ FIX: Gunakan normalisasi mapel + topik toleran typo
         const matchMapel = isMapelMatch(data.mapel, mapelInput);
-        const matchKelas = !kelas || dbKelas === kelas || String(dbKelas) === String(kelas);
-        const matchTopik = isTopikMatch(dbTopik, topikLower);
+        const matchKelas = !kelas || data.kelas === kelas || String(data.kelas) === String(kelas);
+        const matchTopik = isTopikMatch((data.topik || '').toLowerCase(), (topikInput || '').toLowerCase());
 
         if (matchMapel && matchKelas && matchTopik) {
-          console.log('✅ Match found!');
           if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
             data.tujuan_pembelajaran.forEach((tp) => {
-              // ⭐ Deduplikasi TP berdasarkan teks yang sama
-              if ([...select.options].some(o=>o.value===tp)) return;
-              const option = document.createElement('option');
-              option.value = tp;
-              option.textContent = tp;
-              option.dataset.docId = docSnap.id;
-              option.dataset.topik = data.topik || '';
-              option.selected = true;
-              select.appendChild(option);
-              foundCount++;
+              // Deduplikasi TP berdasarkan teks yang sama
+              if (items.some(i => i.value === tp)) return;
+              items.push({ value: tp, label: data.topik ? `${tp} (${data.topik})` : tp, docId: docSnap.id });
             });
           }
         }
       });
+    }
 
-      console.log('Total TP found:', foundCount);
+    console.log('Total TP found:', items.length);
 
-      if (foundCount === 0) {
-        select.innerHTML = `<option value="" disabled>❌ Tidak ada TP yang cocok untuk:<br>Mapel: "${mapelInput}"<br>Kelas: ${kelas}<br>Tema/Sub Tema: "${topikInput}"<br><br>Coba periksa ejaan atau gunakan Opsi 2/3.</option>`;
-        select.style.display = 'block';
-        container.querySelector('#masterTPHint').style.display = 'none';
-      } else {
-        select.style.display = 'block';
-        container.querySelector('#masterTPHint').style.display = 'block';
-        // ⭐ FINAL: Auto-select semua + simpan relasi ID
-        Array.from(select.options).forEach(opt => opt.selected = true);
-        const ids = [...new Set(Array.from(select.options).map(o=>o.dataset.docId).filter(Boolean))];
-        select.dataset.loadedIds = JSON.stringify(ids);
-        showToast(`✅ Ditemukan ${foundCount} TP yang cocok! (Auto-terpilih, tanpa duplikat)`);
-      }
+    const list = container.querySelector('#listMasterTP');
+    const toolbar = container.querySelector('#tpToolbar');
+    const hint = container.querySelector('#masterTPHint');
+
+    if (items.length === 0) {
+      list.style.display = 'none';
+      toolbar.style.display = 'none';
+      hint.style.display = 'block';
+      hint.textContent = '❌ Tidak ada TP yang cocok untuk Mapel, Kelas & Tema ini. Coba Opsi 2 atau 3.';
+    } else {
+      // ⭐ REVISI #2: render checklist, TIDAK auto-select semua
+      renderCheckList(container, '#listMasterTP', items);
+      list.style.display = 'block';
+      toolbar.style.display = 'block';
+      hint.style.display = 'block';
+      showToast(`✅ Ditemukan ${items.length} TP — silakan centang yang dibutuhkan.`);
     }
   } catch (error) {
     console.error('❌ Error loading Master TP:', error);
@@ -1219,13 +1234,12 @@ Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan
   }
 }
 
-// ========== FUNGSI: AMBIL CP DARI OPSI AKTIF ==========
+// ========== FUNGSI: AMBIL CP DARI OPSI AKTIF (REVISI #2: hanya tercentang) ==========
 function getActiveCP(container) {
   const activeMethod = container.querySelector('input[name="cpMethod"]:checked')?.value || 'manual';
   
   if (activeMethod === 'master') {
-    const select = container.querySelector('#selectMasterCP');
-    return Array.from(select.selectedOptions).map(opt => opt.value);
+    return Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.value);
   } else if (activeMethod === 'ai') {
     const aiText = container.querySelector('#inpCpAI').value.trim();
     return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
@@ -1235,13 +1249,12 @@ function getActiveCP(container) {
   }
 }
 
-// ========== FUNGSI: AMBIL TP DARI OPSI AKTIF ==========
+// ========== FUNGSI: AMBIL TP DARI OPSI AKTIF (REVISI #2: hanya tercentang) ==========
 function getActiveTP(container) {
   const activeMethod = container.querySelector('input[name="tpMethod"]:checked')?.value || 'manual';
   
   if (activeMethod === 'master') {
-    const select = container.querySelector('#selectMasterTP');
-    return Array.from(select.selectedOptions).map(opt => opt.value);
+    return Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.value);
   } else if (activeMethod === 'ai') {
     const aiText = container.querySelector('#inpTujuanAI').value.trim();
     return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
@@ -1559,11 +1572,9 @@ async function handleSimpan(container) {
   // Ambil CP dan TP dari opsi aktif
   const capaianPembelajaran = getActiveCP(container);
   const tujuanPembelajaran = getActiveTP(container);
-  // ⭐ FINAL: Ambil relasi ID Master Data untuk sinkronisasi
-  const cpSelect = container.querySelector('#selectMasterCP');
-  const tpSelect = container.querySelector('#selectMasterTP');
-  const data_cp_ids = cpSelect?.dataset?.loadedIds ? JSON.parse(cpSelect.dataset.loadedIds) : [];
-  const data_tp_ids = tpSelect?.dataset?.loadedIds ? JSON.parse(tpSelect.dataset.loadedIds) : [];
+  // ⭐ REVISI #2: Relasi ID hanya dari yang TERCENTANG
+  const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+  const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
   
   if (tujuanPembelajaran.length === 0) {
     showToast('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!', 'error');
@@ -1582,6 +1593,11 @@ async function handleSimpan(container) {
       subtema: subTema,
       topik,
       alokasi_waktu: container.querySelector('#rpm-alokasi').value
+    },
+    relasi_master: {
+      data_cp_ids,
+      data_tp_ids,
+      source: 'checklist-master-data'
     },
     target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
     sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
@@ -1643,7 +1659,7 @@ async function handleSimpan(container) {
     }
     
     saveTTDDefaults();
-    container.querySelector('#btn-reset').click();
+    // ⭐ REVISI #3: TIDAK auto-reset setelah simpan (baris #btn-reset.click() dihapus)
   } catch (error) {
     console.error('Error saving:', error);
     showToast('❌ Gagal menyimpan: ' + error.message, 'error');
@@ -1854,9 +1870,9 @@ function handleExportWord(container) {
     </table>
 
     <h2>B. ANALISIS KESIAPAN MURID</h2>
-    <p><strong>🔴 Belum Siap:</strong> ${d.analisis_kesiapan.belum_siap}</p>
-    <p><strong> Siap:</strong> ${d.analisis_kesiapan.siap}</p>
-    <p><strong>🟢 Mahir:</strong> ${d.analisis_kesiapan.mahir}</p>
+    <p><strong>🔴 Belum Siap:</strong><br>${String(d.analisis_kesiapan.belum_siap || '').replace(/\n/g, '<br>')}</p>
+    <p><strong>🟡 Siap:</strong><br>${String(d.analisis_kesiapan.siap || '').replace(/\n/g, '<br>')}</p>
+    <p><strong>🟢 Mahir:</strong><br>${String(d.analisis_kesiapan.mahir || '').replace(/\n/g, '<br>')}</p>
 
     <h2>C. TUJUAN & PROFIL LULUSAN</h2>
     <p><strong>CP:</strong> ${d.tujuan_dan_profil.cp}</p>
@@ -1948,18 +1964,15 @@ function gatherFormData(container) {
   // Ambil CP dan TP dari opsi aktif
   const capaianPembelajaran = getActiveCP(container);
   const tujuanPembelajaran = getActiveTP(container);
-  // ⭐ FINAL: Ambil relasi ID Master Data untuk sinkronisasi
-  const cpSelect = container.querySelector('#selectMasterCP');
-  const tpSelect = container.querySelector('#selectMasterTP');
-  const data_cp_ids = cpSelect?.dataset?.loadedIds ? JSON.parse(cpSelect.dataset.loadedIds) : [];
-  const data_tp_ids = tpSelect?.dataset?.loadedIds ? JSON.parse(tpSelect.dataset.loadedIds) : [];
+  // ⭐ REVISI #2: Relasi ID hanya dari yang TERCENTANG
+  const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+  const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
 
   return {
-    // ⭐ Relasi ke Master Data untuk alur Generator -> Data TP -> RPM
     relasi_master: {
       data_cp_ids: data_cp_ids,
       data_tp_ids: data_tp_ids,
-      source: 'auto-from-master-data'
+      source: 'checklist-master-data'
     },
     identitas: {
       sekolah: container.querySelector('#rpm-sekolah').value,
