@@ -8,6 +8,9 @@
 //    dengan tombol "+ TAMBAH BARIS" (sesuai permintaan user)
 //  - Penambahan FILTER SEMESTER di Form CP serta Daftar TP/CP/ATP
 //  - Export Word berbentuk tabel (Elemen | CP/TP/ATP | Materi)
+// UPDATE 07/08/2026:
+//  - Penambahan KOLOM KELAS sebelum kolom ELEMEN pada seluruh tabel
+//    (Form TP/CP/ATP, Daftar TP/CP/ATP, dan Export Word)
 // CATATAN: Seluruh logic lama (CRUD, snapshot, edit, hapus, export, toast)
 //          dipertahankan 100%. Field lama (tujuan_pembelajaran & alur berupa
 //          array string) TETAP disimpan agar fitur lain (RPM, KKTP, LKPD,
@@ -21,6 +24,7 @@ import {
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'data-tp-css';
+
 let currentEditId = null;
 let currentEditCPId = null;
 let currentEditATPId = null;
@@ -39,9 +43,9 @@ const FALLBACK_MAPEL = [
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
   { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
   { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
@@ -82,16 +86,12 @@ async function loadMataPelajaran() {
 function escapeHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escapeAttr(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
 
-// ========== TABEL DINAMIS (MODEL BARU) ==========
+// ========== TABEL DINAMIS (MODEL BARU + KOLOM KELAS) ==========
 function addTableRow(tbodyId, midField, midPlaceholder, values = {}) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td><input type="text" class="dtp-cell" data-field="elemen" placeholder="Nama elemen" value="${escapeAttr(values.elemen || '')}"></td>
-    <td><textarea class="dtp-cell" data-field="${midField}" placeholder="${midPlaceholder}">${escapeHtml(values[midField] || '')}</textarea></td>
-    <td><input type="text" class="dtp-cell" data-field="materi" placeholder="Materi pembelajaran" value="${escapeAttr(values.materi || '')}"></td>
-    <td style="text-align:center;"><button type="button" class="dtp-row-del" title="Hapus baris">✖</button></td>`;
+  tr.innerHTML = `<td><input type="text" class="dtp-cell" data-field="kelas" placeholder="Kelas" value="${escapeAttr(values.kelas || '')}"></td> <td><input type="text" class="dtp-cell" data-field="elemen" placeholder="Nama elemen" value="${escapeAttr(values.elemen || '')}"></td> <td><textarea class="dtp-cell" data-field="${midField}" placeholder="${midPlaceholder}">${escapeHtml(values[midField] || '')}</textarea></td> <td><input type="text" class="dtp-cell" data-field="materi" placeholder="Materi pembelajaran" value="${escapeAttr(values.materi || '')}"></td> <td style="text-align:center;"><button type="button" class="dtp-row-del" title="Hapus baris">✖</button></td>`;
   tr.querySelector('.dtp-row-del').addEventListener('click', () => tr.remove());
   tbody.appendChild(tr);
 }
@@ -99,10 +99,11 @@ function addTableRow(tbodyId, midField, midPlaceholder, values = {}) {
 function readTableRows(tbodyId, midField) {
   const rows = [];
   document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
+    const kelas = (tr.querySelector('[data-field="kelas"]')?.value || '').trim();
     const elemen = (tr.querySelector('[data-field="elemen"]')?.value || '').trim();
     const mid = (tr.querySelector(`[data-field="${midField}"]`)?.value || '').trim();
     const materi = (tr.querySelector('[data-field="materi"]')?.value || '').trim();
-    if (elemen || mid || materi) rows.push({ elemen, [midField]: mid, materi });
+    if (kelas || elemen || mid || materi) rows.push({ kelas, elemen, [midField]: mid, materi });
   });
   return rows;
 }
@@ -115,23 +116,23 @@ function resetTable(tbodyId, midField, midPlaceholder) {
 
 function tableViewHTML(rows, midHeader, isATP = false) {
   const body = (rows || []).map(r =>
-    `<tr><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r[midHeader.toLowerCase()] ?? r[midHeader] ?? '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`
+    `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r[midHeader.toLowerCase()] ?? r[midHeader] ?? '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`
   ).join('');
-  return `<div class="dtp-table-wrap"><table class="dtp-table view ${isATP ? 'atp' : ''}"><thead><tr><th style="width:24%">Elemen</th><th style="width:50%">${midHeader}</th><th style="width:26%">Materi</th></tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="dtp-table-wrap"><table class="dtp-table view ${isATP ? 'atp' : ''}"><thead><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:46%">${midHeader}</th><th style="width:22%">Materi</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
-// Normalisasi data lama -> baris tabel
+// Normalisasi data lama -> baris tabel (data lama tanpa kelas tetap aman)
 function normalizeTPRows(d) {
   if (Array.isArray(d.tp_rows) && d.tp_rows.length) return d.tp_rows;
-  return (d.tujuan_pembelajaran || []).map(t => ({ elemen: '', tp: t, materi: '' }));
+  return (d.tujuan_pembelajaran || []).map(t => ({ kelas: '', elemen: '', tp: t, materi: '' }));
 }
 function normalizeCPRows(d) {
-  if (Array.isArray(d.elemen_cp) && d.elemen_cp.length) return d.elemen_cp; // {elemen, deskripsi, materi?}
+  if (Array.isArray(d.elemen_cp) && d.elemen_cp.length) return d.elemen_cp; // {kelas?, elemen, deskripsi, materi?}
   return [];
 }
 function normalizeATPRows(d) {
   if (Array.isArray(d.atp_rows) && d.atp_rows.length) return d.atp_rows;
-  return (d.alur || []).map(t => ({ elemen: '', atp: t, materi: '' }));
+  return (d.alur || []).map(t => ({ kelas: '', elemen: '', atp: t, materi: '' }));
 }
 
 function loadCSS() {
@@ -195,10 +196,10 @@ function renderUI(container) {
           </div>
         </div>
         <div class="dtp-form-group">
-          <label>🎯 Tabel Elemen, TP & Materi</label>
+          <label>🎯 Tabel Kelas, Elemen, TP & Materi</label>
           <div class="dtp-table-wrap">
             <table class="dtp-table">
-              <thead><tr><th style="width:24%">Elemen</th><th style="width:48%">TP</th><th style="width:22%">Materi</th><th style="width:6%">❌</th></tr></thead>
+              <thead><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:42%">TP</th><th style="width:20%">Materi</th><th style="width:6%">❌</th></tr></thead>
               <tbody id="dtp-tbody"></tbody>
             </table>
           </div>
@@ -265,10 +266,10 @@ function renderUI(container) {
           <div class="dtp-form-group"></div>
         </div>
         <div class="dtp-form-group">
-          <label>📋 Tabel Elemen, CP & Materi</label>
+          <label>📋 Tabel Kelas, Elemen, CP & Materi</label>
           <div class="dtp-table-wrap">
             <table class="dtp-table">
-              <thead><tr><th style="width:24%">Elemen</th><th style="width:48%">CP</th><th style="width:22%">Materi</th><th style="width:6%">❌</th></tr></thead>
+              <thead><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:42%">CP</th><th style="width:20%">Materi</th><th style="width:6%">❌</th></tr></thead>
               <tbody id="dcp-tbody"></tbody>
             </table>
           </div>
@@ -344,10 +345,10 @@ function renderUI(container) {
           <input type="text" id="datp-judul" class="dtp-form-control atp" placeholder="Contoh: Alur Tujuan Pembelajaran IPAS Kelas 4 - Makhluk Hidup">
         </div>
         <div class="dtp-form-group">
-          <label>🔗 Tabel Elemen, ATP & Materi</label>
+          <label>🔗 Tabel Kelas, Elemen, ATP & Materi</label>
           <div class="dtp-table-wrap">
             <table class="dtp-table atp">
-              <thead><tr><th style="width:24%">Elemen</th><th style="width:48%">ATP</th><th style="width:22%">Materi</th><th style="width:6%">❌</th></tr></thead>
+              <thead><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:42%">ATP</th><th style="width:20%">Materi</th><th style="width:6%">❌</th></tr></thead>
               <tbody id="datp-tbody"></tbody>
             </table>
           </div>
@@ -395,7 +396,7 @@ function renderUI(container) {
       </div>
     </div>
   </div>
-`;
+  `;
 }
 
 function attachEvents(container) {
@@ -483,21 +484,19 @@ function attachEvents(container) {
   });
 }
 
-// ========== FUNGSI TP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL) ==========
+// ========== FUNGSI TP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL + KOLOM KELAS) ==========
 async function handleSimpanTP(container) {
   const kelas = container.querySelector('#dtp-kelas').value;
   const mapel = container.querySelector('#dtp-mapel').value;
   const semester = container.querySelector('#dtp-semester').value;
   const topik = container.querySelector('#dtp-topik').value.trim();
   const rows = readTableRows('dtp-tbody', 'tp').filter(r => r.tp);
-
   if (!kelas || !mapel || !topik || rows.length === 0) {
     showToast('⚠️ Lengkapi semua field (Kelas, Mapel, Topik, dan tabel TP)!', 'error');
     return;
   }
   // Field lama (array string) tetap disimpan utk kompatibilitas fitur lain
   const tujuan_pembelajaran = rows.map(r => r.tp);
-
   try {
     if (currentEditId) {
       const docRef = doc(db, 'data_tp', currentEditId);
@@ -546,19 +545,7 @@ function loadDataTP(container) {
     }
     listContainer.innerHTML = filteredData.map(d => {
       const rows = normalizeTPRows(d);
-      return `<div class="dtp-item">
-        <div class="dtp-item-header">
-          <div>
-            <div class="dtp-item-title">${d.mapel} - Kelas ${d.kelas} | Semester ${d.semester}</div>
-            <div class="dtp-item-meta">${d.topik} - ${rows.length} TP</div>
-          </div>
-          <div class="dtp-item-actions">
-            <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
-            <button onclick="deleteDataTP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
-          </div>
-        </div>
-        ${tableViewHTML(rows, 'TP')}
-      </div>`;
+      return `<div class="dtp-item"> <div class="dtp-item-header"> <div> <div class="dtp-item-title">${d.mapel} - Kelas ${d.kelas} | Semester ${d.semester}</div> <div class="dtp-item-meta">${d.topik} - ${rows.length} TP</div> </div> <div class="dtp-item-actions"> <button onclick="editDataTP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button> <button onclick="deleteDataTP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button> </div> </div> ${tableViewHTML(rows, 'TP')} </div>`;
     }).join('');
   }, (error) => {
     console.warn('Error loading data TP:', error);
@@ -604,7 +591,7 @@ function handleExportTP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data TP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#7c3aed;}.meta{font-size:11pt;color:#64748b;}</style></head><body><h1>MASTER DATA TUJUAN PEMBELAJARAN (TP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Kelas ${filterKelas} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastTPData.forEach(d => {
     const rows = normalizeTPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Kelas ${escapeHtml(d.kelas)} | Semester ${escapeHtml(d.semester)}</div><div class="meta">${escapeHtml(d.topik)}</div><table><tr><th style="width:24%">Elemen</th><th style="width:48%">TP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.tp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Kelas ${escapeHtml(d.kelas)} | Semester ${escapeHtml(d.semester)}</div><div class="meta">${escapeHtml(d.topik)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">TP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.tp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -614,15 +601,13 @@ function handleExportTP(container) {
   showToast('📥 Word berhasil diunduh!');
 }
 
-// ========== FUNGSI CP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL + SEMESTER) ==========
+// ========== FUNGSI CP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL + SEMESTER + KOLOM KELAS) ==========
 async function handleSimpanCP(container) {
   const fase = container.querySelector('#dcp-fase').value;
   const mapel = container.querySelector('#dcp-mapel').value;
   const semester = container.querySelector('#dcp-semester').value;
   const rows = readTableRows('dcp-tbody', 'deskripsi').filter(r => r.elemen && r.deskripsi);
-
   if (!fase || !mapel || rows.length === 0) { showToast('⚠️ Lengkapi semua field (Fase, Mapel, dan tabel CP)!', 'error'); return; }
-
   try {
     if (currentEditCPId) {
       const docRef = doc(db, 'data_cp', currentEditCPId);
@@ -657,19 +642,7 @@ function loadDataCP(container) {
     if (filteredData.length === 0) { listContainer.innerHTML = '<div class="dtp-empty">🔍 Tidak ada data yang cocok dengan filter.</div>'; return; }
     listContainer.innerHTML = filteredData.map(d => {
       const rows = normalizeCPRows(d);
-      return `<div class="dtp-item">
-        <div class="dtp-item-header">
-          <div>
-            <div class="dtp-item-title">${d.mapel} - Fase ${d.fase}</div>
-            <div class="dtp-item-meta">${rows.length} Elemen CP | Semester ${d.semester || '-'}</div>
-          </div>
-          <div class="dtp-item-actions">
-            <button onclick="editDataCP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
-            <button onclick="deleteDataCP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
-          </div>
-        </div>
-        ${tableViewHTML(rows, 'CP')}
-      </div>`;
+      return `<div class="dtp-item"> <div class="dtp-item-header"> <div> <div class="dtp-item-title">${d.mapel} - Fase ${d.fase}</div> <div class="dtp-item-meta">${rows.length} Elemen CP | Semester ${d.semester || '-'}</div> </div> <div class="dtp-item-actions"> <button onclick="editDataCP('${d.id}')" style="background: #3b82f6;">✏️ Edit</button> <button onclick="deleteDataCP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button> </div> </div> ${tableViewHTML(rows, 'CP')} </div>`;
     }).join('');
   }, (error) => { console.warn('Error loading data CP:', error); listContainer.innerHTML = '<div class="dtp-empty">❌ Gagal memuat data.</div>'; });
 }
@@ -705,7 +678,7 @@ function handleExportCP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data CP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;margin-bottom:5px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#7c3aed;}.meta{font-size:11pt;color:#64748b;}</style></head><body><h1>MASTER DATA CAPAIAN PEMBELAJARAN (CP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Fase ${filterFase} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastCPData.forEach(d => {
     const rows = normalizeCPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester || '-')}</div><table><tr><th style="width:24%">Elemen</th><th style="width:48%">CP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.deskripsi || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester || '-')}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">CP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.deskripsi || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -715,7 +688,7 @@ function handleExportCP(container) {
   showToast('📥 Word berhasil diunduh!');
 }
 
-// ========== FUNGSI ATP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL) ==========
+// ========== FUNGSI ATP (LOGIC LAMA DIPERTAHANKAN + MODEL TABEL + KOLOM KELAS) ==========
 async function handleSimpanATP(container) {
   const kelas = container.querySelector('#datp-kelas').value;
   const mapel = container.querySelector('#datp-mapel').value;
@@ -724,14 +697,12 @@ async function handleSimpanATP(container) {
   const judul = container.querySelector('#datp-judul').value.trim();
   const catatan = container.querySelector('#datp-catatan').value.trim();
   const rows = readTableRows('datp-tbody', 'atp').filter(r => r.atp);
-
   if (!kelas || !mapel || !fase || !judul || rows.length === 0) {
     showToast('⚠️ Lengkapi Kelas, Mapel, Fase, Judul dan tabel ATP!', 'error');
     return;
   }
   // Field lama (alur array string) tetap disimpan utk kompatibilitas Prota/Promes/RPM
   const alur = rows.map(r => r.atp);
-
   try {
     if (currentEditATPId) {
       const docRef = doc(db, 'data_atp', currentEditATPId);
@@ -782,21 +753,7 @@ function loadDataATP(container) {
     }
     listContainer.innerHTML = filteredData.map(d => {
       const rows = normalizeATPRows(d);
-      return `
-      <div class="dtp-item atp-item">
-        <div class="dtp-item-header">
-          <div>
-            <div class="dtp-item-title atp">${d.judul || `${d.mapel} - Kelas ${d.kelas}`}</div>
-            <div class="dtp-item-meta">${d.mapel} | Kelas ${d.kelas} | Fase ${d.fase} | Semester ${d.semester} | ${rows.length} Alur</div>
-          </div>
-          <div class="dtp-item-actions">
-            <button onclick="editDataATP('${d.id}')" style="background: #4f46e5;">✏️ Edit</button>
-            <button onclick="deleteDataATP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
-          </div>
-        </div>
-        ${tableViewHTML(rows, 'ATP', true)}
-        ${d.catatan ? `<div style="margin-top:10px; font-size:12px; color:#6366f1; font-style:italic;">📝 ${escapeHtml(d.catatan)}</div>` : ''}
-      </div>`;
+      return `<div class="dtp-item atp-item"> <div class="dtp-item-header"> <div> <div class="dtp-item-title atp">${d.judul || `${d.mapel} - Kelas ${d.kelas}`}</div> <div class="dtp-item-meta">${d.mapel} | Kelas ${d.kelas} | Fase ${d.fase} | Semester ${d.semester} | ${rows.length} Alur</div> </div> <div class="dtp-item-actions"> <button onclick="editDataATP('${d.id}')" style="background: #4f46e5;">✏️ Edit</button> <button onclick="deleteDataATP('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button> </div> </div> ${tableViewHTML(rows, 'ATP', true)} ${d.catatan ? `<div style="margin-top:10px; font-size:12px; color:#6366f1; font-style:italic;">📝 ${escapeHtml(d.catatan)}</div>` : ''} </div>`;
     }).join('');
   }, (error) => {
     console.warn('Error loading data ATP:', error);
@@ -844,7 +801,7 @@ function handleExportATP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data ATP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;margin-bottom:5px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#4338ca;}.meta{font-size:11pt;color:#64748b;}.catatan{margin-top:8px;font-style:italic;color:#6366f1;}</style></head><body><h1>MASTER DATA ALUR TUJUAN PEMBELAJARAN (ATP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Kelas ${filterKelas} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastATPData.forEach(d => {
     const rows = normalizeATPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.judul || `${d.mapel} - Kelas ${d.kelas}`)}</div><div class="meta">${escapeHtml(d.mapel)} | Kelas ${escapeHtml(d.kelas)} | Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester)}</div><table><tr><th style="width:24%">Elemen</th><th style="width:48%">ATP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.atp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table>${d.catatan ? `<div class="catatan">📝 ${escapeHtml(d.catatan)}</div>` : ''}</div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.judul || `${d.mapel} - Kelas ${d.kelas}`)}</div><div class="meta">${escapeHtml(d.mapel)} | Kelas ${escapeHtml(d.kelas)} | Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">ATP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.atp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table>${d.catatan ? `<div class="catatan">📝 ${escapeHtml(d.catatan)}</div>` : ''}</div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
