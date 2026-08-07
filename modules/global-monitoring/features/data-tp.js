@@ -11,6 +11,8 @@
 // UPDATE 07/08/2026:
 //  - Penambahan KOLOM KELAS sebelum kolom ELEMEN pada seluruh tabel
 //    (Form TP/CP/ATP, Daftar TP/CP/ATP, dan Export Word)
+//  - PERBAIKAN FILTER MAPEL: perbandingan tidak sensitif huruf besar/kecil
+//    (data 'pjok' dari generator tetap cocok dengan filter 'PJOK')
 // CATATAN: Seluruh logic lama (CRUD, snapshot, edit, hapus, export, toast)
 //          dipertahankan 100%. Field lama (tujuan_pembelajaran & alur berupa
 //          array string) TETAP disimpan agar fitur lain (RPM, KKTP, LKPD,
@@ -43,7 +45,7 @@ const FALLBACK_MAPEL = [
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
@@ -533,7 +535,8 @@ function loadDataTP(container) {
     let filteredData = allData.filter(item => {
       const matchKelas = !filterKelas || item.kelas === filterKelas;
       const matchSemester = !filterSemester || String(item.semester || '') === filterSemester;
-      const matchMapel = !filterMapel || item.mapel === filterMapel;
+      // PERBAIKAN: filter mapel tidak sensitif huruf besar/kecil
+      const matchMapel = !filterMapel || (item.mapel || '').toLowerCase() === filterMapel.toLowerCase();
       const matchTopik = !filterTopik || (item.topik || '').toLowerCase().includes(filterTopik);
       return matchKelas && matchSemester && matchMapel && matchTopik;
     });
@@ -634,7 +637,8 @@ function loadDataCP(container) {
     let filteredData = allData.filter(item => {
       const matchFase = !filterFase || item.fase === filterFase;
       const matchSemester = !filterSemester || String(item.semester || '') === filterSemester;
-      const matchMapel = !filterMapel || item.mapel === filterMapel;
+      // PERBAIKAN: filter mapel tidak sensitif huruf besar/kecil
+      const matchMapel = !filterMapel || (item.mapel || '').toLowerCase() === filterMapel.toLowerCase();
       return matchFase && matchSemester && matchMapel;
     });
     filteredData.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
@@ -741,7 +745,8 @@ function loadDataATP(container) {
       const matchKelas = !filterKelas || item.kelas === filterKelas;
       const matchSemester = !filterSemester || String(item.semester || '') === filterSemester;
       const matchFase = !filterFase || item.fase === filterFase;
-      const matchMapel = !filterMapel || item.mapel === filterMapel;
+      // PERBAIKAN: filter mapel tidak sensitif huruf besar/kecil
+      const matchMapel = !filterMapel || (item.mapel || '').toLowerCase() === filterMapel.toLowerCase();
       const matchJudul = !filterJudul || (item.judul || '').toLowerCase().includes(filterJudul);
       return matchKelas && matchSemester && matchFase && matchMapel && matchJudul;
     });
