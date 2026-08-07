@@ -208,17 +208,16 @@ async function loadMataPelajaran() {
   const origin = window.location.origin;
   const pathname = window.location.pathname;
   let repoBase = '';
-  const repoIdx = pathname.indexOf('/SDN139LAMANDA');
-  if (repoIdx !== -1) {
-    repoBase = pathname.substring(0, repoIdx + '/SDN139LAMANDA'.length);
-  } else {
-    const modIdx = pathname.indexOf('/modules/');
-    if (modIdx !== -1) repoBase = pathname.substring(0, modIdx);
+  const ri = pathname.indexOf('/SDN139LAMANDA');
+  if (ri !== -1) repoBase = pathname.substring(0, ri + '/SDN139LAMANDA'.length);
+  else {
+    const mi = pathname.indexOf('/modules/');
+    if (mi !== -1) repoBase = pathname.substring(0, mi);
   }
   const tryUrls = [];
   if (repoBase) {
-    tryUrls.push(`${origin}${repoBase}/assets/data-mapel.json`);
-    tryUrls.push(`${repoBase}/assets/data-mapel.json`);
+    tryUrls.push(origin + repoBase + '/assets/data-mapel.json');
+    tryUrls.push(repoBase + '/assets/data-mapel.json');
   }
   try {
     if (typeof import.meta !== 'undefined' && import.meta.url) {
@@ -229,7 +228,6 @@ async function loadMataPelajaran() {
   tryUrls.push(new URL('../../../assets/data-mapel.json', window.location.href).href);
   tryUrls.push(new URL('../../assets/data-mapel.json', window.location.href).href);
   tryUrls.push(new URL('../assets/data-mapel.json', window.location.href).href);
-  tryUrls.push(new URL('./assets/data-mapel.json', window.location.href).href);
   tryUrls.push('../../../assets/data-mapel.json');
   tryUrls.push('/SDN139LAMANDA/assets/data-mapel.json');
   tryUrls.push('/assets/data-mapel.json');
@@ -239,20 +237,13 @@ async function loadMataPelajaran() {
       const response = await fetch(path, { cache: 'no-store' });
       if (!response.ok) continue;
       const data = await response.json();
-      const arr = data.mataPelajaran || data.data || data;
-      if (Array.isArray(arr) && arr.length > 0) {
-        dataMapel = arr;
-        console.log(`✅ Data mapel dimuat dari ${path}: ${dataMapel.length}`);
-        return;
-      }
-      if (data.mataPelajaran && data.mataPelajaran.length > 0) {
-        dataMapel = data.mataPelajaran;
-        console.log(`✅ Data mapel dimuat dari ${path}: ${dataMapel.length}`);
-        return;
-      }
-    } catch (error) { continue; }
+      const arr = data.mataPelajaran || data.data;
+      if (Array.isArray(arr) && arr.length > 0) { dataMapel = arr; console.log('✅ Mapel dari '+path); return; }
+      if (Array.isArray(data.mataPelajaran) && data.mataPelajaran.length>0){ dataMapel=data.mataPelajaran; console.log('✅ Mapel dari '+path); return; }
+      if (Array.isArray(data) && data.length>0){ dataMapel=data; return; }
+    } catch(e){ continue; }
   }
-  console.warn('⚠️ Menggunakan data mapel fallback');
+  console.warn('⚠️ Fallback mapel');
   dataMapel = FALLBACK_MAPEL;
 }
 
@@ -1040,10 +1031,8 @@ async function generateCPWithAI(container) {
     return;
   }
   const mapel = container.querySelector('#rpm-mapel').value;
-  const kelasRaw = (container || document).querySelector('#rpm-kelas')?.value || '';
-  const kelasParts = (kelasRaw || '|').split('|');
-  const kelasNum = kelasParts[0] || '';
-  const fase = kelasParts[1] || '';
+  const kelas = container.querySelector('#rpm-kelas').value;
+  const [kelasNum, fase] = kelas.split('|');
 
   if (!mapel || !fase) {
     showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
@@ -1800,7 +1789,6 @@ window.deleteRPM = async function(id) {
 };
 
 // ⭐ FIX #1: Export Word dengan esc/fmt agar nama siswa & multiline tampil rapi
-// ✅ FIX EXPORT WORD - REVISI 4 - robust, tidak crash, nama siswa ikut kebawa
 function handleExportWord(container) {
   try {
     const root = container || document;
@@ -1810,12 +1798,12 @@ function handleExportWord(container) {
       return;
     }
     const d = data;
-    const safeFile = (s) => String(s || 'data').replace(/[^\w\- ]+/g, '_').replace(/\s+/g, '_').substring(0, 60);
-    let html = `
+    const safeFile = (s) => String(s || 'data').replace(/[^A-Za-z0-9\-_ ]+/g, '_').replace(/\s+/g, '_').substring(0, 60);
+    const html = `
     <html><head><meta charset="utf-8"><title>RPM Spesifik - ${esc(d.identitas.tema || d.identitas.topik)}</title>
     <style>
       body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; font-size: 12pt; }
-      h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
+      h1 { text-align: center; font-size: 16pt; }
       h2 { font-size: 13pt; border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 20px; }
       h3 { font-size: 12pt; margin-top: 15px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
@@ -1830,79 +1818,54 @@ function handleExportWord(container) {
     <h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
     <h2 style="text-align: center; border: none;">${esc(d.identitas.tema || '')}${d.identitas.sub_tema ? ' - ' + esc(d.identitas.sub_tema) : ''}</h2>
     <p style="text-align: center; font-style: italic;">Metode: ${esc(d.metode_pembelajaran || '-')}</p>
-    <h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
+    <h2>A. IDENTITAS</h2>
     <table>
-      <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>${esc(d.identitas.sekolah)}</td></tr>
+      <tr><td><strong>Sekolah</strong></td><td>${esc(d.identitas.sekolah)}</td></tr>
       <tr><td><strong>Guru</strong></td><td>${esc(d.identitas.guru)}</td></tr>
-      <tr><td><strong>Mata Pelajaran</strong></td><td>${esc(d.identitas.mapel)}</td></tr>
+      <tr><td><strong>Mapel</strong></td><td>${esc(d.identitas.mapel)}</td></tr>
       <tr><td><strong>Kelas/Fase</strong></td><td>${esc(d.identitas.kelas)} (Fase ${esc(d.identitas.fase)})</td></tr>
       <tr><td><strong>Tema</strong></td><td>${esc(d.identitas.tema || d.identitas.topik || '-')}</td></tr>
       <tr><td><strong>Sub Tema</strong></td><td>${esc(d.identitas.sub_tema || d.identitas.subtema || '-')}</td></tr>
-      <tr><td><strong>Alokasi Waktu</strong></td><td>${esc(d.identitas.alokasi_waktu || '-')}</td></tr>
+      <tr><td><strong>Alokasi</strong></td><td>${esc(d.identitas.alokasi_waktu || '-')}</td></tr>
       <tr><td><strong>Metode</strong></td><td>${esc(d.metode_pembelajaran)}</td></tr>
-      <tr><td><strong>Target Peserta Didik</strong></td><td>${fmt(d.target_peserta_didik) || '-'}</td></tr>
-      <tr><td><strong>Sarana & Prasarana</strong></td><td>${fmt(d.sarana_prasarana) || '-'}</td></tr>
+      <tr><td><strong>Target</strong></td><td>${fmt(d.target_peserta_didik) || '-'}</td></tr>
+      <tr><td><strong>Sarana</strong></td><td>${fmt(d.sarana_prasarana) || '-'}</td></tr>
     </table>
-    <h2>B. ANALISIS KESIAPAN MURID</h2>
-    <p><strong>Kelompok Belum Siap:</strong><br>${fmt(d.analisis_kesiapan.belum_siap) || '-'}</p>
-    <p><strong>Kelompok Siap:</strong><br>${fmt(d.analisis_kesiapan.siap) || '-'}</p>
-    <p><strong>Kelompok Mahir:</strong><br>${fmt(d.analisis_kesiapan.mahir) || '-'}</p>
-    <h2>C. TUJUAN & PROFIL LULUSAN</h2>
-    <p><strong>Capaian Pembelajaran (CP) terpilih:</strong><br>${fmt(d.tujuan_dan_profil.cp) || '-'}</p>
-    <h3>Tujuan Pembelajaran (TP) terpilih:</h3>
-    <ul>${(d.tujuan_dan_profil.tujuan_pembelajaran || []).map(t => `<li>${fmt(t)}</li>`).join('') || '<li>-</li>'}</ul>
-    <h3>Profil Lulusan:</h3>
-    <ul>${(d.tujuan_dan_profil.profil_lulusan || []).map(p => `<li>${esc(p)}</li>`).join('') || '<li>-</li>'}</ul>
-    <h2>D. LANGKAH PEMBELAJARAN</h2>
-    ${(d.langkah_pembelajaran || []).map(p => `
-      <h3>${esc(p.judul)}</h3>
-      <p><strong>A. Memahami:</strong><br>${fmt(p.memahami)}</p>
-      <p><strong>B. Mengaplikasikan:</strong><br>${fmt(p.mengaplikasikan)}</p>
-      <p><strong>C. Merefleksikan:</strong><br>${fmt(p.merefleksikan)}</p>
-    `).join('') || '<p>-</p>'}
+    <h2>B. ANALISIS KESIAPAN</h2>
+    <p><strong>Belum Siap:</strong><br>${fmt(d.analisis_kesiapan.belum_siap) || '-'}</p>
+    <p><strong>Siap:</strong><br>${fmt(d.analisis_kesiapan.siap) || '-'}</p>
+    <p><strong>Mahir:</strong><br>${fmt(d.analisis_kesiapan.mahir) || '-'}</p>
+    <h2>C. TUJUAN & PROFIL</h2>
+    <p><strong>CP:</strong><br>${fmt(d.tujuan_dan_profil.cp) || '-'}</p>
+    <p><strong>TP:</strong></p><ul>${(d.tujuan_dan_profil.tujuan_pembelajaran || []).map(t => `<li>${fmt(t)}</li>`).join('') || '<li>-</li>'}</ul>
+    <p><strong>Profil:</strong></p><ul>${(d.tujuan_dan_profil.profil_lulusan || []).map(p => `<li>${esc(p)}</li>`).join('') || '<li>-</li>'}</ul>
+    <h2>D. LANGKAH</h2>
+    ${(d.langkah_pembelajaran || []).map(p => `<h3>${esc(p.judul)}</h3><p><strong>Memahami:</strong><br>${fmt(p.memahami)}</p><p><strong>Mengaplikasikan:</strong><br>${fmt(p.mengaplikasikan)}</p><p><strong>Merefleksikan:</strong><br>${fmt(p.merefleksikan)}</p>`).join('') || '<p>-</p>'}
     <h2>E. ASESMEN</h2>
-    <p><strong>Diagnostik:</strong><br>${fmt(d.asesmen.diagnostik) || '-'}</p>
-    <p><strong>Formatif:</strong><br>${fmt(d.asesmen.formatif) || '-'}</p>
-    <p><strong>Sumatif:</strong><br>${fmt(d.asesmen.sumatif) || '-'}</p>
-    <p><strong>Rubrik:</strong><br>${fmt(d.asesmen.rubrik_penilaian) || '-'}</p>
+    <p>Diagnostik:<br>${fmt(d.asesmen.diagnostik) || '-'}</p>
+    <p>Formatif:<br>${fmt(d.asesmen.formatif) || '-'}</p>
+    <p>Sumatif:<br>${fmt(d.asesmen.sumatif) || '-'}</p>
+    <p>Rubrik:<br>${fmt(d.asesmen.rubrik_penilaian) || '-'}</p>
     <h2>F. DIFERENSIASI</h2>
-    <p><strong>Remedial:</strong><br>${fmt(d.diferensiasi.remedial) || '-'}</p>
-    <p><strong>Pengayaan:</strong><br>${fmt(d.diferensiasi.pengayaan) || '-'}</p>
+    <p>Remedial:<br>${fmt(d.diferensiasi.remedial) || '-'}</p>
+    <p>Pengayaan:<br>${fmt(d.diferensiasi.pengayaan) || '-'}</p>
     <h2>G. REFLEKSI</h2>
-    <p><strong>Guru:</strong><br>${fmt(d.refleksi.guru) || '-'}</p>
-    <p><strong>Siswa:</strong><br>${fmt(d.refleksi.siswa) || '-'}</p>
+    <p>Guru:<br>${fmt(d.refleksi.guru) || '-'}</p>
+    <p>Siswa:<br>${fmt(d.refleksi.siswa) || '-'}</p>
     <h2>H. LAMPIRAN</h2>
-    <p><strong>LKPD:</strong><br>${fmt(d.lampiran.lkpd) || '-'}</p>
-    <p><strong>Bahan Bacaan:</strong><br>${fmt(d.lampiran.bahan_bacaan) || '-'}</p>
-    <p><strong>Glosarium:</strong><br>${fmt(d.lampiran.glosarium) || '-'}</p>
-    <div class="ttd-section">
-      <table class="ttd-table">
-        <tr>
-          <td>
-            <div>Mengetahui,</div>
-            <div style="margin-bottom: 60px;">Kepala Sekolah<br>${esc(d.identitas.sekolah)}</div>
-            <div class="ttd-name">${esc(d.tanda_tangan.kepala_sekolah.nama)}</div>
-            <div>NIP: ${esc(d.tanda_tangan.kepala_sekolah.nip)}</div>
-          </td>
-          <td>
-            <div>Guru Pengampu,</div>
-            <div style="margin-bottom: 60px;">Guru Mata Pelajaran</div>
-            <div class="ttd-name">${esc(d.tanda_tangan.guru_pengampu.nama)}</div>
-            <div>NIP: ${esc(d.tanda_tangan.guru_pengampu.nip)}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-    </body></html>
-  `;
+    <p>LKPD:<br>${fmt(d.lampiran.lkpd) || '-'}</p>
+    <p>Bahan:<br>${fmt(d.lampiran.bahan_bacaan) || '-'}</p>
+    <p>Glosarium:<br>${fmt(d.lampiran.glosarium) || '-'}</p>
+    <div class="ttd-section"><table class="ttd-table"><tr><td><div>Mengetahui,</div><div style="margin-bottom:60px;">Kepala Sekolah<br>${esc(d.identitas.sekolah)}</div><div class="ttd-name">${esc(d.tanda_tangan.kepala_sekolah.nama)}</div><div>NIP: ${esc(d.tanda_tangan.kepala_sekolah.nip)}</div></td><td><div>Guru Pengampu,</div><div style="margin-bottom:60px;">Guru Mapel</div><div class="ttd-name">${esc(d.tanda_tangan.guru_pengampu.nama)}</div><div>NIP: ${esc(d.tanda_tangan.guru_pengampu.nip)}</div></td></tr></table></div>
+    </body></html>`;
     const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `RPM_Spesifik_${safeFile(d.metode_pembelajaran)}_${safeFile(d.identitas.mapel)}_${safeFile(d.identitas.tema || d.identitas.topik)}.doc`;
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `RPM_Spesifik_${safeFile(d.metode_pembelajaran)}_${safeFile(d.identitas.mapel)}_${safeFile(d.identitas.tema || d.identitas.topik)}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
     showToast('📥 Word berhasil diunduh!');
   } catch (err) {
     console.error('Export Word Error:', err);
@@ -1910,13 +1873,14 @@ function handleExportWord(container) {
   }
 }
 
-function gatherFormData
 function gatherFormData(container) {
   const root = container || document;
-  const kelas = root.querySelector('#rpm-kelas')?.value || '';
-  const [kelasNum, fase] = kelas.split('|');
-  const tema = container.querySelector('#rpm-tema').value;
-  const subTema = container.querySelector('#rpm-subtema').value;
+  const kelasVal = (root.querySelector('#rpm-kelas')?.value || '').trim();
+  const kelasParts = (kelasVal || '|').split('|');
+  const kelasNum = kelasParts[0] || '';
+  const fase = kelasParts[1] || '';
+  const tema = root.querySelector('#rpm-tema')?.value || '';
+  const subTema = root.querySelector('#rpm-subtema')?.value || '';
 
   const profilLulusan = [];
   container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
