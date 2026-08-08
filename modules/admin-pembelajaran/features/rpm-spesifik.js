@@ -2504,7 +2504,7 @@ function handleExportWord(container) {
             NIP: ${escapeHtml(d.tanda_tangan.kepala_sekolah.nip)}
           </td>
           <td>
-            Labolong, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br>
+            Lamanda, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br>
             Guru Pengampu,<br><br><br><br><br>
             <div class="ttd-name">${escapeHtml(d.tanda_tangan.guru_pengampu.nama)}</div><br>
             NIP: ${escapeHtml(d.tanda_tangan.guru_pengampu.nip)}
