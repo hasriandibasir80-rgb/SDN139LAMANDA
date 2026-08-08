@@ -85,7 +85,7 @@ const FALLBACK_MAPEL = [
 { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
 { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
 { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-{ id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+{ id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬' },
 { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
 { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
 { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
@@ -980,8 +980,8 @@ const mapel = container.querySelector('#rpm-mapel').value;
 const kelas = container.querySelector('#rpm-kelas').value;
 const { tema, subTema } = getTemaSubTema(container);
 const topik = [tema, subTema].filter(Boolean).join(' - ');
-if (!mapel || !topik) {
-showToast('⚠️ Mohon isi Mata Pelajaran dan Tema terlebih dahulu!', 'error');
+if (!mapel || !kelas) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
 return;
 }
 const btn = container.querySelector('#btnGenerateTP');
@@ -994,9 +994,9 @@ try {
 const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
 Mata Pelajaran: ${mapel}
 Kelas: ${kelas}
-Tema: ${tema}
+Tema: ${tema || '-'}
 Sub Tema: ${subTema || '-'}
-Topik (gabungan): ${topik}
+Topik (gabungan): ${topik || '-'}
 Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan kalimat "Siswa mampu...". Jangan berikan penjelasan lain.`;
 const response = await fetch(GROQ_API_URL, {
   method: 'POST',
@@ -1102,8 +1102,8 @@ const kelas = container.querySelector('#rpm-kelas').value;
 const { tema, subTema } = getTemaSubTema(container);
 const topik = [tema, subTema].filter(Boolean).join(' - ');
 const metode = container.querySelector('#rpm-metode').value;
-if (!mapel || !kelas || !topik || !metode) {
-showToast('⚠️ Isi Mapel, Kelas, Topik, dan Metode terlebih dahulu!', 'error');
+if (!mapel || !kelas || !metode) {
+showToast('⚠️ Isi Mapel, Kelas, dan Metode terlebih dahulu!', 'error');
 return;
 }
 const [kelasNum, fase] = kelas.split('|');
@@ -1115,9 +1115,9 @@ const prompt = `Bertindaklah sebagai Ahli Kurikulum Merdeka dan Pengembang RPM p
 Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} dengan format JSON valid berdasarkan data:
 Mata Pelajaran: ${mapel}
 Kelas: ${kelasNum} (Fase ${fase})
-Tema: ${tema}
+Tema: ${tema || '-'}
 Sub Tema: ${subTema || '-'}
-Topik Gabungan: ${topik}
+Topik Gabungan: ${topik || '-'}
 Metode: ${metode}
 Sekolah: SDN 139 LAMANDA
 Target Peserta Didik: ${container.querySelector('#rpm-target-peserta-didik').value || '-'}
