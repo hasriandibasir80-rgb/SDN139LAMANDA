@@ -1,2036 +1,1724 @@
-// modules/admin-pembelajaran/features/rpm-spesifik.js
-// =========================================
-// FITUR: RPM SPESIFIK (Rencana Pembelajaran Mendalam)
-// TEMPLATE KHUSUS PER METODE PEMBELAJARAN
-// TERINTEGRASI: Firestore, AI Groq, Data Mapel JSON
-// REVISI FINAL:
-//  (1) Nama siswa ikut di Export Word & bertahan saat Generate AI
-//  (2) CP/TP Master Data via checklist (hanya tercentang masuk output)
-//  (3) Tombol Simpan tidak memicu Reset
-// =========================================
-
 import { db } from '../../../js/firebase-config.js';
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { 
-  collection, addDoc, getDocs, query, where, orderBy, 
-  onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp 
+import {
+collection, addDoc, getDocs, query, where, orderBy,
+onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
-// Groq API Configuration
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 let groqApiKey = null;
-
 const CSS_ID = 'rpm-spesifik-css';
 let currentEditId = null;
 let dataMapel = [];
 
-// ⭐ FIX FINAL: Normalisasi mapel agar paibd == PAI & budi pekerti dll tetap match
 function normalizeMapelId(str) {
-  if (!str) return '';
-  const s = str.toLowerCase().trim();
-  for (const m of dataMapel) {
-    const id = (m.id||'').toLowerCase();
-    const nama = (m.nama||'').toLowerCase();
-    const sing = (m.singkatan||'').toLowerCase();
-    if (s === id || s === nama || s === sing) return id;
-    if (nama.includes(s) || s.includes(nama) || s.includes(id) || id.includes(s) || sing.includes(s) || s.includes(sing)) {
-      if (id === 'paibd' && (s.includes('pabp') || s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti'))) return 'paibd';
-      if (s.length > 3) {
-        if (nama.includes(s) || s.includes(id)) return id;
-      }
-    }
-  }
-  if (s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti') || s === 'paibd') return 'paibd';
-  return s;
+if (!str) return '';
+const s = str.toLowerCase().trim();
+for (const m of dataMapel) {
+const id = (m.id||'').toLowerCase();
+const nama = (m.nama||'').toLowerCase();
+const sing = (m.singkatan||'').toLowerCase();
+if (s === id || s === nama || s === sing) return id;
+if (nama.includes(s) || s.includes(nama) || s.includes(id) || id.includes(s) || sing.includes(s) || s.includes(sing)) {
+if (id === 'paibd' && (s.includes('pabp') || s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti'))) return 'paibd';
+if (s.length > 3) {
+if (nama.includes(s) || s.includes(id)) return id;
+}
+}
+}
+if (s.includes('pai') || s.includes('agama islam') || s.includes('budi pekerti') || s === 'paibd') return 'paibd';
+return s;
 }
 
 function isMapelMatch(dbMapel, inputMapel) {
-  if (!dbMapel || !inputMapel) return false;
-  const db = normalizeMapelId(dbMapel);
-  const inp = normalizeMapelId(inputMapel);
-  if (db === inp) return true;
-  const dbL = dbMapel.toLowerCase();
-  const inL = inputMapel.toLowerCase();
-  return dbL.includes(inL) || inL.includes(dbL) || db.includes(inp) || inp.includes(db);
+if (!dbMapel || !inputMapel) return false;
+const db = normalizeMapelId(dbMapel);
+const inp = normalizeMapelId(inputMapel);
+if (db === inp) return true;
+const dbL = dbMapel.toLowerCase();
+const inL = inputMapel.toLowerCase();
+return dbL.includes(inL) || inL.includes(dbL) || db.includes(inp) || inp.includes(db);
 }
 
 function isTopikMatch(dbTopik, inputTopik) {
-  if (!dbTopik || !inputTopik) return true;
-  const db = dbTopik.toLowerCase();
-  const inp = inputTopik.toLowerCase();
-  if (db.includes(inp) || inp.includes(db)) return true;
-  const dbWords = db.split(/\s+/).filter(w=>w.length>3);
-  const inpWords = inp.split(/\s+/).filter(w=>w.length>3);
-  for (const w of inpWords) {
-    if (db.includes(w)) return true;
-  }
-  for (const w of dbWords) {
-    if (inp.includes(w)) return true;
-  }
-  if ((db.includes('alquran') || db.includes('al-quran') || db.includes('alquan')) && (inp.includes('alquran') || inp.includes('al-quran') || inp.includes('alquan') || inp.includes('quran') || inp.includes('kitabku'))) return true;
-  return false;
+if (!dbTopik || !inputTopik) return true;
+const db = dbTopik.toLowerCase();
+const inp = inputTopik.toLowerCase();
+if (db.includes(inp) || inp.includes(db)) return true;
+const dbWords = db.split(/\s+/).filter(w=>w.length>3);
+const inpWords = inp.split(/\s+/).filter(w=>w.length>3);
+for (const w of inpWords) {
+if (db.includes(w)) return true;
+}
+for (const w of dbWords) {
+if (inp.includes(w)) return true;
+}
+if ((db.includes('alquran') || db.includes('al-quran') || db.includes('alquan')) && (inp.includes('alquran') || inp.includes('al-quran') || inp.includes('alquan') || inp.includes('quran') || inp.includes('kitabku'))) return true;
+return false;
 }
 
 function getTemaSubTema(container) {
-  const elTema = container ? container.querySelector('#rpm-tema') : document.querySelector('#rpm-tema');
-  const elSub = container ? container.querySelector('#rpm-subtema') : document.querySelector('#rpm-subtema');
-  const tema = elTema ? elTema.value.trim() : '';
-  const subTema = elSub ? elSub.value.trim() : '';
-  const combined = [tema, subTema].filter(Boolean).join(' - ');
-  const searchCombined = [tema, subTema].filter(Boolean).join(' ').trim();
-  return { tema, subTema, combined, searchCombined };
+const elTema = container ? container.querySelector('#rpm-tema') : document.querySelector('#rpm-tema');
+const elSub = container ? container.querySelector('#rpm-subtema') : document.querySelector('#rpm-subtema');
+const tema = elTema ? elTema.value.trim() : '';
+const subTema = elSub ? elSub.value.trim() : '';
+const combined = [tema, subTema].filter(Boolean).join(' - ');
+const searchCombined = [tema, subTema].filter(Boolean).join(' ').trim();
+return { tema, subTema, combined, searchCombined };
 }
 
-// Default Tanda Tangan
 const DEFAULT_TTD = {
-  namaKepsek: 'Imam Munandar SP.d',
-  nipKepsek: '198512192011011007',
-  namaGuru: 'Hasriandi Basir SP.d',
-  nipGuru: '198110182025211059'
+namaKepsek: 'Imam Munandar SP.d',
+nipKepsek: '198512192011011007',
+namaGuru: 'Hasriandi Basir SP.d',
+nipGuru: '198110182025211059'
 };
 
-// Fallback Data Mapel
 const FALLBACK_MAPEL = [
-  { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '' },
-  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
-  { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
-  { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '' },
-  { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
-  { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
-  { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
-  { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
+{ id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
+{ id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+{ id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
+{ id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
+{ id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
+{ id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+{ id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
+{ id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
+{ id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
+{ id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+{ id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
 ];
 
-// Template Langkah Pembelajaran per Metode
 const METODE_TEMPLATES = {
-  'Project Based Learning (PjBL)': {
-    nama: 'Project Based Learning (PjBL)',
-    deskripsi: 'Pembelajaran berbasis proyek dengan menghasilkan produk nyata',
-    langkah: [
-      { judul: 'Pertemuan 1: Penentuan Pertanyaan Mendasar', memahami: 'Guru menyampaikan pertanyaan mendasar yang memicu rasa ingin tahu siswa tentang topik proyek. Siswa diajak mengidentifikasi masalah nyata yang relevan dengan kehidupan mereka.', mengaplikasikan: 'Siswa bekerja dalam kelompok untuk merancang rencana proyek, menentukan produk yang akan dibuat, dan membagi tugas. Guru memfasilitasi diskusi dan memberikan scaffolding.', merefleksikan: 'Siswa merefleksikan pemahaman awal mereka tentang topik proyek dan menuliskan pertanyaan yang ingin mereka jawab melalui proyek ini.' },
-      { judul: 'Pertemuan 2: Mendesain Perencanaan Proyek', memahami: 'Siswa mempelajari konsep dan teori yang mendukung proyek mereka melalui berbagai sumber (buku, video, wawancara).', mengaplikasikan: 'Siswa membuat timeline proyek, daftar bahan/alat yang dibutuhkan, dan kriteria keberhasilan produk. Guru memonitor perkembangan perencanaan.', merefleksikan: 'Siswa mengevaluasi kesiapan mereka untuk memulai proyek dan mengidentifikasi tantangan yang mungkin dihadapi.' },
-      { judul: 'Pertemuan 3-4: Menyusun Jadwal & Monitoring', memahami: 'Siswa mulai melaksanakan proyek sesuai rencana. Mereka mengumpulkan data, melakukan eksperimen, atau membuat draft produk.', mengaplikasikan: 'Guru melakukan monitoring berkala, memberikan feedback, dan membantu mengatasi hambatan. Siswa mendokumentasikan proses kerja mereka.', merefleksikan: 'Siswa mencatat progres yang dicapai, masalah yang dihadapi, dan solusi yang diterapkan.' },
-      { judul: 'Pertemuan 5: Menguji Hasil & Presentasi', memahami: 'Siswa menyelesaikan produk proyek dan melakukan uji coba atau validasi hasil.', mengaplikasikan: 'Siswa mempresentasikan hasil proyek di depan kelas, menjawab pertanyaan dari teman dan guru. Mereka menjelaskan proses, hasil, dan pembelajaran yang didapat.', merefleksikan: 'Siswa melakukan self-assessment dan peer-assessment terhadap kualitas produk dan proses kerja.' }
-    ]
-  },
-  'Problem Based Learning (PBL)': {
-    nama: 'Problem Based Learning (PBL)',
-    deskripsi: 'Pembelajaran berbasis masalah dengan fokus pada pemecahan masalah kompleks',
-    langkah: [
-      { judul: 'Pertemuan 1: Orientasi pada Masalah', memahami: 'Guru menyajikan masalah autentik dan kompleks yang relevan dengan kehidupan siswa. Masalah disajikan dalam bentuk studi kasus atau skenario nyata.', mengaplikasikan: 'Siswa dalam kelompok mengidentifikasi apa yang mereka ketahui (known), apa yang perlu mereka ketahui (need to know), dan ide solusi awal.', merefleksikan: 'Siswa menuliskan pertanyaan-pertanyaan kunci yang perlu dijawab untuk memecahkan masalah.' },
-      { judul: 'Pertemuan 2: Organisasi Belajar', memahami: 'Siswa melakukan brainstorming hipotesis dan kemungkinan solusi. Mereka mengorganisir ide-ide yang muncul.', mengaplikasikan: 'Siswa membagi tugas penelitian, menentukan sumber informasi yang akan digunakan, dan merencanakan strategi pengumpulan data.', merefleksikan: 'Siswa mengevaluasi pemahaman mereka tentang masalah dan mengidentifikasi gap pengetahuan.' },
-      { judul: 'Pertemuan 3-4: Penyelidikan Mandiri', memahami: 'Siswa secara mandiri atau berkelompok mencari informasi dari berbagai sumber (buku, internet, wawancara, observasi).', mengaplikasikan: 'Siswa menganalisis informasi yang didapat, menguji hipotesis, dan mengembangkan solusi. Guru memfasilitasi diskusi dan memberikan scaffolding.', merefleksikan: 'Siswa mencatat temuan penting dan merevisi pemahaman mereka berdasarkan informasi baru.' },
-      { judul: 'Pertemuan 5: Analisis & Presentasi Solusi', memahami: 'Siswa mensintesis informasi dan mengembangkan solusi final untuk masalah yang diberikan.', mengaplikasikan: 'Siswa mempresentasikan solusi mereka dengan argumen yang didukung bukti. Kelompok lain memberikan feedback dan pertanyaan kritis.', merefleksikan: 'Siswa merefleksikan proses pemecahan masalah, efektivitas solusi, dan pembelajaran yang didapat.' }
-    ]
-  },
-  'Discovery Learning': {
-    nama: 'Discovery Learning',
-    deskripsi: 'Pembelajaran penemuan di mana siswa membangun pemahaman melalui eksplorasi',
-    langkah: [
-      { judul: 'Pertemuan 1: Stimulation (Pemberian Rangsangan)', memahami: 'Guru memberikan stimulus berupa pertanyaan, gambar, video, atau fenomena yang memicu rasa ingin tahu siswa. Siswa diajak mengamati dan mencatat hal-hal menarik.', mengaplikasikan: 'Siswa dalam kelompok mendiskusikan stimulus dan mengidentifikasi pola atau hubungan yang mereka lihat.', merefleksikan: 'Siswa menuliskan pertanyaan-pertanyaan yang muncul dari hasil pengamatan mereka.' },
-      { judul: 'Pertemuan 2: Problem Statement (Pernyataan Masalah)', memahami: 'Siswa merumuskan masalah atau hipotesis berdasarkan stimulus yang diberikan.', mengaplikasikan: 'Siswa dalam kelompok menyepakati masalah yang akan diselidiki dan merencanakan cara menguji hipotesis mereka.', merefleksikan: 'Siswa mengevaluasi apakah masalah yang dirumuskan sudah jelas dan dapat diselidiki.' },
-      { judul: 'Pertemuan 3: Data Collection (Pengumpulan Data)', memahami: 'Siswa melakukan eksperimen, observasi, atau penelitian untuk mengumpulkan data yang relevan.', mengaplikasikan: 'Siswa mencatat data secara sistematis, menggunakan alat ukur yang tepat, dan memastikan validitas data.', merefleksikan: 'Siswa memeriksa kelengkapan dan keakuratan data yang telah dikumpulkan.' },
-      { judul: 'Pertemuan 4: Data Processing (Pengolahan Data)', memahami: 'Siswa mengolah dan menganalisis data yang telah dikumpulkan menggunakan metode yang sesuai.', mengaplikasikan: 'Siswa membuat tabel, grafik, atau diagram untuk memvisualisasikan data. Mereka mencari pola dan hubungan antar variabel.', merefleksikan: 'Siswa mengevaluasi apakah hasil pengolahan data mendukung atau menolak hipotesis awal.' },
-      { judul: 'Pertemuan 5: Verification & Generalization', memahami: 'Siswa memverifikasi hasil temuan mereka dengan membandingkan dengan teori atau sumber lain.', mengaplikasikan: 'Siswa membuat kesimpulan umum (generalisasi) dari hasil penemuan mereka dan mempresentasikan kepada kelas.', merefleksikan: 'Siswa merefleksikan proses penemuan, kesulitan yang dihadapi, dan konsep baru yang mereka pahami.' }
-    ]
-  },
-  'Game-Based Learning': {
-    nama: 'Game-Based Learning',
-    deskripsi: 'Pembelajaran berbasis permainan yang menyenangkan dan edukatif',
-    langkah: [
-      { judul: 'Pertemuan 1: Pengenalan Konsep & Aturan Permainan', memahami: 'Guru memperkenalkan konsep pembelajaran melalui game. Siswa mempelajari aturan, tujuan, dan mekanisme permainan.', mengaplikasikan: 'Siswa berlatih memainkan game dalam kelompok kecil untuk memahami alur dan strategi dasar.', merefleksikan: 'Siswa menuliskan pemahaman mereka tentang hubungan antara game dan materi pembelajaran.' },
-      { judul: 'Pertemuan 2-3: Bermain & Eksplorasi', memahami: 'Siswa bermain game secara intensif, mengeksplorasi berbagai strategi dan pendekatan untuk mencapai tujuan.', mengaplikasikan: 'Siswa bekerja sama dalam tim, berdiskusi strategi, dan saling membantu. Guru memonitor perkembangan dan memberikan hints jika diperlukan.', merefleksikan: 'Siswa mencatat strategi yang berhasil dan yang gagal, serta pembelajaran yang didapat dari setiap ronde permainan.' },
-      { judul: 'Pertemuan 4: Analisis & Diskusi', memahami: 'Siswa menganalisis pengalaman bermain mereka dan mengidentifikasi konsep-konsep pembelajaran yang terkandung dalam game.', mengaplikasikan: 'Siswa berdiskusi dalam kelompok tentang hubungan antara mekanisme game dengan materi pelajaran. Mereka membuat catatan konseptual.', merefleksikan: 'Siswa merefleksikan bagaimana game membantu mereka memahami materi dengan cara yang menyenangkan.' },
-      { judul: 'Pertemuan 5: Presentasi & Aplikasi', memahami: 'Siswa mempresentasikan pembelajaran mereka dari game dan bagaimana konsep tersebut dapat diterapkan dalam konteks nyata.', mengaplikasikan: 'Siswa membuat proyek kecil atau menyelesaikan tantangan yang mengaitkan konsep dari game dengan situasi dunia nyata.', merefleksikan: 'Siswa melakukan self-assessment tentang pemahaman mereka dan bagaimana game mempengaruhi motivasi belajar mereka.' }
-    ]
-  },
-  'Inquiry Learning': {
-    nama: 'Inquiry Learning',
-    deskripsi: 'Pembelajaran inkuiri yang menekankan pada proses bertanya dan menyelidiki',
-    langkah: [
-      { judul: 'Pertemuan 1: Merumuskan Pertanyaan Inkuiri', memahami: 'Guru menyajikan fenomena atau topik yang memicu rasa ingin tahu. Siswa diajak mengajukan pertanyaan-pertanyaan inkuiri yang mendalam.', mengaplikasikan: 'Siswa dalam kelompok memilih satu pertanyaan inkuiri yang akan diselidiki dan merumuskan hipotesis awal.', merefleksikan: 'Siswa mengevaluasi apakah pertanyaan mereka cukup fokus dan dapat diselidiki.' },
-      { judul: 'Pertemuan 2: Merancang Penyelidikan', memahami: 'Siswa mempelajari metode penelitian yang sesuai untuk menjawab pertanyaan inkuiri mereka.', mengaplikasikan: 'Siswa merancang prosedur penyelidikan, menentukan variabel, alat, dan bahan yang dibutuhkan. Guru memberikan feedback terhadap rancangan.', merefleksikan: 'Siswa memprediksi hasil yang mungkin didapat dan mengidentifikasi potensi kendala.' },
-      { judul: 'Pertemuan 3-4: Melakukan Penyelidikan', memahami: 'Siswa melaksanakan penyelidikan sesuai rancangan, mengumpulkan data dan bukti secara sistematis.', mengaplikasikan: 'Siswa bekerja dalam tim, saling membantu, dan mendokumentasikan setiap tahap proses. Guru memfasilitasi dan memberikan scaffolding.', merefleksikan: 'Siswa mencatat observasi, temuan tak terduga, dan pertanyaan baru yang muncul selama penyelidikan.' },
-      { judul: 'Pertemuan 5: Analisis & Kesimpulan', memahami: 'Siswa menganalisis data dan bukti yang telah dikumpulkan untuk menjawab pertanyaan inkuiri.', mengaplikasikan: 'Siswa membuat kesimpulan yang didukung bukti, mempresentasikan hasil penyelidikan, dan menjawab pertanyaan dari audiens.', merefleksikan: 'Siswa merefleksikan proses inkuiri, validitas kesimpulan, dan pembelajaran yang didapat tentang cara memperoleh pengetahuan.' }
-    ]
-  },
-  'Cooperative Learning': {
-    nama: 'Cooperative Learning',
-    deskripsi: 'Pembelajaran kooperatif dengan kerja sama tim dan interdependensi positif',
-    langkah: [
-      { judul: 'Pertemuan 1: Pembentukan Tim & Goal Setting', memahami: 'Guru menjelaskan prinsip-prinsip cooperative learning dan membentuk kelompok heterogen (4-5 siswa).', mengaplikasikan: 'Siswa dalam tim saling mengenal, menetapkan norma kelompok, dan menyepakati tujuan pembelajaran bersama.', merefleksikan: 'Siswa menuliskan harapan mereka terhadap kerja sama tim dan kontribusi yang akan mereka berikan.' },
-      { judul: 'Pertemuan 2: Pembelajaran Konsep Dasar', memahami: 'Guru menyampaikan materi dasar atau siswa mempelajari materi melalui sumber yang disediakan.', mengaplikasikan: 'Siswa dalam tim menggunakan strategi Jigsaw atau Think-Pair-Share untuk memastikan semua anggota memahami konsep dasar.', merefleksikan: 'Siswa mengevaluasi pemahaman individu dan mengidentifikasi bagian yang masih perlu dipelajari.' },
-      { judul: 'Pertemuan 3-4: Tugas Kelompok & Interdependensi', memahami: 'Siswa mengerjakan tugas kelompok yang memerlukan kontribusi setiap anggota (interdependensi positif).', mengaplikasikan: 'Siswa saling mengajar (peer teaching), saling membantu, dan memastikan semua anggota menguasai materi. Guru memonitor dinamika kelompok.', merefleksikan: 'Siswa mencatat bagaimana kerja sama tim membantu pembelajaran mereka dan tantangan yang dihadapi.' },
-      { judul: 'Pertemuan 5: Evaluasi Kelompok & Refleksi', memahami: 'Siswa mempresentasikan hasil kerja kelompok atau mengikuti evaluasi individu dan kelompok.', mengaplikasikan: 'Siswa melakukan peer evaluation dan group processing, memberikan feedback konstruktif kepada anggota tim.', merefleksikan: 'Siswa merefleksikan efektivitas kerja sama tim, keterampilan sosial yang dikembangkan, dan pembelajaran tentang kolaborasi.' }
-    ]
-  }
+'Project Based Learning (PjBL)': {
+nama: 'Project Based Learning (PjBL)',
+deskripsi: 'Pembelajaran berbasis proyek dengan menghasilkan produk nyata',
+langkah: [
+{ judul: 'Pertemuan 1: Penentuan Pertanyaan Mendasar', memahami: 'Guru menyampaikan pertanyaan mendasar yang memicu rasa ingin tahu siswa tentang topik proyek. Siswa diajak mengidentifikasi masalah nyata yang relevan dengan kehidupan mereka.', mengaplikasikan: 'Siswa bekerja dalam kelompok untuk merancang rencana proyek, menentukan produk yang akan dibuat, dan membagi tugas. Guru memfasilitasi diskusi dan memberikan scaffolding.', merefleksikan: 'Siswa merefleksikan pemahaman awal mereka tentang topik proyek dan menuliskan pertanyaan yang ingin mereka jawab melalui proyek ini.' },
+{ judul: 'Pertemuan 2: Mendesain Perencanaan Proyek', memahami: 'Siswa mempelajari konsep dan teori yang mendukung proyek mereka melalui berbagai sumber (buku, video, wawancara).', mengaplikasikan: 'Siswa membuat timeline proyek, daftar bahan/alat yang dibutuhkan, dan kriteria keberhasilan produk. Guru memonitor perkembangan perencanaan.', merefleksikan: 'Siswa mengevaluasi kesiapan mereka untuk memulai proyek dan mengidentifikasi tantangan yang mungkin dihadapi.' },
+{ judul: 'Pertemuan 3-4: Menyusun Jadwal & Monitoring', memahami: 'Siswa mulai melaksanakan proyek sesuai rencana. Mereka mengumpulkan data, melakukan eksperimen, atau membuat draft produk.', mengaplikasikan: 'Guru melakukan monitoring berkala, memberikan feedback, dan membantu mengatasi hambatan. Siswa mendokumentasikan proses kerja mereka.', merefleksikan: 'Siswa mencatat progres yang dicapai, masalah yang dihadapi, dan solusi yang diterapkan.' },
+{ judul: 'Pertemuan 5: Menguji Hasil & Presentasi', memahami: 'Siswa menyelesaikan produk proyek dan melakukan uji coba atau validasi hasil.', mengaplikasikan: 'Siswa mempresentasikan hasil proyek di depan kelas, menjawab pertanyaan dari teman dan guru. Mereka menjelaskan proses, hasil, dan pembelajaran yang didapat.', merefleksikan: 'Siswa melakukan self-assessment dan peer-assessment terhadap kualitas produk dan proses kerja.' }
+]
+},
+'Problem Based Learning (PBL)': {
+nama: 'Problem Based Learning (PBL)',
+deskripsi: 'Pembelajaran berbasis masalah dengan fokus pada pemecahan masalah kompleks',
+langkah: [
+{ judul: 'Pertemuan 1: Orientasi pada Masalah', memahami: 'Guru menyajikan masalah autentik dan kompleks yang relevan dengan kehidupan siswa. Masalah disajikan dalam bentuk studi kasus atau skenario nyata.', mengaplikasikan: 'Siswa dalam kelompok mengidentifikasi apa yang mereka ketahui (known), apa yang perlu mereka ketahui (need to know), dan ide solusi awal.', merefleksikan: 'Siswa menuliskan pertanyaan-pertanyaan kunci yang perlu dijawab untuk memecahkan masalah.' },
+{ judul: 'Pertemuan 2: Organisasi Belajar', memahami: 'Siswa melakukan brainstorming hipotesis dan kemungkinan solusi. Mereka mengorganisir ide-ide yang muncul.', mengaplikasikan: 'Siswa membagi tugas penelitian, menentukan sumber informasi yang akan digunakan, dan merencanakan strategi pengumpulan data.', merefleksikan: 'Siswa mengevaluasi pemahaman mereka tentang masalah dan mengidentifikasi gap pengetahuan.' },
+{ judul: 'Pertemuan 3-4: Penyelidikan Mandiri', memahami: 'Siswa secara mandiri atau berkelompok mencari informasi dari berbagai sumber (buku, internet, wawancara, observasi).', mengaplikasikan: 'Siswa menganalisis informasi yang didapat, menguji hipotesis, dan mengembangkan solusi. Guru memfasilitasi diskusi dan memberikan scaffolding.', merefleksikan: 'Siswa mencatat temuan penting dan merevisi pemahaman mereka berdasarkan informasi baru.' },
+{ judul: 'Pertemuan 5: Analisis & Presentasi Solusi', memahami: 'Siswa mensintesis informasi dan mengembangkan solusi final untuk masalah yang diberikan.', mengaplikasikan: 'Siswa mempresentasikan solusi mereka dengan argumen yang didukung bukti. Kelompok lain memberikan feedback dan pertanyaan kritis.', merefleksikan: 'Siswa merefleksikan proses pemecahan masalah, efektivitas solusi, dan pembelajaran yang didapat.' }
+]
+},
+'Discovery Learning': {
+nama: 'Discovery Learning',
+deskripsi: 'Pembelajaran penemuan di mana siswa membangun pemahaman melalui eksplorasi',
+langkah: [
+{ judul: 'Pertemuan 1: Stimulation (Pemberian Rangsangan)', memahami: 'Guru memberikan stimulus berupa pertanyaan, gambar, video, atau fenomena yang memicu rasa ingin tahu siswa. Siswa diajak mengamati dan mencatat hal-hal menarik.', mengaplikasikan: 'Siswa dalam kelompok mendiskusikan stimulus dan mengidentifikasi pola atau hubungan yang mereka lihat.', merefleksikan: 'Siswa menuliskan pertanyaan-pertanyaan yang muncul dari hasil pengamatan mereka.' },
+{ judul: 'Pertemuan 2: Problem Statement (Pernyataan Masalah)', memahami: 'Siswa merumuskan masalah atau hipotesis berdasarkan stimulus yang diberikan.', mengaplikasikan: 'Siswa dalam kelompok menyepakati masalah yang akan diselidiki dan merencanakan cara menguji hipotesis mereka.', merefleksikan: 'Siswa mengevaluasi apakah masalah yang dirumuskan sudah jelas dan dapat diselidiki.' },
+{ judul: 'Pertemuan 3: Data Collection (Pengumpulan Data)', memahami: 'Siswa melakukan eksperimen, observasi, atau penelitian untuk mengumpulkan data yang relevan.', mengaplikasikan: 'Siswa mencatat data secara sistematis, menggunakan alat ukur yang tepat, dan memastikan validitas data.', merefleksikan: 'Siswa memeriksa kelengkapan dan keakuratan data yang telah dikumpulkan.' },
+{ judul: 'Pertemuan 4: Data Processing (Pengolahan Data)', memahami: 'Siswa mengolah dan menganalisis data yang telah dikumpulkan menggunakan metode yang sesuai.', mengaplikasikan: 'Siswa membuat tabel, grafik, atau diagram untuk memvisualisasikan data. Mereka mencari pola dan hubungan antar variabel.', merefleksikan: 'Siswa mengevaluasi apakah hasil pengolahan data mendukung atau menolak hipotesis awal.' },
+{ judul: 'Pertemuan 5: Verification & Generalization', memahami: 'Siswa memverifikasi hasil temuan mereka dengan membandingkan dengan teori atau sumber lain.', mengaplikasikan: 'Siswa membuat kesimpulan umum (generalisasi) dari hasil penemuan mereka dan mempresentasikan kepada kelas.', merefleksikan: 'Siswa merefleksikan proses penemuan, kesulitan yang dihadapi, dan konsep baru yang mereka pahami.' }
+]
+},
+'Game-Based Learning': {
+nama: 'Game-Based Learning',
+deskripsi: 'Pembelajaran berbasis permainan yang menyenangkan dan edukatif',
+langkah: [
+{ judul: 'Pertemuan 1: Pengenalan Konsep & Aturan Permainan', memahami: 'Guru memperkenalkan konsep pembelajaran melalui game. Siswa mempelajari aturan, tujuan, dan mekanisme permainan.', mengaplikasikan: 'Siswa berlatih memainkan game dalam kelompok kecil untuk memahami alur dan strategi dasar.', merefleksikan: 'Siswa menuliskan pemahaman mereka tentang hubungan antara game dan materi pembelajaran.' },
+{ judul: 'Pertemuan 2-3: Bermain & Eksplorasi', memahami: 'Siswa bermain game secara intensif, mengeksplorasi berbagai strategi dan pendekatan untuk mencapai tujuan.', mengaplikasikan: 'Siswa bekerja sama dalam tim, berdiskusi strategi, dan saling membantu. Guru memonitor perkembangan dan memberikan hints jika diperlukan.', merefleksikan: 'Siswa mencatat strategi yang berhasil dan yang gagal, serta pembelajaran yang didapat dari setiap ronde permainan.' },
+{ judul: 'Pertemuan 4: Analisis & Diskusi', memahami: 'Siswa menganalisis pengalaman bermain mereka dan mengidentifikasi konsep-konsep pembelajaran yang terkandung dalam game.', mengaplikasikan: 'Siswa berdiskusi dalam kelompok tentang hubungan antara mekanisme game dengan materi pelajaran. Mereka membuat catatan konseptual.', merefleksikan: 'Siswa merefleksikan bagaimana game membantu mereka memahami materi dengan cara yang menyenangkan.' },
+{ judul: 'Pertemuan 5: Presentasi & Aplikasi', memahami: 'Siswa mempresentasikan pembelajaran mereka dari game dan bagaimana konsep tersebut dapat diterapkan dalam konteks nyata.', mengaplikasikan: 'Siswa membuat proyek kecil atau menyelesaikan tantangan yang mengaitkan konsep dari game dengan situasi dunia nyata.', merefleksikan: 'Siswa melakukan self-assessment tentang pemahaman mereka dan bagaimana game mempengaruhi motivasi belajar mereka.' }
+]
+},
+'Inquiry Learning': {
+nama: 'Inquiry Learning',
+deskripsi: 'Pembelajaran inkuiri yang menekankan pada proses bertanya dan menyelidiki',
+langkah: [
+{ judul: 'Pertemuan 1: Merumuskan Pertanyaan Inkuiri', memahami: 'Guru menyajikan fenomena atau topik yang memicu rasa ingin tahu. Siswa diajak mengajukan pertanyaan-pertanyaan inkuiri yang mendalam.', mengaplikasikan: 'Siswa dalam kelompok memilih satu pertanyaan inkuiri yang akan diselidiki dan merumuskan hipotesis awal.', merefleksikan: 'Siswa mengevaluasi apakah pertanyaan mereka cukup fokus dan dapat diselidiki.' },
+{ judul: 'Pertemuan 2: Merancang Penyelidikan', memahami: 'Siswa mempelajari metode penelitian yang sesuai untuk menjawab pertanyaan inkuiri mereka.', mengaplikasikan: 'Siswa merancang prosedur penyelidikan, menentukan variabel, alat, dan bahan yang dibutuhkan. Guru memberikan feedback terhadap rancangan.', merefleksikan: 'Siswa memprediksi hasil yang mungkin didapat dan mengidentifikasi potensi kendala.' },
+{ judul: 'Pertemuan 3-4: Melakukan Penyelidikan', memahami: 'Siswa melaksanakan penyelidikan sesuai rancangan, mengumpulkan data dan bukti secara sistematis.', mengaplikasikan: 'Siswa bekerja dalam tim, saling membantu, dan mendokumentasikan setiap tahap proses. Guru memfasilitasi dan memberikan scaffolding.', merefleksikan: 'Siswa mencatat observasi, temuan tak terduga, dan pertanyaan baru yang muncul selama penyelidikan.' },
+{ judul: 'Pertemuan 5: Analisis & Kesimpulan', memahami: 'Siswa menganalisis data dan bukti yang telah dikumpulkan untuk menjawab pertanyaan inkuiri.', mengaplikasikan: 'Siswa membuat kesimpulan yang didukung bukti, mempresentasikan hasil penyelidikan, dan menjawab pertanyaan dari audiens.', merefleksikan: 'Siswa merefleksikan proses inkuiri, validitas kesimpulan, dan pembelajaran yang didapat tentang cara memperoleh pengetahuan.' }
+]
+},
+'Cooperative Learning': {
+nama: 'Cooperative Learning',
+deskripsi: 'Pembelajaran kooperatif dengan kerja sama tim dan interdependensi positif',
+langkah: [
+{ judul: 'Pertemuan 1: Pembentukan Tim & Goal Setting', memahami: 'Guru menjelaskan prinsip-prinsip cooperative learning dan membentuk kelompok heterogen (4-5 siswa).', mengaplikasikan: 'Siswa dalam tim saling mengenal, menetapkan norma kelompok, dan menyepakati tujuan pembelajaran bersama.', merefleksikan: 'Siswa menuliskan harapan mereka terhadap kerja sama tim dan kontribusi yang akan mereka berikan.' },
+{ judul: 'Pertemuan 2: Pembelajaran Konsep Dasar', memahami: 'Guru menyampaikan materi dasar atau siswa mempelajari materi melalui sumber yang disediakan.', mengaplikasikan: 'Siswa dalam tim menggunakan strategi Jigsaw atau Think-Pair-Share untuk memastikan semua anggota memahami konsep dasar.', merefleksikan: 'Siswa mengevaluasi pemahaman individu dan mengidentifikasi bagian yang masih perlu dipelajari.' },
+{ judul: 'Pertemuan 3-4: Tugas Kelompok & Interdependensi', memahami: 'Siswa mengerjakan tugas kelompok yang memerlukan kontribusi setiap anggota (interdependensi positif).', mengaplikasikan: 'Siswa saling mengajar (peer teaching), saling membantu, dan memastikan semua anggota menguasai materi. Guru memonitor dinamika kelompok.', merefleksikan: 'Siswa mencatat bagaimana kerja sama tim membantu pembelajaran mereka dan tantangan yang dihadapi.' },
+{ judul: 'Pertemuan 5: Evaluasi Kelompok & Refleksi', memahami: 'Siswa mempresentasikan hasil kerja kelompok atau mengikuti evaluasi individu dan kelompok.', mengaplikasikan: 'Siswa melakukan peer evaluation dan group processing, memberikan feedback konstruktif kepada anggota tim.', merefleksikan: 'Siswa merefleksikan efektivitas kerja sama tim, keterampilan sosial yang dikembangkan, dan pembelajaran tentang kolaborasi.' }
+]
+}
 };
 
 export async function init(container, db) {
-  loadCSS();
-  await loadGroqApiKey();
-  await loadMataPelajaran();
-  renderUI(container);
-  attachEvents(container);
-  loadTTDDefaults();
-  loadRPMList(container);
+loadCSS();
+await loadGroqApiKey();
+await loadMataPelajaran();
+renderUI(container);
+attachEvents(container);
+loadTTDDefaults();
+loadRPMList(container);
 }
 
 export function cleanup() {
-  const css = document.getElementById(CSS_ID);
-  if (css) css.remove();
+const css = document.getElementById(CSS_ID);
+if (css) css.remove();
 }
 
 async function loadGroqApiKey() {
-  try {
-    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const docRef = doc(db, 'settings', 'api_key');
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      if (data.keys) {
-        const activeKeys = Object.values(data.keys).filter(k => k.active === true);
-        if (activeKeys.length > 0) groqApiKey = activeKeys[0].value;
-      }
-    }
-  } catch (error) {
-    console.error('Error loading API key:', error);
-  }
+try {
+const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+const docRef = doc(db, 'settings', 'api_key');
+const docSnap = await getDoc(docRef);
+if (docSnap.exists()) {
+const data = docSnap.data();
+if (data.keys) {
+const activeKeys = Object.values(data.keys).filter(k => k.active === true);
+if (activeKeys.length > 0) groqApiKey = activeKeys[0].value;
+}
+}
+} catch (error) {
+console.error('Error loading API key:', error);
+}
 }
 
 async function loadMataPelajaran() {
-  const possiblePaths = [
-    '../../../assets/data-mapel.json',
-    '/SDN139LAMANDA/assets/data-mapel.json',
-    '/assets/data-mapel.json',
-    './assets/data-mapel.json',
-    '../assets/data-mapel.json',
-    '../../assets/data-mapel.json'
-  ];
-  
-  for (const path of possiblePaths) {
-    try {
-      const response = await fetch(path);
-      if (!response.ok) continue;
-      const data = await response.json();
-      dataMapel = data.mataPelajaran || [];
-      if (dataMapel.length > 0) {
-        console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
-        return;
-      }
-    } catch (error) {
-      continue;
-    }
-  }
-  
-  console.warn('⚠️ Menggunakan data mapel fallback');
-  dataMapel = FALLBACK_MAPEL;
+const possiblePaths = [
+'../../../assets/data-mapel.json',
+'/SDN139LAMANDA/assets/data-mapel.json',
+'/assets/data-mapel.json',
+'./assets/data-mapel.json',
+'../assets/data-mapel.json',
+'../../assets/data-mapel.json'
+];
+for (const path of possiblePaths) {
+try {
+const response = await fetch(path);
+if (!response.ok) continue;
+const data = await response.json();
+dataMapel = data.mataPelajaran || [];
+if (dataMapel.length > 0) {
+console.log(`✅ Data mapel berhasil dimuat: ${dataMapel.length} mapel`);
+return;
+}
+} catch (error) {
+continue;
+}
+}
+console.warn('⚠️ Menggunakan data mapel fallback');
+dataMapel = FALLBACK_MAPEL;
 }
 
 function loadCSS() {
-  if (document.getElementById(CSS_ID)) return;
-  const style = document.createElement('style');
-  style.id = CSS_ID;
-  style.textContent = `
-    .rpm-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); }
-    .rpm-header { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); }
-    .rpm-header h2 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; }
-    .rpm-header p { margin: 0; opacity: 0.95; font-size: 15px; }
-    .rpm-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-    .rpm-tab { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; background: white; color: #be185d; transition: all 0.2s; }
-    .rpm-tab.active { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; }
-    .rpm-section { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); }
-    .rpm-section-title { font-size: 18px; font-weight: 700; color: #be185d; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #fce7f3; }
-    .rpm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
-    .rpm-form-group { margin-bottom: 15px; }
-    .rpm-form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #831843; }
-    .rpm-form-control { width: 100%; padding: 12px 14px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; color: #831843; font-family: inherit; }
-    .rpm-form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
-    textarea.rpm-form-control { resize: vertical; min-height: 80px; }
-    select.rpm-form-control { cursor: pointer; }
-    .rpm-btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; }
-    .rpm-btn:hover { transform: translateY(-2px); }
-    .rpm-btn-primary { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); }
-    .rpm-btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-    .rpm-btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
-    .rpm-btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-    .rpm-btn-secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); }
-    .rpm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; }
-    .rpm-list { margin-top: 20px; }
-    .rpm-item { background: linear-gradient(135deg, #fff1f2 0%, #fce7f3 100%); padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #ec4899; }
-    .rpm-item-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; }
-    .rpm-item-title { font-weight: 700; color: #be185d; font-size: 15px; }
-    .rpm-item-meta { font-size: 12px; color: #64748b; }
-    .rpm-item-actions { display: flex; gap: 5px; }
-    .rpm-item-actions button { padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; color: white; }
-    .rpm-empty { text-align: center; padding: 30px; color: #64748b; background: white; border-radius: 10px; }
-    .rpm-loading { text-align: center; padding: 20px; color: #831843; }
-    .rpm-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-    .rpm-badge-spesifik { background: #ddd6fe; color: #5b21b6; }
-    .rpm-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: rpmSlideIn 0.3s ease; }
-    .rpm-toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
-    .rpm-toast-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
-    @keyframes rpmSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .metode-info { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 15px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 20px; }
-    .metode-info h4 { margin: 0 0 8px 0; color: #92400e; }
-    .metode-info p { margin: 0; color: #78350f; font-size: 14px; }
-    .method-options { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; }
-    .method-option { font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; }
-    .tp-method-content, .cp-method-content { margin-top: 10px; }
-    .rpm-check-list { max-height: 240px; overflow-y: auto; background: white; border: 2px solid #fbcfe8; border-radius: 8px; padding: 8px; margin-bottom: 8px; }
-    .rpm-check-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px dashed #fbcfe8; font-size: 12px; cursor: pointer; font-weight: normal; color: #831843; }
-    .rpm-check-item:last-child { border-bottom: none; }
-    .rpm-check-item input { margin-top: 3px; cursor: pointer; }
-    .rpm-check-item span { line-height: 1.4; }
-    @media (max-width: 768px) { .rpm-form-grid { grid-template-columns: 1fr; } .rpm-actions { flex-direction: column; } .rpm-btn { width: 100%; justify-content: center; } }
-  `;
-  document.head.appendChild(style);
+if (document.getElementById(CSS_ID)) return;
+const style = document.createElement('style');
+style.id = CSS_ID;
+style.textContent = `.rpm-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); } .rpm-header { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); } .rpm-header h2 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; } .rpm-header p { margin: 0; opacity: 0.95; font-size: 15px; } .rpm-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; } .rpm-tab { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; background: white; color: #be185d; transition: all 0.2s; } .rpm-tab.active { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; } .rpm-section { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); } .rpm-section-title { font-size: 18px; font-weight: 700; color: #be185d; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #fce7f3; } .rpm-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; } .rpm-form-group { margin-bottom: 15px; } .rpm-form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #831843; } .rpm-form-control { width: 100%; padding: 12px 14px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; color: #831843; font-family: inherit; } .rpm-form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); } textarea.rpm-form-control { resize: vertical; min-height: 80px; } select.rpm-form-control { cursor: pointer; } .rpm-btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; } .rpm-btn:hover { transform: translateY(-2px); } .rpm-btn-primary { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); } .rpm-btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .rpm-btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } .rpm-btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } .rpm-btn-secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); } .rpm-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; } .rpm-list { margin-top: 20px; } .rpm-item { background: linear-gradient(135deg, #fff1f2 0%, #fce7f3 100%); padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #ec4899; } .rpm-item-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; } .rpm-item-title { font-weight: 700; color: #be185d; font-size: 15px; } .rpm-item-meta { font-size: 12px; color: #64748b; } .rpm-item-actions { display: flex; gap: 5px; } .rpm-item-actions button { padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; color: white; } .rpm-empty { text-align: center; padding: 30px; color: #64748b; background: white; border-radius: 10px; } .rpm-loading { text-align: center; padding: 20px; color: #831843; } .rpm-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; } .rpm-badge-spesifik { background: #ddd6fe; color: #5b21b6; } .rpm-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: rpmSlideIn 0.3s ease; } .rpm-toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .rpm-toast-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } @keyframes rpmSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } .metode-info { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 15px; border-radius: 10px; border-left: 4px solid #f59e0b; margin-bottom: 20px; } .metode-info h4 { margin: 0 0 8px 0; color: #92400e; } .metode-info p { margin: 0; color: #78350f; font-size: 14px; } .method-options { display: flex; gap: 15px; margin-bottom: 10px; flex-wrap: wrap; } .method-option { font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 13px; } .tp-method-content, .cp-method-content { margin-top: 10px; } .rpm-check-list { max-height: 240px; overflow-y: auto; background: white; border: 2px solid #fbcfe8; border-radius: 8px; padding: 8px; margin-bottom: 8px; } .rpm-check-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px 6px; border-bottom: 1px dashed #fbcfe8; font-size: 12px; cursor: pointer; font-weight: normal; color: #831843; } .rpm-check-item:last-child { border-bottom: none; } .rpm-check-item input { margin-top: 3px; cursor: pointer; } .rpm-check-item span { line-height: 1.4; } @media (max-width: 768px) { .rpm-form-grid { grid-template-columns: 1fr; } .rpm-actions { flex-direction: column; } .rpm-btn { width: 100%; justify-content: center; } }`;
+document.head.appendChild(style);
 }
 
 function renderUI(container) {
-  const aiReady = groqApiKey ? '✅ AI Siap' : '⚠️ API Key Belum Aktif';
-  const aiStatusClass = groqApiKey ? 'rpm-badge-spesifik' : '';
-  
-  let mapelOptions = '<option value="">-- Pilih Mapel --</option>';
-  dataMapel.forEach(m => {
-    mapelOptions += `<option value="${m.nama}">${m.icon} ${m.singkatan}</option>`;
-  });
-
-  let metodeOptions = '<option value="">-- Pilih Metode Pembelajaran --</option>';
-  Object.keys(METODE_TEMPLATES).forEach(metode => {
-    metodeOptions += `<option value="${metode}">${metode}</option>`;
-  });
-
-  container.innerHTML = `
-    <div class="rpm-container">
-      <div class="rpm-header">
-        <h2>🎯 RPM Spesifik</h2>
-        <p>Rencana Pembelajaran Mendalam - Template Khusus per Metode Pembelajaran 
-          <span class="rpm-badge ${aiStatusClass}" style="margin-left: 10px;">${aiReady}</span>
-        </p>
-      </div>
-
-      <div class="rpm-tabs">
-        <button class="rpm-tab active" data-tab="form">📝 Buat/Edit RPM</button>
-        <button class="rpm-tab" data-tab="list">📚 RPM Tersimpan</button>
-      </div>
-
-      <div id="rpm-form-section">
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">📋 1. Identitas Dokumen</h3>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>🏫 Sekolah</label>
-              <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
-            </div>
-            <div class="rpm-form-group">
-              <label>👩‍ Nama Guru</label>
-              <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
-            </div>
-          </div>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>📚 Mata Pelajaran</label>
-              <select id="rpm-mapel" class="rpm-form-control">${mapelOptions}</select>
-            </div>
-            <div class="rpm-form-group">
-              <label>🎓 Kelas / Fase</label>
-              <select id="rpm-kelas" class="rpm-form-control">
-                <option value="">-- Pilih --</option>
-                <option value="1|A">Kelas 1 (Fase A)</option>
-                <option value="2|A">Kelas 2 (Fase A)</option>
-                <option value="3|B">Kelas 3 (Fase B)</option>
-                <option value="4|B">Kelas 4 (Fase B)</option>
-                <option value="5|C">Kelas 5 (Fase C)</option>
-                <option value="6|C">Kelas 6 (Fase C)</option>
-              </select>
-            </div>
-          </div>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>📝 Tema</label>
-              <input type="text" id="rpm-tema" class="rpm-form-control" placeholder="Contoh: Tumbuhan">
-            </div>
-            <div class="rpm-form-group">
-              <label>📚 Sub Tema</label>
-              <input type="text" id="rpm-subtema" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
-            </div>
-          </div>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>⏰ Alokasi Waktu</label>
-              <input type="text" id="rpm-alokasi" class="rpm-form-control" placeholder="Contoh: 4 Pertemuan (8 x 35 Menit)">
-            </div>
-            <div class="rpm-form-group">
-              <label>🎨 Metode Pembelajaran</label>
-              <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
-            </div>
-          </div>
-
-          <div id="metode-info-container"></div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title"> 1.5 Target & Sarana Prasarana</h3>
-          <div class="rpm-form-group">
-            <label>🎯 Target Peserta Didik</label>
-            <textarea id="rpm-target-peserta-didik" class="rpm-form-control" rows="3" placeholder="Contoh: Siswa kelas 4 yang telah memahami konsep dasar..."></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🏫 Sarana dan Prasarana yang Digunakan</label>
-            <textarea id="rpm-sarana-prasarana" class="rpm-form-control" rows="3" placeholder="Contoh: Proyektor, Laptop, Lembar Kerja, Alat Peraga..."></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
-          <button type="button" id="btnAutoFillKesiapan" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 15px; font-size: 13px; padding: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-            🎲 Isi Otomatis Nama dari Data Peserta Didik (Kelas di atas)
-          </button>
-          <small style="display:block; color:#64748b; margin-bottom:15px; font-size:11px;">💡 Akan mengambil nama dari fitur Data Peserta Didik sesuai Kelas yang dipilih, lalu dibagi random ke 3 kelompok.</small>
-          <div class="rpm-form-group">
-            <label>🔴 Kelompok Belum Siap</label>
-            <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🟡 Kelompok Siap</label>
-            <textarea id="rpm-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🟢 Kelompok Mahir</label>
-            <textarea id="rpm-mahir" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title"> 3. Tujuan & Profil Lulusan</h3>
-          <div class="rpm-form-group">
-            <label>📖 Capaian Pembelajaran (CP)</label>
-            <div class="method-options">
-              <label class="method-option">
-                <input type="radio" name="cpMethod" value="master" checked> 1. Master Data
-              </label>
-              <label class="method-option">
-                <input type="radio" name="cpMethod" value="ai"> 2. Generate AI
-              </label>
-              <label class="method-option">
-                <input type="radio" name="cpMethod" value="manual"> 3. Input Manual
-              </label>
-            </div>
-
-            <!-- Opsi 1: Master Data CP (REVISI #2: CHECKLIST) -->
-            <div id="cpMethodMaster" class="cp-method-content">
-              <button type="button" id="btnLoadMasterCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-                🔄 Muat CP dari Master Data (Berdasarkan Mapel & Fase di atas)
-              </button>
-              <div id="cpToolbar" style="display: none; margin-bottom: 8px;">
-                <button type="button" id="btnCPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
-                <button type="button" id="btnCPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
-                <span id="cpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
-              </div>
-              <div id="listMasterCP" class="rpm-check-list" style="display: none;"></div>
-              <small id="masterCPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA CP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
-            </div>
-
-            <!-- Opsi 2: AI -->
-            <div id="cpMethodAI" class="cp-method-content" style="display: none;">
-              <button type="button" id="btnGenerateCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-                ✨ Generate CP dengan AI
-              </button>
-              <textarea id="inpCpAI" class="rpm-form-control" rows="4" readonly placeholder="CP akan muncul di sini setelah di-generate..."></textarea>
-            </div>
-
-            <!-- Opsi 3: Manual -->
-            <div id="cpMethodManual" class="cp-method-content" style="display: none;">
-              <textarea id="inpCpManual" class="rpm-form-control" rows="4" placeholder="Paste CP dari kurikulum..."></textarea>
-            </div>
-          </div>
-
-          <div class="rpm-form-group">
-            <label>✅ Tujuan Pembelajaran</label>
-            <div class="method-options">
-              <label class="method-option">
-                <input type="radio" name="tpMethod" value="master" checked> 1. Master Data
-              </label>
-              <label class="method-option">
-                <input type="radio" name="tpMethod" value="ai"> 2. Generate AI
-              </label>
-              <label class="method-option">
-                <input type="radio" name="tpMethod" value="manual"> 3. Input Manual
-              </label>
-            </div>
-
-            <!-- Opsi 1: Master Data TP (REVISI #2: CHECKLIST) -->
-            <div id="tpMethodMaster" class="tp-method-content">
-              <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-                🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas, Tema & Sub Tema di atas)
-              </button>
-              <div id="tpToolbar" style="display: none; margin-bottom: 8px;">
-                <button type="button" id="btnTPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
-                <button type="button" id="btnTPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
-                <span id="tpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
-              </div>
-              <div id="listMasterTP" class="rpm-check-list" style="display: none;"></div>
-              <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA TP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
-            </div>
-
-            <!-- Opsi 2: AI -->
-            <div id="tpMethodAI" class="tp-method-content" style="display: none;">
-              <button type="button" id="btnGenerateTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-                ✨ Generate TP dengan AI
-              </button>
-              <textarea id="inpTujuanAI" class="rpm-form-control" rows="4" readonly placeholder="TP akan muncul di sini setelah di-generate..."></textarea>
-            </div>
-
-            <!-- Opsi 3: Manual -->
-            <div id="tpMethodManual" class="tp-method-content" style="display: none;">
-              <textarea id="inpTujuanManual" class="rpm-form-control" rows="4" placeholder="1. Siswa mampu...&#10;2. Siswa dapat..."></textarea>
-            </div>
-          </div>
-
-          <div class="rpm-form-group">
-            <label>🌟 Profil Lulusan yang Disasar (pilih 3-4)</label>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Keimanan dan Ketakwaan"> Keimanan & Ketakwaan</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kewargaan"> Kewargaan</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Penalaran Kritis"> Penalaran Kritis</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kreatif"> Kreatif</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kolaborasi"> Kolaborasi</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kemandirian"> Kemandirian</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kesehatan"> Kesehatan</label>
-              <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Komunikasi"> Komunikasi</label>
-            </div>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">📚 4. Langkah Pembelajaran (Template Metode)</h3>
-          <div id="rpm-pertemuan-container"></div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">📊 5. Asesmen Holistik</h3>
-          <div class="rpm-form-group">
-            <label>🔍 Asesmen Diagnostik</label>
-            <textarea id="rpm-diagnostik" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>📈 Asesmen Formatif</label>
-            <textarea id="rpm-formatif" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🎯 Asesmen Sumatif</label>
-            <textarea id="rpm-sumatif" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>📋 Rubrik Penilaian (skala 1-4)</label>
-            <textarea id="rpm-rubrik" class="rpm-form-control" rows="4" placeholder="4 (Mahir): ...&#10;3 (Cakap): ...&#10;2 (Berkembang): ...&#10;1 (Belum Siap): ..."></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title"> 6. Diferensiasi</h3>
-          <div class="rpm-form-group">
-            <label>🔴 Remedial (Belum Siap)</label>
-            <textarea id="rpm-remedial" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🟢 Pengayaan (Mahir)</label>
-            <textarea id="rpm-pengayaan" class="rpm-form-control" rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title"> 7. Refleksi</h3>
-          <div class="rpm-form-group">
-            <label>🧑‍ Refleksi Guru</label>
-            <textarea id="rpm-refleksi-guru" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🧒 Refleksi Siswa</label>
-            <textarea id="rpm-refleksi-siswa" class="rpm-form-control" rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">📎 8. Lampiran</h3>
-          <div class="rpm-form-group">
-            <label>📄 LKPD / LKM</label>
-            <textarea id="rpm-lkpd" class="rpm-form-control" rows="3"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>📚 Bahan Bacaan</label>
-            <textarea id="rpm-bahan" class="rpm-form-control" rows="2"></textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>📖 Glosarium</label>
-            <textarea id="rpm-glosarium" class="rpm-form-control" rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">✍️ 9. Tanda Tangan</h3>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>‍💼 Nama Kepala Sekolah</label>
-              <input type="text" id="rpm-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.namaKepsek}">
-            </div>
-            <div class="rpm-form-group">
-              <label>🔢 NIP Kepala Sekolah</label>
-              <input type="text" id="rpm-nip-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.nipKepsek}">
-            </div>
-          </div>
-          <div class="rpm-form-grid">
-            <div class="rpm-form-group">
-              <label>👩‍ Nama Guru Pengampu</label>
-              <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
-            </div>
-            <div class="rpm-form-group">
-              <label>🔢 NIP Guru Pengampu</label>
-              <input type="text" id="rpm-nip-guru" class="rpm-form-control" value="${DEFAULT_TTD.nipGuru}">
-            </div>
-          </div>
-        </div>
-
-        <div class="rpm-actions">
-          <button class="rpm-btn rpm-btn-primary" id="btn-generate-ai">✨ Generate dengan AI</button>
-          <button class="rpm-btn rpm-btn-success" id="btn-simpan">💾 Simpan ke Database</button>
-          <button class="rpm-btn rpm-btn-warning" id="btn-export"> Export Word</button>
-          <button class="rpm-btn rpm-btn-secondary" id="btn-reset">🔄 Reset Form</button>
-        </div>
-      </div>
-
-      <div id="rpm-list-section" style="display: none;">
-        <div class="rpm-section">
-          <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
-          <div id="rpm-list-container">
-            <div class="rpm-loading">⏳ Memuat data...</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
+const aiReady = groqApiKey ? '✅ AI Siap' : '⚠️ API Key Belum Aktif';
+const aiStatusClass = groqApiKey ? 'rpm-badge-spesifik' : '';
+let mapelOptions = '<option value="">-- Pilih Mapel --</option>';
+dataMapel.forEach(m => {
+mapelOptions += `<option value="${m.nama}">${m.icon} ${m.singkatan}</option>`;
+});
+let metodeOptions = '<option value="">-- Pilih Metode Pembelajaran --</option>';
+Object.keys(METODE_TEMPLATES).forEach(metode => {
+metodeOptions += `<option value="${metode}">${metode}</option>`;
+});
+container.innerHTML = `
+<div class="rpm-container">
+<div class="rpm-header">
+<h2>🎯 RPM Spesifik</h2>
+<p>Rencana Pembelajaran Mendalam - Template Khusus per Metode Pembelajaran
+<span class="rpm-badge ${aiStatusClass}" style="margin-left: 10px;">${aiReady}</span>
+</p>
+</div>
+  <div class="rpm-tabs">
+     <button class="rpm-tab active" data-tab="form">📝 Buat/Edit RPM</button>
+     <button class="rpm-tab" data-tab="list">📚 RPM Tersimpan</button>
+   </div>
+   <div id="rpm-form-section">
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">📋 1. Identitas Dokumen</h3>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>🏫 Sekolah</label>
+           <input type="text" id="rpm-sekolah" class="rpm-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
+         </div>
+         <div class="rpm-form-group">
+           <label>👩‍ Nama Guru</label>
+           <input type="text" id="rpm-guru" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
+         </div>
+       </div>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>📚 Mata Pelajaran</label>
+           <select id="rpm-mapel" class="rpm-form-control">${mapelOptions}</select>
+         </div>
+         <div class="rpm-form-group">
+           <label>🎓 Kelas / Fase</label>
+           <select id="rpm-kelas" class="rpm-form-control">
+             <option value="">-- Pilih --</option>
+             <option value="1|A">Kelas 1 (Fase A)</option>
+             <option value="2|A">Kelas 2 (Fase A)</option>
+             <option value="3|B">Kelas 3 (Fase B)</option>
+             <option value="4|B">Kelas 4 (Fase B)</option>
+             <option value="5|C">Kelas 5 (Fase C)</option>
+             <option value="6|C">Kelas 6 (Fase C)</option>
+           </select>
+         </div>
+       </div>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>📝 Tema</label>
+           <input type="text" id="rpm-tema" class="rpm-form-control" placeholder="Contoh: Tumbuhan">
+         </div>
+         <div class="rpm-form-group">
+           <label>📚 Sub Tema</label>
+           <input type="text" id="rpm-subtema" class="rpm-form-control" placeholder="Contoh: Bagian Tubuh Tumbuhan">
+         </div>
+       </div>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>⏰ Alokasi Waktu</label>
+           <input type="text" id="rpm-alokasi" class="rpm-form-control" placeholder="Contoh: 4 Pertemuan (8 x 35 Menit)">
+         </div>
+         <div class="rpm-form-group">
+           <label>🎨 Metode Pembelajaran</label>
+           <select id="rpm-metode" class="rpm-form-control">${metodeOptions}</select>
+         </div>
+       </div>
+       <div id="metode-info-container"></div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">1.5 Target & Sarana Prasarana</h3>
+       <div class="rpm-form-group">
+         <label>🎯 Target Peserta Didik</label>
+         <textarea id="rpm-target-peserta-didik" class="rpm-form-control" rows="3" placeholder="Contoh: Siswa kelas 4 yang telah memahami konsep dasar..."></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🏫 Sarana dan Prasarana yang Digunakan</label>
+         <textarea id="rpm-sarana-prasarana" class="rpm-form-control" rows="3" placeholder="Contoh: Proyektor, Laptop, Lembar Kerja, Alat Peraga..."></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">🔍 2. Analisis Kesiapan Murid</h3>
+       <button type="button" id="btnAutoFillKesiapan" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 15px; font-size: 13px; padding: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+         🎲 Isi Otomatis Nama dari Data Peserta Didik (Kelas di atas)
+       </button>
+       <small style="display:block; color:#64748b; margin-bottom:15px; font-size:11px;">💡 Akan mengambil nama dari fitur Data Peserta Didik sesuai Kelas yang dipilih, lalu dibagi random ke 3 kelompok.</small>
+       <div class="rpm-form-group">
+         <label>🔴 Kelompok Belum Siap</label>
+         <textarea id="rpm-belum-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🟡 Kelompok Siap</label>
+         <textarea id="rpm-siap" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🟢 Kelompok Mahir</label>
+         <textarea id="rpm-mahir" class="rpm-form-control" rows="2" placeholder="Karakteristik & strategi diferensiasi..."></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">3. Tujuan & Profil Lulusan</h3>
+       <div class="rpm-form-group">
+         <label>📖 Capaian Pembelajaran (CP)</label>
+         <div class="method-options">
+           <label class="method-option">
+             <input type="radio" name="cpMethod" value="master" checked> 1. Master Data
+           </label>
+           <label class="method-option">
+             <input type="radio" name="cpMethod" value="ai"> 2. Generate AI
+           </label>
+           <label class="method-option">
+             <input type="radio" name="cpMethod" value="manual"> 3. Input Manual
+           </label>
+         </div>
+         <div id="cpMethodMaster" class="cp-method-content">
+           <button type="button" id="btnLoadMasterCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+             🔄 Muat CP dari Master Data (Berdasarkan Mapel & Fase di atas)
+           </button>
+           <div id="cpToolbar" style="display: none; margin-bottom: 8px;">
+             <button type="button" id="btnCPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
+             <button type="button" id="btnCPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
+             <span id="cpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
+           </div>
+           <div id="listMasterCP" class="rpm-check-list" style="display: none;"></div>
+           <small id="masterCPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA CP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
+         </div>
+         <div id="cpMethodAI" class="cp-method-content" style="display: none;">
+           <button type="button" id="btnGenerateCP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+             ✨ Generate CP dengan AI
+           </button>
+           <textarea id="inpCpAI" class="rpm-form-control" rows="4" readonly placeholder="CP akan muncul di sini setelah di-generate..."></textarea>
+         </div>
+         <div id="cpMethodManual" class="cp-method-content" style="display: none;">
+           <textarea id="inpCpManual" class="rpm-form-control" rows="4" placeholder="Paste CP dari kurikulum..."></textarea>
+         </div>
+       </div>
+       <div class="rpm-form-group">
+         <label>✅ Tujuan Pembelajaran</label>
+         <div class="method-options">
+           <label class="method-option">
+             <input type="radio" name="tpMethod" value="master" checked> 1. Master Data
+           </label>
+           <label class="method-option">
+             <input type="radio" name="tpMethod" value="ai"> 2. Generate AI
+           </label>
+           <label class="method-option">
+             <input type="radio" name="tpMethod" value="manual"> 3. Input Manual
+           </label>
+         </div>
+         <div id="tpMethodMaster" class="tp-method-content">
+           <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+             🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas, Tema & Sub Tema di atas)
+           </button>
+           <div id="tpToolbar" style="display: none; margin-bottom: 8px;">
+             <button type="button" id="btnTPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
+             <button type="button" id="btnTPClear" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">⬜ Kosongkan</button>
+             <span id="tpCount" style="font-size: 11px; color: #64748b; margin-left: 8px;"></span>
+           </div>
+           <div id="listMasterTP" class="rpm-check-list" style="display: none;"></div>
+           <small id="masterTPHint" style="color: #64748b; display: none; font-size: 12px;">💡 Centang HANYA TP yang dibutuhkan — hanya yang tercentang yang masuk output.</small>
+         </div>
+         <div id="tpMethodAI" class="tp-method-content" style="display: none;">
+           <button type="button" id="btnGenerateTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
+             ✨ Generate TP dengan AI
+           </button>
+           <textarea id="inpTujuanAI" class="rpm-form-control" rows="4" readonly placeholder="TP akan muncul di sini setelah di-generate..."></textarea>
+         </div>
+         <div id="tpMethodManual" class="tp-method-content" style="display: none;">
+           <textarea id="inpTujuanManual" class="rpm-form-control" rows="4" placeholder="1. Siswa mampu...&#10;2. Siswa dapat..."></textarea>
+         </div>
+       </div>
+       <div class="rpm-form-group">
+         <label>🌟 Profil Lulusan yang Disasar (pilih 3-4)</label>
+         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Keimanan dan Ketakwaan"> Keimanan & Ketakwaan</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kewargaan"> Kewargaan</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Penalaran Kritis"> Penalaran Kritis</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kreatif"> Kreatif</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kolaborasi"> Kolaborasi</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kemandirian"> Kemandirian</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Kesehatan"> Kesehatan</label>
+           <label style="font-weight: normal;"><input type="checkbox" class="rpm-profil" value="Komunikasi"> Komunikasi</label>
+         </div>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">📚 4. Langkah Pembelajaran (Template Metode)</h3>
+       <div id="rpm-pertemuan-container"></div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">📊 5. Asesmen Holistik</h3>
+       <div class="rpm-form-group">
+         <label>🔍 Asesmen Diagnostik</label>
+         <textarea id="rpm-diagnostik" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>📈 Asesmen Formatif</label>
+         <textarea id="rpm-formatif" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🎯 Asesmen Sumatif</label>
+         <textarea id="rpm-sumatif" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>📋 Rubrik Penilaian (skala 1-4)</label>
+         <textarea id="rpm-rubrik" class="rpm-form-control" rows="4" placeholder="4 (Mahir): ...&#10;3 (Cakap): ...&#10;2 (Berkembang): ...&#10;1 (Belum Siap): ..."></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">6. Diferensiasi</h3>
+       <div class="rpm-form-group">
+         <label>🔴 Remedial (Belum Siap)</label>
+         <textarea id="rpm-remedial" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🟢 Pengayaan (Mahir)</label>
+         <textarea id="rpm-pengayaan" class="rpm-form-control" rows="2"></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">7. Refleksi</h3>
+       <div class="rpm-form-group">
+         <label>🧑‍ Refleksi Guru</label>
+         <textarea id="rpm-refleksi-guru" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>🧒 Refleksi Siswa</label>
+         <textarea id="rpm-refleksi-siswa" class="rpm-form-control" rows="2"></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">📎 8. Lampiran</h3>
+       <div class="rpm-form-group">
+         <label>📄 LKPD / LKM</label>
+         <textarea id="rpm-lkpd" class="rpm-form-control" rows="3"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>📚 Bahan Bacaan</label>
+         <textarea id="rpm-bahan" class="rpm-form-control" rows="2"></textarea>
+       </div>
+       <div class="rpm-form-group">
+         <label>📖 Glosarium</label>
+         <textarea id="rpm-glosarium" class="rpm-form-control" rows="2"></textarea>
+       </div>
+     </div>
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">✍️ 9. Tanda Tangan</h3>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>💼 Nama Kepala Sekolah</label>
+           <input type="text" id="rpm-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.namaKepsek}">
+         </div>
+         <div class="rpm-form-group">
+           <label>🔢 NIP Kepala Sekolah</label>
+           <input type="text" id="rpm-nip-kepsek" class="rpm-form-control" value="${DEFAULT_TTD.nipKepsek}">
+         </div>
+       </div>
+       <div class="rpm-form-grid">
+         <div class="rpm-form-group">
+           <label>👩‍ Nama Guru Pengampu</label>
+           <input type="text" id="rpm-guru-pengampu" class="rpm-form-control" value="${DEFAULT_TTD.namaGuru}">
+         </div>
+         <div class="rpm-form-group">
+           <label>🔢 NIP Guru Pengampu</label>
+           <input type="text" id="rpm-nip-guru" class="rpm-form-control" value="${DEFAULT_TTD.nipGuru}">
+         </div>
+       </div>
+     </div>
+     <div class="rpm-actions">
+       <button class="rpm-btn rpm-btn-primary" id="btn-generate-ai">✨ Generate dengan AI</button>
+       <button class="rpm-btn rpm-btn-success" id="btn-simpan">💾 Simpan ke Database</button>
+       <button class="rpm-btn rpm-btn-warning" id="btn-export">📥 Export Word</button>
+       <button class="rpm-btn rpm-btn-secondary" id="btn-reset">🔄 Reset Form</button>
+     </div>
+   </div>
+   <div id="rpm-list-section" style="display: none;">
+     <div class="rpm-section">
+       <h3 class="rpm-section-title">📚 Daftar RPM Tersimpan</h3>
+       <div id="rpm-list-container">
+         <div class="rpm-loading">⏳ Memuat data...</div>
+       </div>
+     </div>
+   </div>
+ </div>
+`;
 }
 
 function attachEvents(container) {
-  // Tab switching
-  container.querySelectorAll('.rpm-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      container.querySelectorAll('.rpm-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      const target = tab.dataset.tab;
-      container.querySelector('#rpm-form-section').style.display = target === 'form' ? 'block' : 'none';
-      container.querySelector('#rpm-list-section').style.display = target === 'list' ? 'block' : 'none';
-    });
-  });
-
-  // CP Method switching
-  container.querySelectorAll('input[name="cpMethod"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
-      const method = e.target.value;
-      if (method === 'master') container.querySelector('#cpMethodMaster').style.display = 'block';
-      else if (method === 'ai') container.querySelector('#cpMethodAI').style.display = 'block';
-      else if (method === 'manual') container.querySelector('#cpMethodManual').style.display = 'block';
-    });
-  });
-
-  // TP Method switching
-  container.querySelectorAll('input[name="tpMethod"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-      container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
-      const method = e.target.value;
-      if (method === 'master') container.querySelector('#tpMethodMaster').style.display = 'block';
-      else if (method === 'ai') container.querySelector('#tpMethodAI').style.display = 'block';
-      else if (method === 'manual') container.querySelector('#tpMethodManual').style.display = 'block';
-    });
-  });
-
-  // Metode change - load template
-  container.querySelector('#rpm-metode').addEventListener('change', function() {
-    const metode = this.value;
-    if (metode && METODE_TEMPLATES[metode]) {
-      const info = METODE_TEMPLATES[metode];
-      const infoContainer = container.querySelector('#metode-info-container');
-      infoContainer.innerHTML = `
-        <div class="metode-info">
-          <h4>📚 ${info.nama}</h4>
-          <p>${info.deskripsi}</p>
-          <p style="margin-top: 8px;"><strong> Template:</strong> ${info.langkah.length} Pertemuan</p>
-        </div>
-      `;
-      loadTemplatePertemuan(metode);
-    } else {
-      container.querySelector('#metode-info-container').innerHTML = '';
-      container.querySelector('#rpm-pertemuan-container').innerHTML = '';
-    }
-  });
-
-  // Generate AI
-  container.querySelector('#btn-generate-ai').addEventListener('click', () => handleGenerateAI(container));
-
-  // ⭐ Auto-fill Kesiapan Murid dari Data Peserta Didik
-  const btnAutoFill = container.querySelector('#btnAutoFillKesiapan');
-  if (btnAutoFill) {
-    btnAutoFill.addEventListener('click', () => handleAutoFillKesiapan(container));
-  }
-
-  // Simpan
-  container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
-
-  // Export Word
-  container.querySelector('#btn-export').addEventListener('click', () => handleExportWord(container));
-
-  // Reset
-  container.querySelector('#btn-reset').addEventListener('click', () => {
-    if (confirm('️ Reset semua form?')) {
-      currentEditId = null;
-      container.querySelectorAll('input[type="text"], textarea').forEach(el => {
-        if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
-          el.value = DEFAULT_TTD.namaGuru;
-        } else if (el.id === 'rpm-kepsek') {
-          el.value = DEFAULT_TTD.namaKepsek;
-        } else if (el.id === 'rpm-nip-kepsek') {
-          el.value = DEFAULT_TTD.nipKepsek;
-        } else if (el.id === 'rpm-nip-guru') {
-          el.value = DEFAULT_TTD.nipGuru;
-        } else if (el.id === 'rpm-sekolah') {
-          el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
-        } else {
-          el.value = '';
-        }
-      });
-      container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-      // ⭐ REVISI #2: bersihkan checklist CP & TP saat reset
-      const lcp = container.querySelector('#listMasterCP');
-      if (lcp) { lcp.innerHTML = ''; lcp.style.display = 'none'; }
-      const ltp = container.querySelector('#listMasterTP');
-      if (ltp) { ltp.innerHTML = ''; ltp.style.display = 'none'; }
-      const tbcp = container.querySelector('#cpToolbar');
-      if (tbcp) tbcp.style.display = 'none';
-      const tbtp = container.querySelector('#tpToolbar');
-      if (tbtp) tbtp.style.display = 'none';
-      container.querySelector('#rpm-metode').value = '';
-      container.querySelector('#metode-info-container').innerHTML = '';
-      container.querySelector('#rpm-pertemuan-container').innerHTML = '';
-      // Reset CP method ke default (Master Data)
-      container.querySelector('input[name="cpMethod"][value="master"]').checked = true;
-      container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
-      container.querySelector('#cpMethodMaster').style.display = 'block';
-      // Reset TP method ke default (Master Data)
-      container.querySelector('input[name="tpMethod"][value="master"]').checked = true;
-      container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
-      container.querySelector('#tpMethodMaster').style.display = 'block';
-      showToast('✅ Form direset!');
-    }
-  });
-
-  // Event listener untuk tombol CP
-  container.querySelector('#btnLoadMasterCP').addEventListener('click', () => loadMasterCP(container));
-  container.querySelector('#btnGenerateCP').addEventListener('click', () => generateCPWithAI(container));
-
-  // ⭐ REVISI #2: Toolbar Pilih Semua / Kosongkan
-  container.querySelector('#btnCPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterCP', true));
-  container.querySelector('#btnCPClear').addEventListener('click', () => setCheckAll(container, '#listMasterCP', false));
-  container.querySelector('#btnTPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterTP', true));
-  container.querySelector('#btnTPClear').addEventListener('click', () => setCheckAll(container, '#listMasterTP', false));
-  
-  // Event listener untuk tombol TP
-  container.querySelector('#btnLoadMasterTP').addEventListener('click', () => loadMasterTP(container));
-  setupAutoLoadMasterData(container);
-  container.querySelector('#btnGenerateTP').addEventListener('click', () => generateTPWithAI(container));
+container.querySelectorAll('.rpm-tab').forEach(tab => {
+tab.addEventListener('click', () => {
+container.querySelectorAll('.rpm-tab').forEach(t => t.classList.remove('active'));
+tab.classList.add('active');
+const target = tab.dataset.tab;
+container.querySelector('#rpm-form-section').style.display = target === 'form' ? 'block' : 'none';
+container.querySelector('#rpm-list-section').style.display = target === 'list' ? 'block' : 'none';
+});
+});
+container.querySelectorAll('input[name="cpMethod"]').forEach(radio => {
+radio.addEventListener('change', (e) => {
+container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+const method = e.target.value;
+if (method === 'master') container.querySelector('#cpMethodMaster').style.display = 'block';
+else if (method === 'ai') container.querySelector('#cpMethodAI').style.display = 'block';
+else if (method === 'manual') container.querySelector('#cpMethodManual').style.display = 'block';
+});
+});
+container.querySelectorAll('input[name="tpMethod"]').forEach(radio => {
+radio.addEventListener('change', (e) => {
+container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+const method = e.target.value;
+if (method === 'master') container.querySelector('#tpMethodMaster').style.display = 'block';
+else if (method === 'ai') container.querySelector('#tpMethodAI').style.display = 'block';
+else if (method === 'manual') container.querySelector('#tpMethodManual').style.display = 'block';
+});
+});
+container.querySelector('#rpm-metode').addEventListener('change', function() {
+const metode = this.value;
+if (metode && METODE_TEMPLATES[metode]) {
+const info = METODE_TEMPLATES[metode];
+const infoContainer = container.querySelector('#metode-info-container');
+infoContainer.innerHTML = `<div class="metode-info"> <h4>📚 ${info.nama}</h4> <p>${info.deskripsi}</p> <p style="margin-top: 8px;"><strong>Template:</strong> ${info.langkah.length} Pertemuan</p> </div>`;
+loadTemplatePertemuan(metode);
+} else {
+container.querySelector('#metode-info-container').innerHTML = '';
+container.querySelector('#rpm-pertemuan-container').innerHTML = '';
 }
-
+});
+container.querySelector('#btn-generate-ai').addEventListener('click', () => handleGenerateAI(container));
+const btnAutoFill = container.querySelector('#btnAutoFillKesiapan');
+if (btnAutoFill) {
+btnAutoFill.addEventListener('click', () => handleAutoFillKesiapan(container));
+}
+container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
+container.querySelector('#btn-export').addEventListener('click', () => handleExportWord(container));
+container.querySelector('#btn-reset').addEventListener('click', () => {
+if (confirm('🔄 Reset semua form?')) {
+currentEditId = null;
+container.querySelectorAll('input[type="text"], textarea').forEach(el => {
+if (el.id === 'rpm-guru' || el.id === 'rpm-guru-pengampu') {
+el.value = DEFAULT_TTD.namaGuru;
+} else if (el.id === 'rpm-kepsek') {
+el.value = DEFAULT_TTD.namaKepsek;
+} else if (el.id === 'rpm-nip-kepsek') {
+el.value = DEFAULT_TTD.nipKepsek;
+} else if (el.id === 'rpm-nip-guru') {
+el.value = DEFAULT_TTD.nipGuru;
+} else if (el.id === 'rpm-sekolah') {
+el.value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
+} else {
+el.value = '';
+}
+});
+container.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
+const lcp = container.querySelector('#listMasterCP');
+if (lcp) { lcp.innerHTML = ''; lcp.style.display = 'none'; }
+const ltp = container.querySelector('#listMasterTP');
+if (ltp) { ltp.innerHTML = ''; ltp.style.display = 'none'; }
+const tbcp = container.querySelector('#cpToolbar');
+if (tbcp) tbcp.style.display = 'none';
+const tbtp = container.querySelector('#tpToolbar');
+if (tbtp) tbtp.style.display = 'none';
+container.querySelector('#rpm-metode').value = '';
+container.querySelector('#metode-info-container').innerHTML = '';
+container.querySelector('#rpm-pertemuan-container').innerHTML = '';
+container.querySelector('input[name="cpMethod"][value="master"]').checked = true;
+container.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+container.querySelector('#cpMethodMaster').style.display = 'block';
+container.querySelector('input[name="tpMethod"][value="master"]').checked = true;
+container.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+container.querySelector('#tpMethodMaster').style.display = 'block';
+showToast('✅ Form direset!');
+}
+});
+container.querySelector('#btnLoadMasterCP').addEventListener('click', () => loadMasterCP(container));
+container.querySelector('#btnGenerateCP').addEventListener('click', () => generateCPWithAI(container));
+container.querySelector('#btnCPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterCP', true));
+container.querySelector('#btnCPClear').addEventListener('click', () => setCheckAll(container, '#listMasterCP', false));
+container.querySelector('#btnTPSelectAll').addEventListener('click', () => setCheckAll(container, '#listMasterTP', true));
+container.querySelector('#btnTPClear').addEventListener('click', () => setCheckAll(container, '#listMasterTP', false));
+container.querySelector('#btnLoadMasterTP').addEventListener('click', () => loadMasterTP(container));
+setupAutoLoadMasterData(container);
+container.querySelector('#btnGenerateTP').addEventListener('click', () => generateTPWithAI(container));
+}
 
 let autoLoadDebounceTimer = null;
+
 function setupAutoLoadMasterData(container) {
-  const triggers = ['#rpm-mapel', '#rpm-kelas', '#rpm-tema', '#rpm-subtema'];
-  triggers.forEach(sel => {
-    const el = container.querySelector(sel);
-    if (el) {
-      el.addEventListener('change', () => debouncedAutoLoad(container));
-      el.addEventListener('input', () => debouncedAutoLoad(container));
-    }
-  });
+const triggers = ['#rpm-mapel', '#rpm-kelas', '#rpm-tema', '#rpm-subtema'];
+triggers.forEach(sel => {
+const el = container.querySelector(sel);
+if (el) {
+el.addEventListener('change', () => debouncedAutoLoad(container));
+el.addEventListener('input', () => debouncedAutoLoad(container));
 }
-function debouncedAutoLoad(container) {
-  if (autoLoadDebounceTimer) clearTimeout(autoLoadDebounceTimer);
-  autoLoadDebounceTimer = setTimeout(() => autoLoadCPandTP(container), 800);
+});
 }
 
-// ============================================
-// ⭐ FITUR: AUTO-FILL NAMA PESERTA DIDIK DARI DATA PESERTA DIDIK
-// Untuk bagian 2. Analisis Kesiapan Murid
-// ============================================
+function debouncedAutoLoad(container) {
+if (autoLoadDebounceTimer) clearTimeout(autoLoadDebounceTimer);
+autoLoadDebounceTimer = setTimeout(() => autoLoadCPandTP(container), 800);
+}
 
 async function fetchDaftarNamaPesertaDidik(kelas) {
-  const kelasStr = String(kelas).trim();
-  console.log('🔍 Mencari siswa kelas:', kelasStr, 'di Realtime Database...');
-  
-  try {
-    const rtdb = getDatabase();
-    let allNames = [];
-    
-    // 1. Coba ambil hanya kelas yang diminta: siswa/1
-    try {
-      const snapKelas = await get(ref(rtdb, `siswa/${kelasStr}`));
-      if (snapKelas.exists()) {
-        snapKelas.forEach(childSnap => {
-          const data = childSnap.val();
-          const nama = data.nama || data.nama_lengkap;
-          if (nama) allNames.push(nama.trim());
-        });
-        console.log(`✅ Ditemukan ${allNames.length} nama di siswa/${kelasStr}`, allNames);
-        if (allNames.length > 0) return [...new Set(allNames)];
-      }
-    } catch(e) { console.warn('Gagal ambil per kelas:', e.message); }
-    
-    // 2. Jika kelas spesifik tidak ada, ambil semua kelas lalu filter
-    try {
-      const snapAll = await get(ref(rtdb, 'siswa'));
-      if (snapAll.exists()) {
-        snapAll.forEach(kelasSnap => {
-          const kelasKey = kelasSnap.key;
-          kelasSnap.forEach(siswaSnap => {
-            const data = siswaSnap.val();
-            const nama = data.nama || data.nama_lengkap;
-            if (nama) {
-              allNames.push({ nama: nama.trim(), kelas: kelasKey });
-            }
-          });
-        });
-        
-        let filtered = allNames.filter(item => !kelasStr || item.kelas === kelasStr);
-        if (filtered.length === 0 && allNames.length > 0) {
-          console.warn(`Kelas ${kelasStr} tidak ada, menampilkan semua ${allNames.length} siswa sebagai fallback`);
-          filtered = allNames;
-        }
-        
-        const finalNames = [...new Set(filtered.map(f=>f.nama))];
-        console.log(`✅ Total setelah filter kelas ${kelasStr}:`, finalNames.length, finalNames);
-        if (finalNames.length > 0) return finalNames;
-      }
-    } catch(e) { console.warn('Gagal ambil semua siswa:', e.message); }
-    
-  } catch (e) {
-    console.error('Error Realtime DB:', e);
-  }
-  
-  console.warn('⚠️ Tidak ada data di Realtime Database path siswa');
-  return null;
+const kelasStr = String(kelas).trim();
+console.log('🔍 Mencari siswa kelas:', kelasStr, 'di Realtime Database...');
+try {
+const rtdb = getDatabase();
+let allNames = [];
+try {
+   const snapKelas = await get(ref(rtdb, `siswa/${kelasStr}`));
+   if (snapKelas.exists()) {
+     snapKelas.forEach(childSnap => {
+       const data = childSnap.val();
+       const nama = data.nama || data.nama_lengkap;
+       if (nama) allNames.push(nama.trim());
+     });
+     console.log(`✅ Ditemukan ${allNames.length} nama di siswa/${kelasStr}`, allNames);
+     if (allNames.length > 0) return [...new Set(allNames)];
+   }
+} catch(e) { console.warn('Gagal ambil per kelas:', e.message); }
+try {
+   const snapAll = await get(ref(rtdb, 'siswa'));
+   if (snapAll.exists()) {
+     snapAll.forEach(kelasSnap => {
+       const kelasKey = kelasSnap.key;
+       kelasSnap.forEach(siswaSnap => {
+         const data = siswaSnap.val();
+         const nama = data.nama || data.nama_lengkap;
+         if (nama) {
+           allNames.push({ nama: nama.trim(), kelas: kelasKey });
+         }
+       });
+     });
+     let filtered = allNames.filter(item => !kelasStr || item.kelas === kelasStr);
+     if (filtered.length === 0 && allNames.length > 0) {
+       console.warn(`Kelas ${kelasStr} tidak ada, menampilkan semua ${allNames.length} siswa sebagai fallback`);
+       filtered = allNames;
+     }
+     const finalNames = [...new Set(filtered.map(f=>f.nama))];
+     console.log(`✅ Total setelah filter kelas ${kelasStr}:`, finalNames.length, finalNames);
+     if (finalNames.length > 0) return finalNames;
+   }
+} catch(e) { console.warn('Gagal ambil semua siswa:', e.message); }
+} catch (e) {
+console.error('Error Realtime DB:', e);
+}
+console.warn('⚠️ Tidak ada data di Realtime Database path siswa');
+return null;
 }
 
 function bagiKelompokRandom(namaList) {
-  const shuffled = [...namaList].sort(() => 0.5 - Math.random());
-  const total = shuffled.length;
-  const belumSiapCount = Math.max(1, Math.round(total * 0.25));
-  const mahirCount = Math.max(1, Math.round(total * 0.25));
-  const siapCount = total - belumSiapCount - mahirCount;
-
-  return {
-    belumSiap: shuffled.slice(0, belumSiapCount),
-    siap: shuffled.slice(belumSiapCount, belumSiapCount + siapCount),
-    mahir: shuffled.slice(belumSiapCount + siapCount)
-  };
+const shuffled = [...namaList].sort(() => 0.5 - Math.random());
+const total = shuffled.length;
+const belumSiapCount = Math.max(1, Math.round(total * 0.25));
+const mahirCount = Math.max(1, Math.round(total * 0.25));
+const siapCount = total - belumSiapCount - mahirCount;
+return {
+belumSiap: shuffled.slice(0, belumSiapCount),
+siap: shuffled.slice(belumSiapCount, belumSiapCount + siapCount),
+mahir: shuffled.slice(belumSiapCount + siapCount)
+};
 }
 
 async function handleAutoFillKesiapan(container) {
-  const kelasFull = container.querySelector('#rpm-kelas')?.value;
-  const kelas = kelasFull ? kelasFull.split('|')[0] : '';
-  
-  if (!kelas) {
-    showToast('⚠️ Pilih Kelas terlebih dahulu!', 'error');
-    return;
-  }
-
-  const btn = container.querySelector('#btnAutoFillKesiapan');
-  const originalText = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengambil data...'; }
-
-  try {
-    // ⭐ REVISI #1: 'let' agar fallback tidak error re-assign
-    let namaList = await fetchDaftarNamaPesertaDidik(kelas);
-    
-    if (!namaList || namaList.length === 0) {
-      showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Coba pilih Kelas 2 atau cek Data Siswa.', 'error');
-      // Fallback: coba ambil tanpa filter kelas, tampilkan semua yang ada
-      try {
-        const allSnap = await getDocs(collection(db, 'siswa'));
-        let fallbackNames = [];
-        allSnap.forEach(d=>{ const data=d.data(); const n=data.nama_lengkap||data.nama; if(n) fallbackNames.push(n); });
-        if (fallbackNames.length>0) {
-          showToast(`⚠️ Ditemukan ${fallbackNames.length} siswa tapi beda kelas, menampilkan semua sebagai contoh.`, 'warning');
-          namaList = fallbackNames.slice(0,12);
-        } else {
-          container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
-          container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
-          container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
-          return;
-        }
-      } catch(e) {
-        container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
-        container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
-        container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
-        return;
-      }
-    }
-
-    const kelompok = bagiKelompokRandom(namaList);
-    
-    // Format teks dengan nama + karakteristik
-    const belumSiapText = kelompok.belumSiap.length > 0 
-      ? `Nama: ${kelompok.belumSiap.join(', ')}\nKarakteristik: Masih perlu bimbingan intensif, pemahaman konsep dasar masih terbatas, memerlukan pendekatan individual dan motivasi ekstra.\nStrategi: Pendampingan personal, media konkret, pengulangan materi.`
-      : 'Tidak ada siswa di kelompok ini.';
-      
-    const siapText = kelompok.siap.length > 0
-      ? `Nama: ${kelompok.siap.join(', ')}\nKarakteristik: Sudah memiliki pemahaman dasar, mampu mengikuti pembelajaran dengan baik, siap menerima materi pengayaan ringan.\nStrategi: Pembelajaran kolaboratif, diskusi kelompok, pemberian tugas sedang.`
-      : 'Tidak ada siswa di kelompok ini.';
-      
-    const mahirText = kelompok.mahir.length > 0
-      ? `Nama: ${kelompok.mahir.join(', ')}\nKarakteristik: Pemahaman sangat baik, cepat menangkap materi, mampu menjadi tutor sebaya dan menyelesaikan tugas kompleks.\nStrategi: Pengayaan, proyek mandiri, peran sebagai peer tutor.`
-      : 'Tidak ada siswa di kelompok ini.';
-
-    container.querySelector('#rpm-belum-siap').value = belumSiapText;
-    container.querySelector('#rpm-siap').value = siapText;
-    container.querySelector('#rpm-mahir').value = mahirText;
-
-    showToast(`✅ Berhasil membagi ${namaList.length} siswa: ${kelompok.belumSiap.length} Belum Siap, ${kelompok.siap.length} Siap, ${kelompok.mahir.length} Mahir`, 'success');
-
-  } catch (error) {
-    console.error('Error auto-fill kesiapan:', error);
-    showToast('❌ Gagal mengambil data: ' + error.message, 'error');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = originalText; }
-  }
+const kelasFull = container.querySelector('#rpm-kelas')?.value;
+const kelas = kelasFull ? kelasFull.split('|')[0] : '';
+if (!kelas) {
+showToast('⚠️ Pilih Kelas terlebih dahulu!', 'error');
+return;
+}
+const btn = container.querySelector('#btnAutoFillKesiapan');
+const originalText = btn ? btn.textContent : '';
+if (btn) { btn.disabled = true; btn.textContent = '⏳ Mengambil data...'; }
+try {
+let namaList = await fetchDaftarNamaPesertaDidik(kelas);
+if (!namaList || namaList.length === 0) {
+   showToast('❌ Tidak ada data peserta didik untuk kelas ' + kelas + '. Coba pilih Kelas 2 atau cek Data Siswa.', 'error');
+   try {
+     const allSnap = await getDocs(collection(db, 'siswa'));
+     let fallbackNames = [];
+     allSnap.forEach(d=>{ const data=d.data(); const n=data.nama_lengkap||data.nama; if(n) fallbackNames.push(n); });
+     if (fallbackNames.length>0) {
+       showToast(`⚠️ Ditemukan ${fallbackNames.length} siswa tapi beda kelas, menampilkan semua sebagai contoh.`, 'warning');
+       namaList = fallbackNames.slice(0,12);
+     } else {
+       container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
+       container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
+       container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
+       return;
+     }
+   } catch(e) {
+     container.querySelector('#rpm-belum-siap').value = '(Contoh) Ahmad, Siti - Masih perlu bimbingan dalam mengenal huruf hijaiyah, motivasi belajar masih rendah.';
+     container.querySelector('#rpm-siap').value = '(Contoh) Budi, Ani, Rina, Joko - Sudah mampu mengenal huruf hijaiyah dasar, siap menerima materi lanjutan.';
+     container.querySelector('#rpm-mahir').value = '(Contoh) Dewi, Farhan - Sangat mahir, mampu membaca dan menjelaskan makna Al-Quran, bisa jadi tutor sebaya.';
+     return;
+   }
+}
+const kelompok = bagiKelompokRandom(namaList);
+const belumSiapText = kelompok.belumSiap.length > 0
+   ? `Nama: ${kelompok.belumSiap.join(', ')}\nKarakteristik: Masih perlu bimbingan intensif, pemahaman konsep dasar masih terbatas, memerlukan pendekatan individual dan motivasi ekstra.\nStrategi: Pendampingan personal, media konkret, pengulangan materi.`
+   : 'Tidak ada siswa di kelompok ini.';
+const siapText = kelompok.siap.length > 0
+   ? `Nama: ${kelompok.siap.join(', ')}\nKarakteristik: Sudah memiliki pemahaman dasar, mampu mengikuti pembelajaran dengan baik, siap menerima materi pengayaan ringan.\nStrategi: Pembelajaran kolaboratif, diskusi kelompok, pemberian tugas sedang.`
+   : 'Tidak ada siswa di kelompok ini.';
+const mahirText = kelompok.mahir.length > 0
+   ? `Nama: ${kelompok.mahir.join(', ')}\nKarakteristik: Pemahaman sangat baik, cepat menangkap materi, mampu menjadi tutor sebaya dan menyelesaikan tugas kompleks.\nStrategi: Pengayaan, proyek mandiri, peran sebagai peer tutor.`
+   : 'Tidak ada siswa di kelompok ini.';
+container.querySelector('#rpm-belum-siap').value = belumSiapText;
+container.querySelector('#rpm-siap').value = siapText;
+container.querySelector('#rpm-mahir').value = mahirText;
+showToast(`✅ Berhasil membagi ${namaList.length} siswa: ${kelompok.belumSiap.length} Belum Siap, ${kelompok.siap.length} Siap, ${kelompok.mahir.length} Mahir`, 'success');
+} catch (error) {
+console.error('Error auto-fill kesiapan:', error);
+showToast('❌ Gagal mengambil data: ' + error.message, 'error');
+} finally {
+if (btn) { btn.disabled = false; btn.textContent = originalText; }
+}
 }
 
 async function autoLoadCPandTP(container) {
-  const mapel = container.querySelector('#rpm-mapel')?.value?.trim();
-  const kelasFull = container.querySelector('#rpm-kelas')?.value;
-  const { tema } = getTemaSubTema(container);
-  if (!mapel || !kelasFull) return;
-  const cpMethod = container.querySelector('input[name="cpMethod"]:checked')?.value;
-  if (cpMethod === 'master') { await loadMasterCP(container); }
-  if (tema) {
-    const tpMethod = container.querySelector('input[name="tpMethod"]:checked')?.value;
-    if (tpMethod === 'master') { await loadMasterTP(container); }
-  }
+const mapel = container.querySelector('#rpm-mapel')?.value?.trim();
+const kelasFull = container.querySelector('#rpm-kelas')?.value;
+if (!mapel || !kelasFull) return;
+const cpMethod = container.querySelector('input[name="cpMethod"]:checked')?.value;
+if (cpMethod === 'master') { await loadMasterCP(container); }
+const tpMethod = container.querySelector('input[name="tpMethod"]:checked')?.value;
+if (tpMethod === 'master') { await loadMasterTP(container); }
 }
 
-// ⭐ REVISI #2: Helper checklist CP/TP
 function renderCheckList(container, listSel, items) {
-  const list = container.querySelector(listSel);
-  if (!list) return;
-  const prev = new Set(Array.from(list.querySelectorAll('input:checked')).map(i => i.value));
-  list.innerHTML = '';
-  items.forEach(it => {
-    const label = document.createElement('label');
-    label.className = 'rpm-check-item';
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.value = it.value;
-    cb.dataset.docId = it.docId || '';
-    if (prev.has(it.value)) cb.checked = true;
-    cb.addEventListener('change', () => updateCheckCount(container, listSel));
-    const span = document.createElement('span');
-    span.textContent = it.label;
-    label.appendChild(cb);
-    label.appendChild(span);
-    list.appendChild(label);
-  });
-  updateCheckCount(container, listSel);
+const list = container.querySelector(listSel);
+if (!list) return;
+const prev = new Set(Array.from(list.querySelectorAll('input:checked')).map(i => i.value));
+list.innerHTML = '';
+items.forEach(it => {
+const label = document.createElement('label');
+label.className = 'rpm-check-item';
+const cb = document.createElement('input');
+cb.type = 'checkbox';
+cb.value = it.value;
+cb.dataset.docId = it.docId || '';
+if (prev.has(it.value)) cb.checked = true;
+cb.addEventListener('change', () => updateCheckCount(container, listSel));
+const span = document.createElement('span');
+span.textContent = it.label;
+label.appendChild(cb);
+label.appendChild(span);
+list.appendChild(label);
+});
+updateCheckCount(container, listSel);
 }
 
 function updateCheckCount(container, listSel) {
-  const total = container.querySelectorAll(`${listSel} input`).length;
-  const checked = container.querySelectorAll(`${listSel} input:checked`).length;
-  const countEl = container.querySelector(listSel === '#listMasterCP' ? '#cpCount' : '#tpCount');
-  if (countEl) countEl.textContent = `${checked} / ${total} terpilih`;
+const total = container.querySelectorAll(`${listSel} input`).length;
+const checked = container.querySelectorAll(`${listSel} input:checked`).length;
+const countEl = container.querySelector(listSel === '#listMasterCP' ? '#cpCount' : '#tpCount');
+if (countEl) countEl.textContent = `${checked} / ${total} terpilih`;
 }
 
 function setCheckAll(container, listSel, state) {
-  container.querySelectorAll(`${listSel} input`).forEach(i => i.checked = state);
-  updateCheckCount(container, listSel);
+container.querySelectorAll(`${listSel} input`).forEach(i => i.checked = state);
+updateCheckCount(container, listSel);
 }
 
-// ========== FUNGSI CP: LOAD DARI MASTER DATA (REVISI #2: CHECKLIST) ==========
 async function loadMasterCP(container) {
-  const mapelInput = container.querySelector('#rpm-mapel').value.trim();
-  const kelasFull = container.querySelector('#rpm-kelas').value;
-  const fase = kelasFull ? kelasFull.split('|')[1] : '';
-
-  if (!mapelInput || !fase) {
-    showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
-    return;
-  }
-
-  const btn = container.querySelector('#btnLoadMasterCP');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Memuat...';
-
-  try {
-    const q = query(
-      collection(db, 'data_cp'),
-      where('userId', '==', currentUser.uid)
-    );
-    
-    const snapshot = await getDocs(q);
-
-    console.log('🔍 Load CP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
-
-    const items = [];
-    if (!snapshot.empty) {
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const matchMapel = isMapelMatch(data.mapel, mapelInput);
-        const matchFase = data.fase === fase || !fase || !data.fase;
-
-        if (matchMapel && matchFase) {
-          if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
-            data.elemen_cp.forEach((elemen) => {
-              const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
-              if (items.some(i => i.value === cpText)) return;
-              items.push({ value: cpText, label: `${elemen.elemen} — ${elemen.deskripsi}`, docId: docSnap.id });
-            });
-          }
-        }
-      });
-    }
-
-    console.log('Total CP found:', items.length);
-
-    const list = container.querySelector('#listMasterCP');
-    const toolbar = container.querySelector('#cpToolbar');
-    const hint = container.querySelector('#masterCPHint');
-
-    if (items.length === 0) {
-      list.style.display = 'none';
-      toolbar.style.display = 'none';
-      hint.style.display = 'block';
-      hint.textContent = '❌ Tidak ada CP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3.';
-    } else {
-      // ⭐ REVISI #2: render checklist, TIDAK auto-select semua
-      renderCheckList(container, '#listMasterCP', items);
-      list.style.display = 'block';
-      toolbar.style.display = 'block';
-      hint.style.display = 'block';
-      showToast(`✅ Ditemukan ${items.length} elemen CP — silakan centang yang dibutuhkan.`);
-    }
-  } catch (error) {
-    console.error(' Error loading Master CP:', error);
-    showToast('❌ Gagal memuat Master Data CP: ' + error.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
+const mapelInput = container.querySelector('#rpm-mapel').value.trim();
+const kelasFull = container.querySelector('#rpm-kelas').value;
+const fase = kelasFull ? kelasFull.split('|')[1] : '';
+if (!mapelInput || !fase) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+return;
+}
+const btn = container.querySelector('#btnLoadMasterCP');
+const originalText = btn.textContent;
+btn.disabled = true;
+btn.textContent = '⏳ Memuat...';
+try {
+const q = query(
+collection(db, 'data_cp'),
+where('userId', '==', currentUser.uid)
+);
+const snapshot = await getDocs(q);
+console.log('🔍 Load CP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
+const items = [];
+if (!snapshot.empty) {
+   snapshot.forEach(docSnap => {
+     const data = docSnap.data();
+     const matchMapel = isMapelMatch(data.mapel, mapelInput);
+     const matchFase = data.fase === fase || !fase || !data.fase;
+     if (matchMapel && matchFase) {
+       if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
+         data.elemen_cp.forEach((elemen) => {
+           const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
+           if (items.some(i => i.value === cpText)) return;
+           items.push({ value: cpText, label: `${elemen.elemen} — ${elemen.deskripsi}`, docId: docSnap.id });
+         });
+       }
+     }
+   });
+}
+console.log('Total CP found:', items.length);
+const list = container.querySelector('#listMasterCP');
+const toolbar = container.querySelector('#cpToolbar');
+const hint = container.querySelector('#masterCPHint');
+if (items.length === 0) {
+   list.style.display = 'none';
+   toolbar.style.display = 'none';
+   hint.style.display = 'block';
+   hint.textContent = '❌ Tidak ada CP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3.';
+} else {
+   renderCheckList(container, '#listMasterCP', items);
+   list.style.display = 'block';
+   toolbar.style.display = 'block';
+   hint.style.display = 'block';
+   showToast(`✅ Ditemukan ${items.length} elemen CP — silakan centang yang dibutuhkan.`);
+}
+} catch (error) {
+console.error('Error loading Master CP:', error);
+showToast('❌ Gagal memuat Master Data CP: ' + error.message, 'error');
+} finally {
+btn.disabled = false;
+btn.textContent = originalText;
+}
 }
 
-// ========== FUNGSI CP: GENERATE DENGAN AI ==========
 async function generateCPWithAI(container) {
-  if (!groqApiKey) {
-    showToast('️ API Key tidak tersedia.', 'error');
-    return;
-  }
-  const mapel = container.querySelector('#rpm-mapel').value;
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const [kelasNum, fase] = kelas.split('|');
-
-  if (!mapel || !fase) {
-    showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
-    return;
-  }
-
-  const btn = container.querySelector('#btnGenerateCP');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ AI sedang berpikir...';
-  const outputArea = container.querySelector('#inpCpAI');
-  outputArea.value = 'Sedang generate...';
-
-  try {
-    const prompt = `Buatkan Capaian Pembelajaran (CP) untuk Fase ${fase} (Kelas ${kelasNum}) mata pelajaran ${mapel} sesuai Kurikulum Merdeka.
-
+if (!groqApiKey) {
+showToast('⚠️ API Key tidak tersedia.', 'error');
+return;
+}
+const mapel = container.querySelector('#rpm-mapel').value;
+const kelas = container.querySelector('#rpm-kelas').value;
+const [kelasNum, fase] = kelas.split('|');
+if (!mapel || !fase) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+return;
+}
+const btn = container.querySelector('#btnGenerateCP');
+const originalText = btn.textContent;
+btn.disabled = true;
+btn.textContent = '⏳ AI sedang berpikir...';
+const outputArea = container.querySelector('#inpCpAI');
+outputArea.value = 'Sedang generate...';
+try {
+const prompt = `Buatkan Capaian Pembelajaran (CP) untuk Fase ${fase} (Kelas ${kelasNum}) mata pelajaran ${mapel} sesuai Kurikulum Merdeka.
 Format output: Tulis dalam format "Elemen: [nama elemen]" diikuti "Deskripsi: [deskripsi capaian]" untuk setiap elemen CP. Pisahkan setiap elemen dengan baris kosong.
-
 Contoh:
 Elemen: Pemahaman Konsep
 Deskripsi: Siswa mampu memahami dan menjelaskan konsep dasar...
-
 Elemen: Keterampilan Proses
 Deskripsi: Siswa mampu menerapkan keterampilan proses...`;
-
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
-    });
-
-    if (!response.ok) throw new Error('Gagal menghubungi API');
-    const result = await response.json();
-    outputArea.value = result.choices[0].message.content.trim();
-  } catch (error) {
-    showToast('❌ Gagal generate CP: ' + error.message, 'error');
-    outputArea.value = '';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
+const response = await fetch(GROQ_API_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+  body: JSON.stringify({
+    model: GROQ_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.7,
+    max_tokens: 1500
+  })
+});
+if (!response.ok) throw new Error('Gagal menghubungi API');
+const result = await response.json();
+outputArea.value = result.choices[0].message.content.trim();
+} catch (error) {
+showToast('❌ Gagal generate CP: ' + error.message, 'error');
+outputArea.value = '';
+} finally {
+btn.disabled = false;
+btn.textContent = originalText;
+}
 }
 
-// ========== FUNGSI TP: LOAD DARI MASTER DATA (REVISI #2: CHECKLIST) ==========
 async function loadMasterTP(container) {
-  const mapelInput = container.querySelector('#rpm-mapel').value.trim();
-  const kelasFull = container.querySelector('#rpm-kelas').value;
-  const kelas = kelasFull ? kelasFull.split('|')[0] : ''; 
-  const { tema, subTema, searchCombined: topikInput } = getTemaSubTema(container);
-
-  if (!mapelInput || !kelas || !tema) {
-    showToast('⚠️ Mohon isi Mata Pelajaran, Kelas, dan Tema terlebih dahulu!', 'error');
-    return;
-  }
-
-  const btn = container.querySelector('#btnLoadMasterTP');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ Memuat...';
-
-  try {
-    const q = query(
-      collection(db, 'data_tp'),
-      where('userId', '==', currentUser.uid)
-    );
-    
-    const snapshot = await getDocs(q);
-
-    console.log('🔍 Load TP - Mapel:', mapelInput, 'Kelas:', kelas, 'Topik:', topikInput, 'Total docs:', snapshot.size);
-
-    const items = [];
-    if (!snapshot.empty) {
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const matchMapel = isMapelMatch(data.mapel, mapelInput);
-        const matchKelas = !kelas || data.kelas === kelas || String(data.kelas) === String(kelas);
-        const matchTopik = isTopikMatch((data.topik || '').toLowerCase(), (topikInput || '').toLowerCase());
-
-        if (matchMapel && matchKelas && matchTopik) {
-          if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
-            data.tujuan_pembelajaran.forEach((tp) => {
-              if (items.some(i => i.value === tp)) return;
-              items.push({ value: tp, label: data.topik ? `${tp} (${data.topik})` : tp, docId: docSnap.id });
-            });
-          }
-        }
-      });
-    }
-
-    console.log('Total TP found:', items.length);
-
-    const list = container.querySelector('#listMasterTP');
-    const toolbar = container.querySelector('#tpToolbar');
-    const hint = container.querySelector('#masterTPHint');
-
-    if (items.length === 0) {
-      list.style.display = 'none';
-      toolbar.style.display = 'none';
-      hint.style.display = 'block';
-      hint.textContent = '❌ Tidak ada TP yang cocok untuk Mapel, Kelas & Tema ini. Coba Opsi 2 atau 3.';
-    } else {
-      // ⭐ REVISI #2: render checklist, TIDAK auto-select semua
-      renderCheckList(container, '#listMasterTP', items);
-      list.style.display = 'block';
-      toolbar.style.display = 'block';
-      hint.style.display = 'block';
-      showToast(`✅ Ditemukan ${items.length} TP — silakan centang yang dibutuhkan.`);
-    }
-  } catch (error) {
-    console.error('❌ Error loading Master TP:', error);
-    showToast('❌ Gagal memuat Master Data TP: ' + error.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
+const mapelInput = container.querySelector('#rpm-mapel').value.trim();
+const kelasFull = container.querySelector('#rpm-kelas').value;
+const kelas = kelasFull ? kelasFull.split('|')[0] : '';
+const { searchCombined: topikInput } = getTemaSubTema(container);
+if (!mapelInput || !kelas) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+return;
+}
+const btn = container.querySelector('#btnLoadMasterTP');
+const originalText = btn.textContent;
+btn.disabled = true;
+btn.textContent = '⏳ Memuat...';
+try {
+const q = query(
+collection(db, 'data_tp'),
+where('userId', '==', currentUser.uid)
+);
+const snapshot = await getDocs(q);
+console.log('🔍 Load TP - Mapel:', mapelInput, 'Kelas:', kelas, 'Topik:', topikInput, 'Total docs:', snapshot.size);
+const items = [];
+if (!snapshot.empty) {
+   snapshot.forEach(docSnap => {
+     const data = docSnap.data();
+     const matchMapel = isMapelMatch(data.mapel, mapelInput);
+     const matchKelas = !kelas || data.kelas === kelas || String(data.kelas) === String(kelas);
+     const matchTopik = isTopikMatch((data.topik || '').toLowerCase(), (topikInput || '').toLowerCase());
+     if (matchMapel && matchKelas && matchTopik) {
+       if (Array.isArray(data.tp_rows) && data.tp_rows.length) {
+         data.tp_rows.forEach((r) => {
+           const tp = r.tp || '';
+           if (!tp || items.some(i => i.value === tp)) return;
+           const label = `${r.elemen ? r.elemen + ' — ' : ''}${tp}${r.materi ? ' (Materi: ' + r.materi + ')' : ''}`;
+           items.push({ value: tp, label: label, docId: docSnap.id });
+         });
+       } else if (data.tujuan_pembelajaran && Array.isArray(data.tujuan_pembelajaran)) {
+         data.tujuan_pembelajaran.forEach((tp) => {
+           if (items.some(i => i.value === tp)) return;
+           items.push({ value: tp, label: data.topik ? `${tp} (${data.topik})` : tp, docId: docSnap.id });
+         });
+       }
+     }
+   });
+}
+console.log('Total TP found:', items.length);
+const list = container.querySelector('#listMasterTP');
+const toolbar = container.querySelector('#tpToolbar');
+const hint = container.querySelector('#masterTPHint');
+if (items.length === 0) {
+   list.style.display = 'none';
+   toolbar.style.display = 'none';
+   hint.style.display = 'block';
+   hint.textContent = '❌ Tidak ada TP yang cocok untuk Mapel & Kelas ini. Coba Opsi 2 atau 3.';
+} else {
+   renderCheckList(container, '#listMasterTP', items);
+   list.style.display = 'block';
+   toolbar.style.display = 'block';
+   hint.style.display = 'block';
+   showToast(`✅ Ditemukan ${items.length} TP — silakan centang yang dibutuhkan.`);
+}
+} catch (error) {
+console.error('❌ Error loading Master TP:', error);
+showToast('❌ Gagal memuat Master Data TP: ' + error.message, 'error');
+} finally {
+btn.disabled = false;
+btn.textContent = originalText;
+}
 }
 
-// ========== FUNGSI TP: GENERATE DENGAN AI ==========
 async function generateTPWithAI(container) {
-  if (!groqApiKey) {
-    showToast('⚠️ API Key tidak tersedia.', 'error');
-    return;
-  }
-  const mapel = container.querySelector('#rpm-mapel').value;
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const { tema, subTema } = getTemaSubTema(container);
-  const topik = [tema, subTema].filter(Boolean).join(' - ');
-
-  if (!mapel || !topik) {
-    showToast('⚠️ Mohon isi Mata Pelajaran dan Tema terlebih dahulu!', 'error');
-    return;
-  }
-
-  const btn = container.querySelector('#btnGenerateTP');
-  const originalText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = '⏳ AI sedang berpikir...';
-  const outputArea = container.querySelector('#inpTujuanAI');
-  outputArea.value = 'Sedang generate...';
-
-  try {
-    const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
-- Mata Pelajaran: ${mapel}
-- Kelas: ${kelas}
-- Tema: ${tema}
-- Sub Tema: ${subTema || '-'}
-- Topik (gabungan): ${topik}
-
+if (!groqApiKey) {
+showToast('⚠️ API Key tidak tersedia.', 'error');
+return;
+}
+const mapel = container.querySelector('#rpm-mapel').value;
+const kelas = container.querySelector('#rpm-kelas').value;
+const { tema, subTema } = getTemaSubTema(container);
+const topik = [tema, subTema].filter(Boolean).join(' - ');
+if (!mapel || !topik) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Tema terlebih dahulu!', 'error');
+return;
+}
+const btn = container.querySelector('#btnGenerateTP');
+const originalText = btn.textContent;
+btn.disabled = true;
+btn.textContent = '⏳ AI sedang berpikir...';
+const outputArea = container.querySelector('#inpTujuanAI');
+outputArea.value = 'Sedang generate...';
+try {
+const prompt = `Buatkan 3-5 Tujuan Pembelajaran (TP) yang spesifik dan terukur untuk:
+Mata Pelajaran: ${mapel}
+Kelas: ${kelas}
+Tema: ${tema}
+Sub Tema: ${subTema || '-'}
+Topik (gabungan): ${topik}
 Format output: Hanya daftar TP, setiap TP diawali dengan angka (1., 2., dst) dan kalimat "Siswa mampu...". Jangan berikan penjelasan lain.`;
-
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1000
-      })
-    });
-
-    if (!response.ok) throw new Error('Gagal menghubungi API');
-    const result = await response.json();
-    outputArea.value = result.choices[0].message.content.trim();
-  } catch (error) {
-    showToast('❌ Gagal generate TP: ' + error.message, 'error');
-    outputArea.value = '';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = originalText;
-  }
+const response = await fetch(GROQ_API_URL, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+  body: JSON.stringify({
+    model: GROQ_MODEL,
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.7,
+    max_tokens: 1000
+  })
+});
+if (!response.ok) throw new Error('Gagal menghubungi API');
+const result = await response.json();
+outputArea.value = result.choices[0].message.content.trim();
+} catch (error) {
+showToast('❌ Gagal generate TP: ' + error.message, 'error');
+outputArea.value = '';
+} finally {
+btn.disabled = false;
+btn.textContent = originalText;
+}
 }
 
-// ========== FUNGSI: AMBIL CP DARI OPSI AKTIF (REVISI #2: hanya tercentang) ==========
 function getActiveCP(container) {
-  const activeMethod = container.querySelector('input[name="cpMethod"]:checked')?.value || 'manual';
-  
-  if (activeMethod === 'master') {
-    return Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.value);
-  } else if (activeMethod === 'ai') {
-    const aiText = container.querySelector('#inpCpAI').value.trim();
-    return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
-  } else {
-    const manualText = container.querySelector('#inpCpManual').value.trim();
-    return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
-  }
+const activeMethod = container.querySelector('input[name="cpMethod"]:checked')?.value || 'manual';
+if (activeMethod === 'master') {
+return Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.value);
+} else if (activeMethod === 'ai') {
+const aiText = container.querySelector('#inpCpAI').value.trim();
+return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
+} else {
+const manualText = container.querySelector('#inpCpManual').value.trim();
+return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
+}
 }
 
-// ========== FUNGSI: AMBIL TP DARI OPSI AKTIF (REVISI #2: hanya tercentang) ==========
 function getActiveTP(container) {
-  const activeMethod = container.querySelector('input[name="tpMethod"]:checked')?.value || 'manual';
-  
-  if (activeMethod === 'master') {
-    return Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.value);
-  } else if (activeMethod === 'ai') {
-    const aiText = container.querySelector('#inpTujuanAI').value.trim();
-    return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
-  } else {
-    const manualText = container.querySelector('#inpTujuanManual').value.trim();
-    return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
-  }
+const activeMethod = container.querySelector('input[name="tpMethod"]:checked')?.value || 'manual';
+if (activeMethod === 'master') {
+return Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.value);
+} else if (activeMethod === 'ai') {
+const aiText = container.querySelector('#inpTujuanAI').value.trim();
+return aiText ? aiText.split('\n').filter(t => t.trim()) : [];
+} else {
+const manualText = container.querySelector('#inpTujuanManual').value.trim();
+return manualText ? manualText.split('\n').filter(t => t.trim()) : [];
+}
 }
 
 function loadTemplatePertemuan(metode) {
-  const template = METODE_TEMPLATES[metode];
-  if (!template) return;
-
-  const container = document.querySelector('#rpm-pertemuan-container');
-  container.innerHTML = '';
-
-  template.langkah.forEach((langkah, idx) => {
-    const div = document.createElement('div');
-    div.className = 'rpm-pertemuan-item';
-    div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
-    div.innerHTML = `
-      <div style="margin-bottom: 10px;">
-        <strong style="color: #be185d;">${langkah.judul}</strong>
-      </div>
-      <div class="rpm-form-group">
-        <label>🧠 A. Memahami (Mindful)</label>
-        <textarea class="rpm-form-control rpm-memahami" rows="2" placeholder="${langkah.memahami.substring(0, 50)}...">${langkah.memahami}</textarea>
-      </div>
-      <div class="rpm-form-group">
-        <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label>
-        <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3" placeholder="${langkah.mengaplikasikan.substring(0, 50)}...">${langkah.mengaplikasikan}</textarea>
-      </div>
-      <div class="rpm-form-group">
-        <label>🔄 C. Merefleksikan</label>
-        <textarea class="rpm-form-control rpm-merefleksikan" rows="2" placeholder="${langkah.merefleksikan.substring(0, 50)}...">${langkah.merefleksikan}</textarea>
-      </div>
-    `;
-    container.appendChild(div);
-  });
+const template = METODE_TEMPLATES[metode];
+if (!template) return;
+const container = document.querySelector('#rpm-pertemuan-container');
+container.innerHTML = '';
+template.langkah.forEach((langkah, idx) => {
+const div = document.createElement('div');
+div.className = 'rpm-pertemuan-item';
+div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
+div.innerHTML = `<div style="margin-bottom: 10px;"> <strong style="color: #be185d;">${langkah.judul}</strong> </div> <div class="rpm-form-group"> <label>🧠 A. Memahami (Mindful)</label> <textarea class="rpm-form-control rpm-memahami" rows="2" placeholder="${langkah.memahami.substring(0, 50)}...">${langkah.memahami}</textarea> </div> <div class="rpm-form-group"> <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label> <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3" placeholder="${langkah.mengaplikasikan.substring(0, 50)}...">${langkah.mengaplikasikan}</textarea> </div> <div class="rpm-form-group"> <label>🔄 C. Merefleksikan</label> <textarea class="rpm-form-control rpm-merefleksikan" rows="2" placeholder="${langkah.merefleksikan.substring(0, 50)}...">${langkah.merefleksikan}</textarea> </div>`;
+container.appendChild(div);
+});
 }
 
 function loadTTDDefaults() {
-  const saved = localStorage.getItem('rpm_ttd');
-  let ttdData = { ...DEFAULT_TTD };
-  
-  if (saved) {
-    try {
-      ttdData = { ...ttdData, ...JSON.parse(saved) };
-    } catch (e) {}
-  }
-  
-  setTimeout(() => {
-    const fields = {
-      'rpm-kepsek': ttdData.namaKepsek,
-      'rpm-nip-kepsek': ttdData.nipKepsek,
-      'rpm-guru-pengampu': ttdData.namaGuru,
-      'rpm-nip-guru': ttdData.nipGuru
-    };
-    
-    Object.entries(fields).forEach(([id, value]) => {
-      const el = document.getElementById(id);
-      if (el) el.value = value;
-    });
-  }, 100);
+const saved = localStorage.getItem('rpm_ttd');
+let ttdData = { ...DEFAULT_TTD };
+if (saved) {
+try {
+ttdData = { ...ttdData, ...JSON.parse(saved) };
+} catch (e) {}
+}
+setTimeout(() => {
+const fields = {
+'rpm-kepsek': ttdData.namaKepsek,
+'rpm-nip-kepsek': ttdData.nipKepsek,
+'rpm-guru-pengampu': ttdData.namaGuru,
+'rpm-nip-guru': ttdData.nipGuru
+};
+Object.entries(fields).forEach(([id, value]) => {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+});
+}, 100);
 }
 
 function saveTTDDefaults() {
-  const ttdData = {
-    namaKepsek: document.getElementById('rpm-kepsek')?.value || DEFAULT_TTD.namaKepsek,
-    nipKepsek: document.getElementById('rpm-nip-kepsek')?.value || DEFAULT_TTD.nipKepsek,
-    namaGuru: document.getElementById('rpm-guru-pengampu')?.value || DEFAULT_TTD.namaGuru,
-    nipGuru: document.getElementById('rpm-nip-guru')?.value || DEFAULT_TTD.nipGuru
-  };
-  
-  localStorage.setItem('rpm_ttd', JSON.stringify(ttdData));
+const ttdData = {
+namaKepsek: document.getElementById('rpm-kepsek')?.value || DEFAULT_TTD.namaKepsek,
+nipKepsek: document.getElementById('rpm-nip-kepsek')?.value || DEFAULT_TTD.nipKepsek,
+namaGuru: document.getElementById('rpm-guru-pengampu')?.value || DEFAULT_TTD.namaGuru,
+nipGuru: document.getElementById('rpm-nip-guru')?.value || DEFAULT_TTD.nipGuru
+};
+localStorage.setItem('rpm_ttd', JSON.stringify(ttdData));
 }
 
 async function handleGenerateAI(container) {
-  if (!groqApiKey) {
-    showToast('⚠️ API Key belum aktif!', 'error');
-    return;
-  }
-
-  const mapel = container.querySelector('#rpm-mapel').value;
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const { tema, subTema } = getTemaSubTema(container);
-  const topik = [tema, subTema].filter(Boolean).join(' - ');
-  const metode = container.querySelector('#rpm-metode').value;
-
-  if (!mapel || !kelas || !topik || !metode) {
-    showToast('⚠️ Isi Mapel, Kelas, Topik, dan Metode terlebih dahulu!', 'error');
-    return;
-  }
-
-  const [kelasNum, fase] = kelas.split('|');
-  
-  // Ambil CP dan TP dari opsi aktif
-  const cpList = getActiveCP(container);
-  const tpList = getActiveTP(container);
-  
-  const cpText = cpList.length > 0 ? cpList.join('\n') : '(Belum ada CP - akan di-generate oleh AI)';
-  const tpText = tpList.length > 0 ? tpList.join('\n') : '(Belum ada TP - akan di-generate oleh AI)';
-  
-  const prompt = `Bertindaklah sebagai Ahli Kurikulum Merdeka dan Pengembang RPM profesional dengan keahlian khusus dalam metode ${metode}.
-
+if (!groqApiKey) {
+showToast('⚠️ API Key belum aktif!', 'error');
+return;
+}
+const mapel = container.querySelector('#rpm-mapel').value;
+const kelas = container.querySelector('#rpm-kelas').value;
+const { tema, subTema } = getTemaSubTema(container);
+const topik = [tema, subTema].filter(Boolean).join(' - ');
+const metode = container.querySelector('#rpm-metode').value;
+if (!mapel || !kelas || !topik || !metode) {
+showToast('⚠️ Isi Mapel, Kelas, Topik, dan Metode terlebih dahulu!', 'error');
+return;
+}
+const [kelasNum, fase] = kelas.split('|');
+const cpList = getActiveCP(container);
+const tpList = getActiveTP(container);
+const cpText = cpList.length > 0 ? cpList.join('\n') : '(Belum ada CP - akan di-generate oleh AI)';
+const tpText = tpList.length > 0 ? tpList.join('\n') : '(Belum ada TP - akan di-generate oleh AI)';
+const prompt = `Bertindaklah sebagai Ahli Kurikulum Merdeka dan Pengembang RPM profesional dengan keahlian khusus dalam metode ${metode}.
 Buatkan Rencana Pembelajaran Mendalam (RPM) SPESIFIK untuk metode ${metode} dengan format JSON valid berdasarkan data:
-- Mata Pelajaran: ${mapel}
-- Kelas: ${kelasNum} (Fase ${fase})
-- Tema: ${tema}
-- Sub Tema: ${subTema || '-'}
-- Topik Gabungan: ${topik}
-- Metode: ${metode}
-- Sekolah: SDN 139 LAMANDA
-- Target Peserta Didik: ${container.querySelector('#rpm-target-peserta-didik').value || '-'}
-- Sarana Prasarana: ${container.querySelector('#rpm-sarana-prasarana').value || '-'}
-- Capaian Pembelajaran (CP) yang sudah dipilih:
+Mata Pelajaran: ${mapel}
+Kelas: ${kelasNum} (Fase ${fase})
+Tema: ${tema}
+Sub Tema: ${subTema || '-'}
+Topik Gabungan: ${topik}
+Metode: ${metode}
+Sekolah: SDN 139 LAMANDA
+Target Peserta Didik: ${container.querySelector('#rpm-target-peserta-didik').value || '-'}
+Sarana Prasarana: ${container.querySelector('#rpm-sarana-prasarana').value || '-'}
+Capaian Pembelajaran (CP) yang sudah dipilih:
 ${cpText}
-- Tujuan Pembelajaran (TP) yang sudah dipilih:
+Tujuan Pembelajaran (TP) yang sudah dipilih:
 ${tpText}
-
 WAJIB output dalam format JSON berikut (tanpa markdown tambahan):
 {
-  "target_peserta_didik": "Deskripsi karakteristik siswa target...",
-  "sarana_prasarana": "Daftar alat, bahan, dan media...",
-  "analisis_kesiapan": {
-    "belum_siap": "deskripsi...",
-    "siap": "deskripsi...",
-    "mahir": "deskripsi..."
-  },
-  "cp": "Capaian Pembelajaran...",
-  "tujuan_pembelajaran": ["TP 1", "TP 2", "TP 3"],
-  "profil_lulusan": ["Dimensi 1", "Dimensi 2", "Dimensi 3"],
-  "langkah_pembelajaran": [
-    {
-      "judul": "Pertemuan 1: ...",
-      "memahami": "...",
-      "mengaplikasikan": "...",
-      "merefleksikan": "..."
-    }
-  ],
-  "asesmen": {
-    "diagnostik": "...",
-    "formatif": "...",
-    "sumatif": "...",
-    "rubrik_penilaian": "4 (Mahir): ... 3 (Cakap): ... 2 (Berkembang): ... 1 (Belum Siap): ..."
-  },
-  "diferensiasi": {
-    "remedial": "...",
-    "pengayaan": "..."
-  },
-  "refleksi": {
-    "guru": "...",
-    "siswa": "..."
-  },
-  "lampiran": {
-    "lkpd": "...",
-    "bahan_bacaan": "...",
-    "glosarium": "..."
-  }
+ "target_peserta_didik": "Deskripsi karakteristik siswa target...",
+ "sarana_prasarana": "Daftar alat, bahan, dan media...",
+ "analisis_kesiapan": {
+ "belum_siap": "deskripsi...",
+ "siap": "deskripsi...",
+ "mahir": "deskripsi..."
+},
+ "cp": "Capaian Pembelajaran...",
+ "tujuan_pembelajaran": ["TP 1", "TP 2", "TP 3"],
+ "profil_lulusan": ["Dimensi 1", "Dimensi 2", "Dimensi 3"],
+ "langkah_pembelajaran": [
+{
+ "judul": "Pertemuan 1: ...",
+ "memahami": "...",
+ "mengaplikasikan": "...",
+ "merefleksikan": "..."
 }
-
+],
+ "asesmen": {
+ "diagnostik": "...",
+ "formatif": "...",
+ "sumatif": "...",
+ "rubrik_penilaian": "4 (Mahir): ... 3 (Cakap): ... 2 (Berkembang): ... 1 (Belum Siap): ..."
+},
+ "diferensiasi": {
+ "remedial": "...",
+ "pengayaan": "..."
+},
+ "refleksi": {
+ "guru": "...",
+ "siswa": "..."
+},
+ "lampiran": {
+ "lkpd": "...",
+ "bahan_bacaan": "...",
+ "glosarium": "..."
+}
+}
 PENTING:
-- Langkah pembelajaran HARUS mengikuti karakteristik metode ${metode}
-- Integrasi 3 Prinsip: Mindful, Meaningful, Joyful
-- Pilih 3-4 Profil Lulusan yang paling relevan
-- Gunakan bahasa Indonesia formal dan edukatif
-- Jumlah pertemuan sesuai kompleksitas topik (biasanya 4-5 pertemuan)
-- Pertimbangkan CP dan TP yang sudah ada di atas saat menyusun langkah pembelajaran`;
-
-  try {
-    const response = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${groqApiKey}`
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Output HARUS JSON valid.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.7,
-        max_tokens: 4000
-      })
-    });
-
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-
-    const data = await response.json();
-    const aiText = data.choices[0].message.content;
-    
-    let parsed;
-    const jsonMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/) || aiText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-    } else {
-      parsed = JSON.parse(aiText);
-    }
-
-    // Mapping data baru dari AI
-    if (parsed.target_peserta_didik) container.querySelector('#rpm-target-peserta-didik').value = parsed.target_peserta_didik;
-    if (parsed.sarana_prasarana) container.querySelector('#rpm-sarana-prasarana').value = parsed.sarana_prasarana;
-
-    if (parsed.analisis_kesiapan) {
-      // ⭐ REVISI #1: amankan baris "Nama: ..." hasil tombol hijau SEBELUM ditimpa AI
-      const ambil = (id) => {
-        const v = container.querySelector(id)?.value || '';
-        const m = v.match(/^Nama:[^\n]*/m);
-        return m ? m[0].trim() : '';
-      };
-      const nB = ambil('#rpm-belum-siap');
-      const nS = ambil('#rpm-siap');
-      const nM = ambil('#rpm-mahir');
-      const gabung = (n, t) => n ? `${n}\n${t || ''}` : (t || '');
-      container.querySelector('#rpm-belum-siap').value = gabung(nB, parsed.analisis_kesiapan.belum_siap);
-      container.querySelector('#rpm-siap').value = gabung(nS, parsed.analisis_kesiapan.siap);
-      container.querySelector('#rpm-mahir').value = gabung(nM, parsed.analisis_kesiapan.mahir);
-    }
-    if (parsed.cp) {
-      const activeCPMethod = container.querySelector('input[name="cpMethod"]:checked').value;
-      if (activeCPMethod === 'ai') {
-        container.querySelector('#inpCpAI').value = parsed.cp;
-      } else if (activeCPMethod === 'manual') {
-        container.querySelector('#inpCpManual').value = parsed.cp;
-      }
-    }
-    if (parsed.tujuan_pembelajaran) {
-      const activeTPMethod = container.querySelector('input[name="tpMethod"]:checked').value;
-      if (activeTPMethod === 'ai') {
-        container.querySelector('#inpTujuanAI').value = parsed.tujuan_pembelajaran.join('\n');
-      } else if (activeTPMethod === 'manual') {
-        container.querySelector('#inpTujuanManual').value = parsed.tujuan_pembelajaran.join('\n');
-      }
-    }
-    if (parsed.profil_lulusan) {
-      container.querySelectorAll('.rpm-profil').forEach(cb => {
-        cb.checked = parsed.profil_lulusan.includes(cb.value);
-      });
-    }
-    if (parsed.langkah_pembelajaran) {
-      container.querySelector('#rpm-pertemuan-container').innerHTML = '';
-      parsed.langkah_pembelajaran.forEach((p, idx) => {
-        const div = document.createElement('div');
-        div.className = 'rpm-pertemuan-item';
-        div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
-        div.innerHTML = `
-          <div style="margin-bottom: 10px;">
-            <strong style="color: #be185d;">${p.judul || `Pertemuan ${idx + 1}`}</strong>
-          </div>
-          <div class="rpm-form-group">
-            <label>🧠 A. Memahami (Mindful)</label>
-            <textarea class="rpm-form-control rpm-memahami" rows="2">${p.memahami || ''}</textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label>
-            <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3">${p.mengaplikasikan || ''}</textarea>
-          </div>
-          <div class="rpm-form-group">
-            <label>🔄 C. Merefleksikan</label>
-            <textarea class="rpm-form-control rpm-merefleksikan" rows="2">${p.merefleksikan || ''}</textarea>
-          </div>
-        `;
-        container.querySelector('#rpm-pertemuan-container').appendChild(div);
-      });
-    }
-    if (parsed.asesmen) {
-      container.querySelector('#rpm-diagnostik').value = parsed.asesmen.diagnostik || '';
-      container.querySelector('#rpm-formatif').value = parsed.asesmen.formatif || '';
-      container.querySelector('#rpm-sumatif').value = parsed.asesmen.sumatif || '';
-      container.querySelector('#rpm-rubrik').value = parsed.asesmen.rubrik_penilaian || '';
-    }
-    if (parsed.diferensiasi) {
-      container.querySelector('#rpm-remedial').value = parsed.diferensiasi.remedial || '';
-      container.querySelector('#rpm-pengayaan').value = parsed.diferensiasi.pengayaan || '';
-    }
-    if (parsed.refleksi) {
-      container.querySelector('#rpm-refleksi-guru').value = parsed.refleksi.guru || '';
-      container.querySelector('#rpm-refleksi-siswa').value = parsed.refleksi.siswa || '';
-    }
-    if (parsed.lampiran) {
-      container.querySelector('#rpm-lkpd').value = parsed.lampiran.lkpd || '';
-      container.querySelector('#rpm-bahan').value = parsed.lampiran.bahan_bacaan || '';
-      container.querySelector('#rpm-glosarium').value = parsed.lampiran.glosarium || '';
-    }
-
-    showToast('✅ RPM Spesifik berhasil di-generate dengan AI!');
-  } catch (error) {
-    console.error('Error AI:', error);
-    showToast('❌ Gagal generate: ' + error.message, 'error');
-  }
+Langkah pembelajaran HARUS mengikuti karakteristik metode ${metode}
+Integrasi 3 Prinsip: Mindful, Meaningful, Joyful
+Pilih 3-4 Profil Lulusan yang paling relevan
+Gunakan bahasa Indonesia formal dan edukatif
+Jumlah pertemuan sesuai kompleksitas topik (biasanya 4-5 pertemuan)
+Pertimbangkan CP dan TP yang sudah ada di atas saat menyusun langkah pembelajaran`;
+try {
+const response = await fetch(GROQ_API_URL, {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'Authorization': `Bearer ${groqApiKey}`
+},
+body: JSON.stringify({
+model: GROQ_MODEL,
+messages: [
+{ role: 'system', content: 'Anda adalah ahli kurikulum Merdeka Indonesia. Output HARUS JSON valid.' },
+{ role: 'user', content: prompt }
+],
+temperature: 0.7,
+max_tokens: 4000
+})
+});
+if (!response.ok) throw new Error(`API Error: ${response.status}`);
+const data = await response.json();
+const aiText = data.choices[0].message.content;
+let parsed;
+const jsonMatch = aiText.match(/```json\s*([\s\S]*?)```/) || aiText.match(/{[\s\S]*}/);
+if (jsonMatch) {
+parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+} else {
+parsed = JSON.parse(aiText);
+}
+if (parsed.target_peserta_didik) container.querySelector('#rpm-target-peserta-didik').value = parsed.target_peserta_didik;
+if (parsed.sarana_prasarana) container.querySelector('#rpm-sarana-prasarana').value = parsed.sarana_prasarana;
+if (parsed.analisis_kesiapan) {
+const ambil = (id) => {
+const v = container.querySelector(id)?.value || '';
+const m = v.match(/^Nama:[^\n]*/m);
+return m ? m[0].trim() : '';
+};
+const nB = ambil('#rpm-belum-siap');
+const nS = ambil('#rpm-siap');
+const nM = ambil('#rpm-mahir');
+const gabung = (n, t) => n ? `${n}\n${t || ''}` : (t || '');
+container.querySelector('#rpm-belum-siap').value = gabung(nB, parsed.analisis_kesiapan.belum_siap);
+container.querySelector('#rpm-siap').value = gabung(nS, parsed.analisis_kesiapan.siap);
+container.querySelector('#rpm-mahir').value = gabung(nM, parsed.analisis_kesiapan.mahir);
+}
+if (parsed.cp) {
+const activeCPMethod = container.querySelector('input[name="cpMethod"]:checked').value;
+if (activeCPMethod === 'ai') {
+container.querySelector('#inpCpAI').value = parsed.cp;
+} else if (activeCPMethod === 'manual') {
+container.querySelector('#inpCpManual').value = parsed.cp;
+}
+}
+if (parsed.tujuan_pembelajaran) {
+const activeTPMethod = container.querySelector('input[name="tpMethod"]:checked').value;
+if (activeTPMethod === 'ai') {
+container.querySelector('#inpTujuanAI').value = parsed.tujuan_pembelajaran.join('\n');
+} else if (activeTPMethod === 'manual') {
+container.querySelector('#inpTujuanManual').value = parsed.tujuan_pembelajaran.join('\n');
+}
+}
+if (parsed.profil_lulusan) {
+container.querySelectorAll('.rpm-profil').forEach(cb => {
+cb.checked = parsed.profil_lulusan.includes(cb.value);
+});
+}
+if (parsed.langkah_pembelajaran) {
+container.querySelector('#rpm-pertemuan-container').innerHTML = '';
+parsed.langkah_pembelajaran.forEach((p, idx) => {
+const div = document.createElement('div');
+div.className = 'rpm-pertemuan-item';
+div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
+div.innerHTML = `<div style="margin-bottom: 10px;"> <strong style="color: #be185d;">${p.judul || `Pertemuan ${idx + 1}`}</strong> </div> <div class="rpm-form-group"> <label>🧠 A. Memahami (Mindful)</label> <textarea class="rpm-form-control rpm-memahami" rows="2">${p.memahami || ''}</textarea> </div> <div class="rpm-form-group"> <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label> <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3">${p.mengaplikasikan || ''}</textarea> </div> <div class="rpm-form-group"> <label>🔄 C. Merefleksikan</label> <textarea class="rpm-form-control rpm-merefleksikan" rows="2">${p.merefleksikan || ''}</textarea> </div>`;
+container.querySelector('#rpm-pertemuan-container').appendChild(div);
+});
+}
+if (parsed.asesmen) {
+container.querySelector('#rpm-diagnostik').value = parsed.asesmen.diagnostik || '';
+container.querySelector('#rpm-formatif').value = parsed.asesmen.formatif || '';
+container.querySelector('#rpm-sumatif').value = parsed.asesmen.sumatif || '';
+container.querySelector('#rpm-rubrik').value = parsed.asesmen.rubrik_penilaian || '';
+}
+if (parsed.diferensiasi) {
+container.querySelector('#rpm-remedial').value = parsed.diferensiasi.remedial || '';
+container.querySelector('#rpm-pengayaan').value = parsed.diferensiasi.pengayaan || '';
+}
+if (parsed.refleksi) {
+container.querySelector('#rpm-refleksi-guru').value = parsed.refleksi.guru || '';
+container.querySelector('#rpm-refleksi-siswa').value = parsed.refleksi.siswa || '';
+}
+if (parsed.lampiran) {
+container.querySelector('#rpm-lkpd').value = parsed.lampiran.lkpd || '';
+container.querySelector('#rpm-bahan').value = parsed.lampiran.bahan_bacaan || '';
+container.querySelector('#rpm-glosarium').value = parsed.lampiran.glosarium || '';
+}
+showToast('✅ RPM Spesifik berhasil di-generate dengan AI!');
+} catch (error) {
+console.error('Error AI:', error);
+showToast('❌ Gagal generate: ' + error.message, 'error');
+}
 }
 
 async function handleSimpan(container) {
-  const sekolah = container.querySelector('#rpm-sekolah').value;
-  const guru = container.querySelector('#rpm-guru').value;
-  const mapel = container.querySelector('#rpm-mapel').value;
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const { tema, subTema } = getTemaSubTema(container);
-  const topik = [tema, subTema].filter(Boolean).join(' - ');
-  const metode = container.querySelector('#rpm-metode').value;
-
-  if (!sekolah || !guru || !mapel || !kelas || !topik || !metode) {
-    showToast('⚠️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
-    return;
-  }
-
-  const [kelasNum, fase] = kelas.split('|');
-
-  const profilLulusan = [];
-  container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
-
-  const langkahPembelajaran = [];
-  container.querySelectorAll('.rpm-pertemuan-item').forEach((item, idx) => {
-    langkahPembelajaran.push({
-      judul: item.querySelector('strong').textContent,
-      memahami: item.querySelector('.rpm-memahami').value,
-      mengaplikasikan: item.querySelector('.rpm-mengaplikasikan').value,
-      merefleksikan: item.querySelector('.rpm-merefleksikan').value
-    });
-  });
-
-  // Ambil CP dan TP dari opsi aktif
-  const capaianPembelajaran = getActiveCP(container);
-  const tujuanPembelajaran = getActiveTP(container);
-  // ⭐ REVISI #2: Relasi ID hanya dari yang TERCENTANG
-  const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
-  const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
-  
-  if (tujuanPembelajaran.length === 0) {
-    showToast('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!', 'error');
-    return;
-  }
-
-  const dataRPM = {
-    jenis: 'spesifik',
-    metode_pembelajaran: metode,
-    identitas: {
-      sekolah, guru, mapel,
-      kelas: kelasNum,
-      fase,
-      tema,
-      sub_tema: subTema,
-      subtema: subTema,
-      topik,
-      alokasi_waktu: container.querySelector('#rpm-alokasi').value
-    },
-    relasi_master: {
-      data_cp_ids,
-      data_tp_ids,
-      source: 'checklist-master-data'
-    },
-    target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
-    sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
-    analisis_kesiapan: {
-      belum_siap: container.querySelector('#rpm-belum-siap').value,
-      siap: container.querySelector('#rpm-siap').value,
-      mahir: container.querySelector('#rpm-mahir').value
-    },
-    tujuan_dan_profil: {
-      cp: capaianPembelajaran.join('\n'),
-      tujuan_pembelajaran: tujuanPembelajaran,
-      profil_lulusan: profilLulusan
-    },
-    langkah_pembelajaran: langkahPembelajaran,
-    asesmen: {
-      diagnostik: container.querySelector('#rpm-diagnostik').value,
-      formatif: container.querySelector('#rpm-formatif').value,
-      sumatif: container.querySelector('#rpm-sumatif').value,
-      rubrik_penilaian: container.querySelector('#rpm-rubrik').value
-    },
-    diferensiasi: {
-      remedial: container.querySelector('#rpm-remedial').value,
-      pengayaan: container.querySelector('#rpm-pengayaan').value
-    },
-    refleksi: {
-      guru: container.querySelector('#rpm-refleksi-guru').value,
-      siswa: container.querySelector('#rpm-refleksi-siswa').value
-    },
-    lampiran: {
-      lkpd: container.querySelector('#rpm-lkpd').value,
-      bahan_bacaan: container.querySelector('#rpm-bahan').value,
-      glosarium: container.querySelector('#rpm-glosarium').value
-    },
-    tanda_tangan: {
-      kepala_sekolah: {
-        nama: container.querySelector('#rpm-kepsek').value,
-        nip: container.querySelector('#rpm-nip-kepsek').value
-      },
-      guru_pengampu: {
-        nama: container.querySelector('#rpm-guru-pengampu').value,
-        nip: container.querySelector('#rpm-nip-guru').value
-      }
-    }
-  };
-
-  try {
-    if (currentEditId) {
-      const docRef = doc(db, 'rpm_data', currentEditId);
-      await updateDoc(docRef, dataRPM);
-      showToast('✅ RPM berhasil diupdate!');
-      currentEditId = null;
-    } else {
-      await addDoc(collection(db, 'rpm_data'), {
-        ...dataRPM,
-        userId: currentUser.uid,
-        createdAt: serverTimestamp()
-      });
-      showToast('✅ RPM berhasil disimpan!');
-    }
-    
-    saveTTDDefaults();
-    // ⭐ REVISI #3: TIDAK auto-reset setelah simpan
-  } catch (error) {
-    console.error('Error saving:', error);
-    showToast('❌ Gagal menyimpan: ' + error.message, 'error');
-  }
+const sekolah = container.querySelector('#rpm-sekolah').value;
+const guru = container.querySelector('#rpm-guru').value;
+const mapel = container.querySelector('#rpm-mapel').value;
+const kelas = container.querySelector('#rpm-kelas').value;
+const { tema, subTema } = getTemaSubTema(container);
+const topik = [tema, subTema].filter(Boolean).join(' - ');
+const metode = container.querySelector('#rpm-metode').value;
+if (!sekolah || !guru || !mapel || !kelas || !topik || !metode) {
+showToast('⚠️ Lengkapi Identitas Dokumen dan Pilih Metode!', 'error');
+return;
+}
+const [kelasNum, fase] = kelas.split('|');
+const profilLulusan = [];
+container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
+const langkahPembelajaran = [];
+container.querySelectorAll('.rpm-pertemuan-item').forEach((item, idx) => {
+langkahPembelajaran.push({
+judul: item.querySelector('strong').textContent,
+memahami: item.querySelector('.rpm-memahami').value,
+mengaplikasikan: item.querySelector('.rpm-mengaplikasikan').value,
+merefleksikan: item.querySelector('.rpm-merefleksikan').value
+});
+});
+const capaianPembelajaran = getActiveCP(container);
+const tujuanPembelajaran = getActiveTP(container);
+const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+if (tujuanPembelajaran.length === 0) {
+showToast('⚠️ Tujuan Pembelajaran wajib diisi, dipilih, atau di-generate!', 'error');
+return;
+}
+const dataRPM = {
+jenis: 'spesifik',
+metode_pembelajaran: metode,
+identitas: {
+sekolah, guru, mapel,
+kelas: kelasNum,
+fase,
+tema,
+sub_tema: subTema,
+subtema: subTema,
+topik,
+alokasi_waktu: container.querySelector('#rpm-alokasi').value
+},
+relasi_master: {
+data_cp_ids,
+data_tp_ids,
+source: 'checklist-master-data'
+},
+target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
+sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
+analisis_kesiapan: {
+belum_siap: container.querySelector('#rpm-belum-siap').value,
+siap: container.querySelector('#rpm-siap').value,
+mahir: container.querySelector('#rpm-mahir').value
+},
+tujuan_dan_profil: {
+cp: capaianPembelajaran.join('\n'),
+tujuan_pembelajaran: tujuanPembelajaran,
+profil_lulusan: profilLulusan
+},
+langkah_pembelajaran: langkahPembelajaran,
+asesmen: {
+diagnostik: container.querySelector('#rpm-diagnostik').value,
+formatif: container.querySelector('#rpm-formatif').value,
+sumatif: container.querySelector('#rpm-sumatif').value,
+rubrik_penilaian: container.querySelector('#rpm-rubrik').value
+},
+diferensiasi: {
+remedial: container.querySelector('#rpm-remedial').value,
+pengayaan: container.querySelector('#rpm-pengayaan').value
+},
+refleksi: {
+guru: container.querySelector('#rpm-refleksi-guru').value,
+siswa: container.querySelector('#rpm-refleksi-siswa').value
+},
+lampiran: {
+lkpd: container.querySelector('#rpm-lkpd').value,
+bahan_bacaan: container.querySelector('#rpm-bahan').value,
+glosarium: container.querySelector('#rpm-glosarium').value
+},
+tanda_tangan: {
+kepala_sekolah: {
+nama: container.querySelector('#rpm-kepsek').value,
+nip: container.querySelector('#rpm-nip-kepsek').value
+},
+guru_pengampu: {
+nama: container.querySelector('#rpm-guru-pengampu').value,
+nip: container.querySelector('#rpm-nip-guru').value
+}
+}
+};
+try {
+if (currentEditId) {
+const docRef = doc(db, 'rpm_data', currentEditId);
+await updateDoc(docRef, dataRPM);
+showToast('✅ RPM berhasil diupdate!');
+currentEditId = null;
+} else {
+await addDoc(collection(db, 'rpm_data'), {
+...dataRPM,
+userId: currentUser.uid,
+createdAt: serverTimestamp()
+});
+showToast('✅ RPM berhasil disimpan!');
+}
+saveTTDDefaults();
+} catch (error) {
+console.error('Error saving:', error);
+showToast('❌ Gagal menyimpan: ' + error.message, 'error');
+}
 }
 
 function loadRPMList(container) {
-  const listContainer = container.querySelector('#rpm-list-container');
-  
-  const q = query(
-    collection(db, 'rpm_data'),
-    where('userId', '==', currentUser.uid),
-    where('jenis', '==', 'spesifik')
-  );
-
-  onSnapshot(q, (snapshot) => {
-    if (snapshot.empty) {
-      listContainer.innerHTML = '<div class="rpm-empty">📭 Belum ada RPM Spesifik tersimpan</div>';
-      return;
-    }
-
-    const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-    docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-
-    listContainer.innerHTML = docs.map(d => {
-      const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
-      return `
-        <div class="rpm-item">
-          <div class="rpm-item-header">
-            <div>
-              <div class="rpm-item-title">${d.identitas?.mapel || '-'} - ${d.identitas?.tema || d.identitas?.topik || '-'}${d.identitas?.sub_tema || d.identitas?.subtema ? ' - ' + (d.identitas?.sub_tema || d.identitas?.subtema) : ''}</div>
-              <div class="rpm-item-meta">Kelas ${d.identitas?.kelas || '-'} | Metode: ${d.metode_pembelajaran || '-'} | ${date}</div>
-            </div>
-            <div class="rpm-item-actions">
-              <button onclick="editRPM('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
-              <button onclick="deleteRPM('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
-            </div>
-          </div>
-        </div>
-      `;
-    }).join('');
-  }, (error) => {
-    console.warn('Error loading RPM list:', error);
-    listContainer.innerHTML = '<div class="rpm-empty">❌ Gagal memuat data</div>';
-  });
+const listContainer = container.querySelector('#rpm-list-container');
+const q = query(
+collection(db, 'rpm_data'),
+where('userId', '==', currentUser.uid),
+where('jenis', '==', 'spesifik')
+);
+onSnapshot(q, (snapshot) => {
+if (snapshot.empty) {
+listContainer.innerHTML = '<div class="rpm-empty">📭 Belum ada RPM Spesifik tersimpan</div>';
+return;
+}
+const docs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+listContainer.innerHTML = docs.map(d => {
+   const date = d.createdAt?.toDate?.()?.toLocaleString('id-ID') || '-';
+   return `
+     <div class="rpm-item">
+       <div class="rpm-item-header">
+         <div>
+           <div class="rpm-item-title">${d.identitas?.mapel || '-'} - ${d.identitas?.tema || d.identitas?.topik || '-'}${d.identitas?.sub_tema || d.identitas?.subtema ? ' - ' + (d.identitas?.sub_tema || d.identitas?.subtema) : ''}</div>
+           <div class="rpm-item-meta">Kelas ${d.identitas?.kelas || '-'} | Metode: ${d.metode_pembelajaran || '-'} | ${date}</div>
+         </div>
+         <div class="rpm-item-actions">
+           <button onclick="editRPM('${d.id}')" style="background: #3b82f6;">✏️ Edit</button>
+           <button onclick="deleteRPM('${d.id}')" style="background: #ef4444;">🗑️ Hapus</button>
+         </div>
+       </div>
+     </div>
+   `;
+}).join('');
+}, (error) => {
+console.warn('Error loading RPM list:', error);
+listContainer.innerHTML = '<div class="rpm-empty">❌ Gagal memuat data</div>';
+});
 }
 
 window.editRPM = async function(id) {
-  try {
-    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const docRef = doc(db, 'rpm_data', id);
-    const docSnap = await getDoc(docRef);
-    
-    if (!docSnap.exists()) {
-      showToast('❌ Data tidak ditemukan!', 'error');
-      return;
-    }
-
-    const d = docSnap.data();
-    currentEditId = id;
-
-    document.querySelector('#rpm-sekolah').value = d.identitas?.sekolah || '';
-    document.querySelector('#rpm-guru').value = d.identitas?.guru || '';
-    document.querySelector('#rpm-mapel').value = d.identitas?.mapel || '';
-    document.querySelector('#rpm-kelas').value = `${d.identitas?.kelas}|${d.identitas?.fase}` || '';
-    document.querySelector('#rpm-tema').value = d.identitas?.tema || d.identitas?.topik || '';
-    document.querySelector('#rpm-subtema').value = d.identitas?.sub_tema || d.identitas?.subtema || '';
-    document.querySelector('#rpm-alokasi').value = d.identitas?.alokasi_waktu || '';
-    document.querySelector('#rpm-metode').value = d.metode_pembelajaran || '';
-    
-    document.querySelector('#rpm-metode').dispatchEvent(new Event('change'));
-
-    document.querySelector('#rpm-target-peserta-didik').value = d.target_peserta_didik || '';
-    document.querySelector('#rpm-sarana-prasarana').value = d.sarana_prasarana || '';
-
-    document.querySelector('#rpm-belum-siap').value = d.analisis_kesiapan?.belum_siap || '';
-    document.querySelector('#rpm-siap').value = d.analisis_kesiapan?.siap || '';
-    document.querySelector('#rpm-mahir').value = d.analisis_kesiapan?.mahir || '';
-
-    // Load CP ke opsi Manual
-    const cpText = d.tujuan_dan_profil?.cp || '';
-    document.querySelector('input[name="cpMethod"][value="manual"]').checked = true;
-    document.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
-    document.querySelector('#cpMethodManual').style.display = 'block';
-    document.querySelector('#inpCpManual').value = cpText;
-    
-    // Load TP ke opsi Manual
-    const tpList = d.tujuan_dan_profil?.tujuan_pembelajaran || [];
-    document.querySelector('input[name="tpMethod"][value="manual"]').checked = true;
-    document.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
-    document.querySelector('#tpMethodManual').style.display = 'block';
-    document.querySelector('#inpTujuanManual').value = tpList.join('\n');
-    
-    document.querySelectorAll('.rpm-profil').forEach(cb => {
-      cb.checked = (d.tujuan_dan_profil?.profil_lulusan || []).includes(cb.value);
-    });
-
-    document.querySelector('#rpm-pertemuan-container').innerHTML = '';
-    (d.langkah_pembelajaran || []).forEach((p, idx) => {
-      const div = document.createElement('div');
-      div.className = 'rpm-pertemuan-item';
-      div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
-      div.innerHTML = `
-        <div style="margin-bottom: 10px;">
-          <strong style="color: #be185d;">${p.judul || `Pertemuan ${idx + 1}`}</strong>
-        </div>
-        <div class="rpm-form-group">
-          <label>🧠 A. Memahami (Mindful)</label>
-          <textarea class="rpm-form-control rpm-memahami" rows="2">${p.memahami || ''}</textarea>
-        </div>
-        <div class="rpm-form-group">
-          <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label>
-          <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3">${p.mengaplikasikan || ''}</textarea>
-        </div>
-        <div class="rpm-form-group">
-          <label>🔄 C. Merefleksikan</label>
-          <textarea class="rpm-form-control rpm-merefleksikan" rows="2">${p.merefleksikan || ''}</textarea>
-        </div>
-      `;
-      document.querySelector('#rpm-pertemuan-container').appendChild(div);
-    });
-
-    document.querySelector('#rpm-diagnostik').value = d.asesmen?.diagnostik || '';
-    document.querySelector('#rpm-formatif').value = d.asesmen?.formatif || '';
-    document.querySelector('#rpm-sumatif').value = d.asesmen?.sumatif || '';
-    document.querySelector('#rpm-rubrik').value = d.asesmen?.rubrik_penilaian || '';
-
-    document.querySelector('#rpm-remedial').value = d.diferensiasi?.remedial || '';
-    document.querySelector('#rpm-pengayaan').value = d.diferensiasi?.pengayaan || '';
-
-    document.querySelector('#rpm-refleksi-guru').value = d.refleksi?.guru || '';
-    document.querySelector('#rpm-refleksi-siswa').value = d.refleksi?.siswa || '';
-
-    document.querySelector('#rpm-lkpd').value = d.lampiran?.lkpd || '';
-    document.querySelector('#rpm-bahan').value = d.lampiran?.bahan_bacaan || '';
-    document.querySelector('#rpm-glosarium').value = d.lampiran?.glosarium || '';
-
-    if (d.tanda_tangan) {
-      document.querySelector('#rpm-kepsek').value = d.tanda_tangan.kepala_sekolah?.nama || DEFAULT_TTD.namaKepsek;
-      document.querySelector('#rpm-nip-kepsek').value = d.tanda_tangan.kepala_sekolah?.nip || DEFAULT_TTD.nipKepsek;
-      document.querySelector('#rpm-guru-pengampu').value = d.tanda_tangan.guru_pengampu?.nama || DEFAULT_TTD.namaGuru;
-      document.querySelector('#rpm-nip-guru').value = d.tanda_tangan.guru_pengampu?.nip || DEFAULT_TTD.nipGuru;
-    }
-
-    document.querySelector('[data-tab="form"]').click();
-    showToast('✅ RPM dimuat untuk edit!');
-  } catch (error) {
-    console.error('Error loading RPM:', error);
-    showToast('❌ Gagal memuat RPM!', 'error');
-  }
+try {
+const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+const docRef = doc(db, 'rpm_data', id);
+const docSnap = await getDoc(docRef);
+if (!docSnap.exists()) {
+   showToast('❌ Data tidak ditemukan!', 'error');
+   return;
+}
+const d = docSnap.data();
+currentEditId = id;
+document.querySelector('#rpm-sekolah').value = d.identitas?.sekolah || '';
+document.querySelector('#rpm-guru').value = d.identitas?.guru || '';
+document.querySelector('#rpm-mapel').value = d.identitas?.mapel || '';
+document.querySelector('#rpm-kelas').value = `${d.identitas?.kelas}|${d.identitas?.fase}` || '';
+document.querySelector('#rpm-tema').value = d.identitas?.tema || d.identitas?.topik || '';
+document.querySelector('#rpm-subtema').value = d.identitas?.sub_tema || d.identitas?.subtema || '';
+document.querySelector('#rpm-alokasi').value = d.identitas?.alokasi_waktu || '';
+document.querySelector('#rpm-metode').value = d.metode_pembelajaran || '';
+document.querySelector('#rpm-metode').dispatchEvent(new Event('change'));
+document.querySelector('#rpm-target-peserta-didik').value = d.target_peserta_didik || '';
+document.querySelector('#rpm-sarana-prasarana').value = d.sarana_prasarana || '';
+document.querySelector('#rpm-belum-siap').value = d.analisis_kesiapan?.belum_siap || '';
+document.querySelector('#rpm-siap').value = d.analisis_kesiapan?.siap || '';
+document.querySelector('#rpm-mahir').value = d.analisis_kesiapan?.mahir || '';
+const cpText = d.tujuan_dan_profil?.cp || '';
+document.querySelector('input[name="cpMethod"][value="manual"]').checked = true;
+document.querySelectorAll('.cp-method-content').forEach(el => el.style.display = 'none');
+document.querySelector('#cpMethodManual').style.display = 'block';
+document.querySelector('#inpCpManual').value = cpText;
+const tpList = d.tujuan_dan_profil?.tujuan_pembelajaran || [];
+document.querySelector('input[name="tpMethod"][value="manual"]').checked = true;
+document.querySelectorAll('.tp-method-content').forEach(el => el.style.display = 'none');
+document.querySelector('#tpMethodManual').style.display = 'block';
+document.querySelector('#inpTujuanManual').value = tpList.join('\n');
+document.querySelectorAll('.rpm-profil').forEach(cb => {
+   cb.checked = (d.tujuan_dan_profil?.profil_lulusan || []).includes(cb.value);
+});
+document.querySelector('#rpm-pertemuan-container').innerHTML = '';
+(d.langkah_pembelajaran || []).forEach((p, idx) => {
+   const div = document.createElement('div');
+   div.className = 'rpm-pertemuan-item';
+   div.style.cssText = 'background: #fff1f2; padding: 15px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #ec4899;';
+   div.innerHTML = `
+     <div style="margin-bottom: 10px;">
+       <strong style="color: #be185d;">${p.judul || `Pertemuan ${idx + 1}`}</strong>
+     </div>
+     <div class="rpm-form-group">
+       <label>🧠 A. Memahami (Mindful)</label>
+       <textarea class="rpm-form-control rpm-memahami" rows="2">${p.memahami || ''}</textarea>
+     </div>
+     <div class="rpm-form-group">
+       <label>🛠️ B. Mengaplikasikan (Meaningful & Joyful)</label>
+       <textarea class="rpm-form-control rpm-mengaplikasikan" rows="3">${p.mengaplikasikan || ''}</textarea>
+     </div>
+     <div class="rpm-form-group">
+       <label>🔄 C. Merefleksikan</label>
+       <textarea class="rpm-form-control rpm-merefleksikan" rows="2">${p.merefleksikan || ''}</textarea>
+     </div>
+   `;
+   document.querySelector('#rpm-pertemuan-container').appendChild(div);
+});
+document.querySelector('#rpm-diagnostik').value = d.asesmen?.diagnostik || '';
+document.querySelector('#rpm-formatif').value = d.asesmen?.formatif || '';
+document.querySelector('#rpm-sumatif').value = d.asesmen?.sumatif || '';
+document.querySelector('#rpm-rubrik').value = d.asesmen?.rubrik_penilaian || '';
+document.querySelector('#rpm-remedial').value = d.diferensiasi?.remedial || '';
+document.querySelector('#rpm-pengayaan').value = d.diferensiasi?.pengayaan || '';
+document.querySelector('#rpm-refleksi-guru').value = d.refleksi?.guru || '';
+document.querySelector('#rpm-refleksi-siswa').value = d.refleksi?.siswa || '';
+document.querySelector('#rpm-lkpd').value = d.lampiran?.lkpd || '';
+document.querySelector('#rpm-bahan').value = d.lampiran?.bahan_bacaan || '';
+document.querySelector('#rpm-glosarium').value = d.lampiran?.glosarium || '';
+if (d.tanda_tangan) {
+   document.querySelector('#rpm-kepsek').value = d.tanda_tangan.kepala_sekolah?.nama || DEFAULT_TTD.namaKepsek;
+   document.querySelector('#rpm-nip-kepsek').value = d.tanda_tangan.kepala_sekolah?.nip || DEFAULT_TTD.nipKepsek;
+   document.querySelector('#rpm-guru-pengampu').value = d.tanda_tangan.guru_pengampu?.nama || DEFAULT_TTD.namaGuru;
+   document.querySelector('#rpm-nip-guru').value = d.tanda_tangan.guru_pengampu?.nip || DEFAULT_TTD.nipGuru;
+}
+document.querySelector('[data-tab="form"]').click();
+showToast('✅ RPM dimuat untuk edit!');
+} catch (error) {
+console.error('Error loading RPM:', error);
+showToast('❌ Gagal memuat RPM!', 'error');
+}
 };
 
 window.deleteRPM = async function(id) {
-  if (!confirm('⚠️ Yakin hapus RPM ini?')) return;
-  
-  try {
-    await deleteDoc(doc(db, 'rpm_data', id));
-    showToast('✅ RPM berhasil dihapus!');
-  } catch (error) {
-    console.error('Error deleting:', error);
-    showToast('❌ Gagal menghapus!', 'error');
-  }
+if (!confirm('⚠️ Yakin hapus RPM ini?')) return;
+try {
+await deleteDoc(doc(db, 'rpm_data', id));
+showToast('✅ RPM berhasil dihapus!');
+} catch (error) {
+console.error('Error deleting:', error);
+showToast('❌ Gagal menghapus!', 'error');
+}
 };
 
 function handleExportWord(container) {
-  const data = gatherFormData(container);
-  if (!data.identitas.tema && !data.identitas.topik) {
-    showToast('⚠️ Isi data terlebih dahulu!', 'error');
-    return;
-  }
-
-  const d = data;
-  let html = `
-    <html><head><meta charset="utf-8"><title>RPM Spesifik - ${d.identitas.tema || d.identitas.topik}</title>
-    <style>
-      body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
-      h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
-      h2 { font-size: 13pt; border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 20px; }
-      h3 { font-size: 12pt; margin-top: 15px; }
-      table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-      th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-      th { background: #f0f0f0; }
-      ul { margin: 5px 0; padding-left: 20px; }
-      .ttd-section { margin-top: 50px; }
-      .ttd-table { width: 100%; border: none; }
-      .ttd-table td { width: 50%; border: none; text-align: center; vertical-align: top; }
-      .ttd-name { font-weight: bold; border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
-    </style></head><body>
-    <h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
-    <h2 style="text-align: center; border: none;">${d.identitas.tema || ''}${d.identitas.sub_tema ? ' - ' + d.identitas.sub_tema : ''}</h2>
-    <p style="text-align: center; font-style: italic;">Metode: ${d.metode_pembelajaran}</p>
-    
-    <h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
-    <table>
-      <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>${d.identitas.sekolah}</td></tr>
-      <tr><td><strong>Guru</strong></td><td>${d.identitas.guru}</td></tr>
-      <tr><td><strong>Mata Pelajaran</strong></td><td>${d.identitas.mapel}</td></tr>
-      <tr><td><strong>Kelas/Fase</strong></td><td>${d.identitas.kelas} (Fase ${d.identitas.fase})</td></tr>
-      <tr><td><strong>Tema</strong></td><td>${d.identitas.tema || d.identitas.topik || '-'}</td></tr>
-      <tr><td><strong>Sub Tema</strong></td><td>${d.identitas.sub_tema || d.identitas.subtema || '-'}</td></tr>
-      <tr><td><strong>Alokasi Waktu</strong></td><td>${d.identitas.alokasi_waktu}</td></tr>
-      <tr><td><strong>Metode</strong></td><td>${d.metode_pembelajaran}</td></tr>
-      <tr><td><strong>Target Peserta Didik</strong></td><td>${d.target_peserta_didik || '-'}</td></tr>
-      <tr><td><strong>Sarana & Prasarana</strong></td><td>${d.sarana_prasarana || '-'}</td></tr>
-    </table>
-
-    <h2>B. ANALISIS KESIAPAN MURID</h2>
-    <p><strong>🔴 Belum Siap:</strong><br>${String(d.analisis_kesiapan.belum_siap || '').replace(/\n/g, '<br>')}</p>
-    <p><strong>🟡 Siap:</strong><br>${String(d.analisis_kesiapan.siap || '').replace(/\n/g, '<br>')}</p>
-    <p><strong>🟢 Mahir:</strong><br>${String(d.analisis_kesiapan.mahir || '').replace(/\n/g, '<br>')}</p>
-
-    <h2>C. TUJUAN & PROFIL LULUSAN</h2>
-    <p><strong>CP:</strong> ${d.tujuan_dan_profil.cp}</p>
-    <h3>Tujuan Pembelajaran:</h3>
-    <ul>${d.tujuan_dan_profil.tujuan_pembelajaran.map(t => `<li>${t}</li>`).join('')}</ul>
-    <h3>Profil Lulusan:</h3>
-    <ul>${d.tujuan_dan_profil.profil_lulusan.map(p => `<li>${p}</li>`).join('')}</ul>
-
-    <h2>D. LANGKAH PEMBELAJARAN</h2>
-    ${d.langkah_pembelajaran.map(p => `
-      <h3>${p.judul}</h3>
-      <p><strong>A. Memahami:</strong> ${p.memahami}</p>
-      <p><strong>B. Mengaplikasikan:</strong> ${p.mengaplikasikan}</p>
-      <p><strong>C. Merefleksikan:</strong> ${p.merefleksikan}</p>
-    `).join('')}
-
-    <h2>E. ASESMEN</h2>
-    <p><strong>Diagnostik:</strong> ${d.asesmen.diagnostik}</p>
-    <p><strong>Formatif:</strong> ${d.asesmen.formatif}</p>
-    <p><strong>Sumatif:</strong> ${d.asesmen.sumatif}</p>
-    <p><strong>Rubrik:</strong> ${d.asesmen.rubrik_penilaian}</p>
-
-    <h2>F. DIFERENSIASI</h2>
-    <p><strong>Remedial:</strong> ${d.diferensiasi.remedial}</p>
-    <p><strong>Pengayaan:</strong> ${d.diferensiasi.pengayaan}</p>
-
-    <h2>G. REFLEKSI</h2>
-    <p><strong>Guru:</strong> ${d.refleksi.guru}</p>
-    <p><strong>Siswa:</strong> ${d.refleksi.siswa}</p>
-
-    <h2>H. LAMPIRAN</h2>
-    <p><strong>LKPD:</strong> ${d.lampiran.lkpd}</p>
-    <p><strong>Bahan Bacaan:</strong> ${d.lampiran.bahan_bacaan}</p>
-    <p><strong>Glosarium:</strong> ${d.lampiran.glosarium}</p>
-
-    <div class="ttd-section">
-      <table class="ttd-table">
-        <tr>
-          <td>
-            <div>Mengetahui,</div>
-            <div style="margin-bottom: 60px;">Kepala Sekolah<br>SDN 139 LAMANDA</div>
-            <div class="ttd-name">${d.tanda_tangan.kepala_sekolah.nama}</div>
-            <div>NIP: ${d.tanda_tangan.kepala_sekolah.nip}</div>
-          </td>
-          <td>
-            <div>Guru Pengampu,</div>
-            <div style="margin-bottom: 60px;">Guru Mata Pelajaran</div>
-            <div class="ttd-name">${d.tanda_tangan.guru_pengampu.nama}</div>
-            <div>NIP: ${d.tanda_tangan.guru_pengampu.nip}</div>
-          </td>
-        </tr>
-      </table>
-    </div>
-    </body></html>
-  `;
-
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `RPM_Spesifik_${d.metode_pembelajaran.replace(/\s+/g, '_')}_${d.identitas.mapel}_${(d.identitas.tema || d.identitas.topik || 'tema').replace(/\s+/g, '_')}.doc`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  showToast('📥 Word berhasil diunduh!');
+const data = gatherFormData(container);
+if (!data.identitas.tema && !data.identitas.topik) {
+showToast('⚠️ Isi data terlebih dahulu!', 'error');
+return;
+}
+const d = data;
+let html = `
+<html> <head> <meta charset="utf-8"> <title>RPM Spesifik - ${d.identitas.tema || d.identitas.topik}</title>
+<style>
+body { font-family: 'Times New Roman', serif; margin: 2cm; line-height: 1.6; }
+h1 { text-align: center; font-size: 16pt; margin-bottom: 5px; }
+h2 { font-size: 13pt; border-bottom: 2px solid #000; padding-bottom: 5px; margin-top: 20px; }
+h3 { font-size: 12pt; margin-top: 15px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+th { background: #f0f0f0; }
+ul { margin: 5px 0; padding-left: 20px; }
+.ttd-section { margin-top: 50px; }
+.ttd-table { width: 100%; border: none; }
+.ttd-table td { width: 50%; border: none; text-align: center; vertical-align: top; }
+.ttd-name { font-weight: bold; border-bottom: 1px solid #000; display: inline-block; min-width: 200px; margin-bottom: 5px; }
+</style> </head> <body>
+<h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
+<h2 style="text-align: center; border: none;">${d.identitas.tema || ''}${d.identitas.sub_tema ? ' - ' + d.identitas.sub_tema : ''}</h2>
+<p style="text-align: center; font-style: italic;">Metode: ${d.metode_pembelajaran}</p>
+<h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
+<table>
+   <tr><td style="width: 30%;"><strong>Sekolah</strong></td><td>${d.identitas.sekolah}</td></tr>
+   <tr><td><strong>Guru</strong></td><td>${d.identitas.guru}</td></tr>
+   <tr><td><strong>Mata Pelajaran</strong></td><td>${d.identitas.mapel}</td></tr>
+   <tr><td><strong>Kelas/Fase</strong></td><td>${d.identitas.kelas} (Fase ${d.identitas.fase})</td></tr>
+   <tr><td><strong>Tema</strong></td><td>${d.identitas.tema || d.identitas.topik || '-'}</td></tr>
+   <tr><td><strong>Sub Tema</strong></td><td>${d.identitas.sub_tema || d.identitas.subtema || '-'}</td></tr>
+   <tr><td><strong>Alokasi Waktu</strong></td><td>${d.identitas.alokasi_waktu}</td></tr>
+   <tr><td><strong>Metode</strong></td><td>${d.metode_pembelajaran}</td></tr>
+   <tr><td><strong>Target Peserta Didik</strong></td><td>${d.target_peserta_didik || '-'}</td></tr>
+   <tr><td><strong>Sarana & Prasarana</strong></td><td>${d.sarana_prasarana || '-'}</td></tr>
+</table>
+<h2>B. ANALISIS KESIAPAN MURID</h2>
+<p><strong>🔴 Belum Siap:</strong><br>${String(d.analisis_kesiapan.belum_siap || '').replace(/\n/g, '<br>')}</p>
+<p><strong>🟡 Siap:</strong><br>${String(d.analisis_kesiapan.siap || '').replace(/\n/g, '<br>')}</p>
+<p><strong>🟢 Mahir:</strong><br>${String(d.analisis_kesiapan.mahir || '').replace(/\n/g, '<br>')}</p>
+<h2>C. TUJUAN & PROFIL LULUSAN</h2>
+<p><strong>CP:</strong> ${d.tujuan_dan_profil.cp}</p>
+<h3>Tujuan Pembelajaran:</h3>
+<ul>${d.tujuan_dan_profil.tujuan_pembelajaran.map(t => `<li>${t}</li>`).join('')}</ul>
+<h3>Profil Lulusan:</h3>
+<ul>${d.tujuan_dan_profil.profil_lulusan.map(p => `<li>${p}</li>`).join('')}</ul>
+<h2>D. LANGKAH PEMBELAJARAN</h2>
+${d.langkah_pembelajaran.map(p => `
+   <h3>${p.judul}</h3>
+   <p><strong>A. Memahami:</strong> ${p.memahami}</p>
+   <p><strong>B. Mengaplikasikan:</strong> ${p.mengaplikasikan}</p>
+   <p><strong>C. Merefleksikan:</strong> ${p.merefleksikan}</p>
+`).join('')}
+<h2>E. ASESMEN</h2>
+<p><strong>Diagnostik:</strong> ${d.asesmen.diagnostik}</p>
+<p><strong>Formatif:</strong> ${d.asesmen.formatif}</p>
+<p><strong>Sumatif:</strong> ${d.asesmen.sumatif}</p>
+<p><strong>Rubrik:</strong> ${d.asesmen.rubrik_penilaian}</p>
+<h2>F. DIFERENSIASI</h2>
+<p><strong>Remedial:</strong> ${d.diferensiasi.remedial}</p>
+<p><strong>Pengayaan:</strong> ${d.diferensiasi.pengayaan}</p>
+<h2>G. REFLEKSI</h2>
+<p><strong>Guru:</strong> ${d.refleksi.guru}</p>
+<p><strong>Siswa:</strong> ${d.refleksi.siswa}</p>
+<h2>H. LAMPIRAN</h2>
+<p><strong>LKPD:</strong> ${d.lampiran.lkpd}</p>
+<p><strong>Bahan Bacaan:</strong> ${d.lampiran.bahan_bacaan}</p>
+<p><strong>Glosarium:</strong> ${d.lampiran.glosarium}</p>
+<div class="ttd-section">
+   <table class="ttd-table">
+     <tr>
+       <td>
+         <div>Mengetahui,</div>
+         <div style="margin-bottom: 60px;">Kepala Sekolah<br>SDN 139 LAMANDA</div>
+         <div class="ttd-name">${d.tanda_tangan.kepala_sekolah.nama}</div>
+         <div>NIP: ${d.tanda_tangan.kepala_sekolah.nip}</div>
+       </td>
+       <td>
+         <div>Guru Pengampu,</div>
+         <div style="margin-bottom: 60px;">Guru Mata Pelajaran</div>
+         <div class="ttd-name">${d.tanda_tangan.guru_pengampu.nama}</div>
+         <div>NIP: ${d.tanda_tangan.guru_pengampu.nip}</div>
+       </td>
+     </tr>
+   </table>
+</div>
+</body></html>
+`;
+const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = `RPM_Spesifik_${d.metode_pembelajaran.replace(/\s+/g, '_')}_${d.identitas.mapel}_${(d.identitas.tema || d.identitas.topik || 'tema').replace(/\s+/g, '_')}.doc`;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+URL.revokeObjectURL(url);
+showToast('📥 Word berhasil diunduh!');
 }
 
 function gatherFormData(container) {
-  const kelas = container.querySelector('#rpm-kelas').value;
-  const [kelasNum, fase] = kelas.split('|');
-  const tema = container.querySelector('#rpm-tema').value;
-  const subTema = container.querySelector('#rpm-subtema').value;
-  const topikGabung = [tema, subTema].filter(Boolean).join(' - ');
-
-  const profilLulusan = [];
-  container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
-
-  const langkahPembelajaran = [];
-  container.querySelectorAll('.rpm-pertemuan-item').forEach((item, idx) => {
-    langkahPembelajaran.push({
-      judul: item.querySelector('strong').textContent,
-      memahami: item.querySelector('.rpm-memahami').value,
-      mengaplikasikan: item.querySelector('.rpm-mengaplikasikan').value,
-      merefleksikan: item.querySelector('.rpm-merefleksikan').value
-    });
-  });
-
-  // Ambil CP dan TP dari opsi aktif
-  const capaianPembelajaran = getActiveCP(container);
-  const tujuanPembelajaran = getActiveTP(container);
-  // ⭐ REVISI #2: Relasi ID hanya dari yang TERCENTANG
-  const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
-  const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
-
-  return {
-    relasi_master: {
-      data_cp_ids: data_cp_ids,
-      data_tp_ids: data_tp_ids,
-      source: 'checklist-master-data'
-    },
-    identitas: {
-      sekolah: container.querySelector('#rpm-sekolah').value,
-      guru: container.querySelector('#rpm-guru').value,
-      mapel: container.querySelector('#rpm-mapel').value,
-      kelas: kelasNum,
-      fase,
-      tema: container.querySelector('#rpm-tema').value,
-      sub_tema: container.querySelector('#rpm-subtema').value,
-      subtema: container.querySelector('#rpm-subtema').value,
-      topik: [container.querySelector('#rpm-tema').value, container.querySelector('#rpm-subtema').value].filter(Boolean).join(' - '),
-      alokasi_waktu: container.querySelector('#rpm-alokasi').value
-    },
-    metode_pembelajaran: container.querySelector('#rpm-metode').value,
-    target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
-    sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
-    analisis_kesiapan: {
-      belum_siap: container.querySelector('#rpm-belum-siap').value,
-      siap: container.querySelector('#rpm-siap').value,
-      mahir: container.querySelector('#rpm-mahir').value
-    },
-    tujuan_dan_profil: {
-      cp: capaianPembelajaran.join('\n'),
-      tujuan_pembelajaran: tujuanPembelajaran,
-      profil_lulusan: profilLulusan
-    },
-    langkah_pembelajaran: langkahPembelajaran,
-    asesmen: {
-      diagnostik: container.querySelector('#rpm-diagnostik').value,
-      formatif: container.querySelector('#rpm-formatif').value,
-      sumatif: container.querySelector('#rpm-sumatif').value,
-      rubrik_penilaian: container.querySelector('#rpm-rubrik').value
-    },
-    diferensiasi: {
-      remedial: container.querySelector('#rpm-remedial').value,
-      pengayaan: container.querySelector('#rpm-pengayaan').value
-    },
-    refleksi: {
-      guru: container.querySelector('#rpm-refleksi-guru').value,
-      siswa: container.querySelector('#rpm-refleksi-siswa').value
-    },
-    lampiran: {
-      lkpd: container.querySelector('#rpm-lkpd').value,
-      bahan_bacaan: container.querySelector('#rpm-bahan').value,
-      glosarium: container.querySelector('#rpm-glosarium').value
-    },
-    tanda_tangan: {
-      kepala_sekolah: {
-        nama: container.querySelector('#rpm-kepsek').value,
-        nip: container.querySelector('#rpm-nip-kepsek').value
-      },
-      guru_pengampu: {
-        nama: container.querySelector('#rpm-guru-pengampu').value,
-        nip: container.querySelector('#rpm-nip-guru').value
-      }
-    }
-  };
+const kelas = container.querySelector('#rpm-kelas').value;
+const [kelasNum, fase] = kelas.split('|');
+const tema = container.querySelector('#rpm-tema').value;
+const subTema = container.querySelector('#rpm-subtema').value;
+const topikGabung = [tema, subTema].filter(Boolean).join(' - ');
+const profilLulusan = [];
+container.querySelectorAll('.rpm-profil:checked').forEach(cb => profilLulusan.push(cb.value));
+const langkahPembelajaran = [];
+container.querySelectorAll('.rpm-pertemuan-item').forEach((item, idx) => {
+langkahPembelajaran.push({
+judul: item.querySelector('strong').textContent,
+memahami: item.querySelector('.rpm-memahami').value,
+mengaplikasikan: item.querySelector('.rpm-mengaplikasikan').value,
+merefleksikan: item.querySelector('.rpm-merefleksikan').value
+});
+});
+const capaianPembelajaran = getActiveCP(container);
+const tujuanPembelajaran = getActiveTP(container);
+const data_cp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterCP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+const data_tp_ids = [...new Set(Array.from(container.querySelectorAll('#listMasterTP input:checked')).map(i => i.dataset.docId).filter(Boolean))];
+return {
+relasi_master: {
+data_cp_ids: data_cp_ids,
+data_tp_ids: data_tp_ids,
+source: 'checklist-master-data'
+},
+identitas: {
+sekolah: container.querySelector('#rpm-sekolah').value,
+guru: container.querySelector('#rpm-guru').value,
+mapel: container.querySelector('#rpm-mapel').value,
+kelas: kelasNum,
+fase,
+tema: container.querySelector('#rpm-tema').value,
+sub_tema: container.querySelector('#rpm-subtema').value,
+subtema: container.querySelector('#rpm-subtema').value,
+topik: [container.querySelector('#rpm-tema').value, container.querySelector('#rpm-subtema').value].filter(Boolean).join(' - '),
+alokasi_waktu: container.querySelector('#rpm-alokasi').value
+},
+metode_pembelajaran: container.querySelector('#rpm-metode').value,
+target_peserta_didik: container.querySelector('#rpm-target-peserta-didik').value,
+sarana_prasarana: container.querySelector('#rpm-sarana-prasarana').value,
+analisis_kesiapan: {
+belum_siap: container.querySelector('#rpm-belum-siap').value,
+siap: container.querySelector('#rpm-siap').value,
+mahir: container.querySelector('#rpm-mahir').value
+},
+tujuan_dan_profil: {
+cp: capaianPembelajaran.join('\n'),
+tujuan_pembelajaran: tujuanPembelajaran,
+profil_lulusan: profilLulusan
+},
+langkah_pembelajaran: langkahPembelajaran,
+asesmen: {
+diagnostik: container.querySelector('#rpm-diagnostik').value,
+formatif: container.querySelector('#rpm-formatif').value,
+sumatif: container.querySelector('#rpm-sumatif').value,
+rubrik_penilaian: container.querySelector('#rpm-rubrik').value
+},
+diferensiasi: {
+remedial: container.querySelector('#rpm-remedial').value,
+pengayaan: container.querySelector('#rpm-pengayaan').value
+},
+refleksi: {
+guru: container.querySelector('#rpm-refleksi-guru').value,
+siswa: container.querySelector('#rpm-refleksi-siswa').value
+},
+lampiran: {
+lkpd: container.querySelector('#rpm-lkpd').value,
+bahan_bacaan: container.querySelector('#rpm-bahan').value,
+glosarium: container.querySelector('#rpm-glosarium').value
+},
+tanda_tangan: {
+kepala_sekolah: {
+nama: container.querySelector('#rpm-kepsek').value,
+nip: container.querySelector('#rpm-nip-kepsek').value
+},
+guru_pengampu: {
+nama: container.querySelector('#rpm-guru-pengampu').value,
+nip: container.querySelector('#rpm-nip-guru').value
+}
+}
+};
 }
 
 function showToast(msg, type = 'success') {
-  const toast = document.createElement('div');
-  toast.className = `rpm-toast rpm-toast-${type}`;
-  toast.textContent = msg;
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(400px)';
-    toast.style.transition = 'all 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+const toast = document.createElement('div');
+toast.className = `rpm-toast rpm-toast-${type}`;
+toast.textContent = msg;
+document.body.appendChild(toast);
+setTimeout(() => {
+toast.style.opacity = '0';
+toast.style.transform = 'translateX(400px)';
+toast.style.transition = 'all 0.3s ease';
+setTimeout(() => toast.remove(), 300);
+}, 3000);
 }
