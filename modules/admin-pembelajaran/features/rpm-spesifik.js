@@ -1521,22 +1521,31 @@ showToast('❌ Gagal menghapus!', 'error');
 };
 
 
+
 function escapeHtml(str) {
   if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
 }
-function nl2brSafe(str, fallback = '-') {
-  if (!str || String(str).trim() === '') return fallback;
-  return escapeHtml(String(str)).replace(/\n/g, '<br>');
+function nl2brSafe(str, fallback='-') {
+  if (!str || String(str).trim()==='') return fallback;
+  return escapeHtml(String(str)).replace(/\n/g,'<br>');
 }
-function listToHtml(arr, emptyMsg = '<span style="color:red; font-weight:bold;">[BELUM DIISI - WAJIB]</span>') {
-  if (!arr || arr.length === 0) return emptyMsg;
-  return arr.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+function listToHtml(arr, emptyMsg='<span style="color:red; font-weight:bold;">[BELUM DIISI - WAJIB]</span>') {
+  if (!arr || arr.length===0) return emptyMsg;
+  return arr.map(t=>`<li>${escapeHtml(t)}</li>`).join('');
+}
+function generateIKTP(tujuanList) {
+  if (!tujuanList || tujuanList.length===0) return [];
+  return tujuanList.map((tp, i)=>{
+    let clean = tp.replace(/^\d+\.\s*/,'').replace(/Siswa mampu\s*/i,'').trim();
+    return 'IKTP ' + (i+1) + ': Mampu ' + clean.substring(0,120);
+  });
+}
+function getLintasDisiplin(mapel) {
+  let m = (mapel||'').toLowerCase();
+  if (m.includes('pai') || m.includes('agama')) return 'Bahasa Indonesia: Memahami simbol huruf. Seni Rupa: Mewarnai kartu huruf. PPKn: Kerjasama dalam kelompok.';
+  if (m.includes('ipas')) return 'Matematika: Pengukuran. Bahasa Indonesia: Laporan hasil.';
+  return 'Bahasa Indonesia: Literasi teks. Seni: Visualisasi. PPKn: Kolaborasi.';
 }
 
 function handleExportWord(container) {
@@ -1546,18 +1555,23 @@ function handleExportWord(container) {
     return;
   }
   const d = data;
+  
+  let profilLulusan = d.tujuan_dan_profil.profil_lulusan || [];
+  if (profilLulusan.length===0) {
+    let checked = container.querySelectorAll('.rpm-profil:checked');
+    profilLulusan = Array.from(checked).map(cb=>cb.value);
+    d.tujuan_dan_profil.profil_lulusan = profilLulusan;
+  }
+  let isProfilKosong = profilLulusan.length===0;
+  let isCPKosong = !d.tujuan_dan_profil.cp || String(d.tujuan_dan_profil.cp).trim()==='';
+  let isTPKosong = !d.tujuan_dan_profil.tujuan_pembelajaran || d.tujuan_dan_profil.tujuan_pembelajaran.length===0;
+  if (isProfilKosong) showToast('⚠️ Profil Lulusan belum dipilih! Centang 3-4 dimensi.', 'error');
 
-  // VALIDASI PRESISI - Tidak merubah logic, hanya warning di output
-  const isProfilKosong = !d.tujuan_dan_profil.profil_lulusan || d.tujuan_dan_profil.profil_lulusan.length === 0;
-  const isCPKosong = !d.tujuan_dan_profil.cp || String(d.tujuan_dan_profil.cp).trim() === '';
-  const isTPKosong = !d.tujuan_dan_profil.tujuan_pembelajaran || d.tujuan_dan_profil.tujuan_pembelajaran.length === 0;
+  let iktpList = generateIKTP(d.tujuan_dan_profil.tujuan_pembelajaran);
+  let lintas = getLintasDisiplin(d.identitas.mapel);
+  let judulGabung = [d.identitas.tema, d.identitas.sub_tema].filter(Boolean).join(' - ') || d.identitas.topik || 'RPM Spesifik';
+  let fileSafe = (str)=> String(str||'').replace(/[^a-zA-Z0-9-_ ]/g,'').replace(/\s+/g,'_').substring(0,40);
 
-  if (isProfilKosong) showToast('⚠️ Profil Lulusan kosong! Output akan diberi tanda merah.', 'error');
-
-  const judulGabung = [d.identitas.tema, d.identitas.sub_tema].filter(Boolean).join(' - ') || d.identitas.topik || 'RPM Spesifik';
-  const fileSafe = (str) => String(str||'').replace(/[^a-zA-Z0-9-_ ]/g,'').replace(/\s+/g,'_').substring(0,40);
-
-  // TEMPLATE WORD PRESISI - Word Compatible HTML
   let html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
 <head>
@@ -1566,167 +1580,127 @@ function handleExportWord(container) {
 <meta name="Generator" content="Microsoft Word 15">
 <title>RPM Spesifik - ${escapeHtml(judulGabung)}</title>
 <style>
-  @page {
-    size: A4;
-    margin: 2.54cm 2.54cm 2.54cm 2.54cm;
-    mso-page-orientation: portrait;
-    mso-header-margin: 1.27cm;
-    mso-footer-margin: 1.27cm;
-    mso-paper-source: 0;
-  }
-  @page Section1 {
-    mso-header-margin: 1.27cm;
-    mso-footer-margin: 1.27cm;
-  }
-  body {
-    font-family: 'Times New Roman', serif;
-    font-size: 12pt;
-    line-height: 1.15;
-    mso-line-height-rule: exactly;
-  }
+  @page { size: A4; margin: 2.54cm; mso-page-orientation: portrait; }
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.15; }
   div.Section1 { page: Section1; }
-  h1 { text-align: center; font-size: 14pt; font-weight: bold; text-transform: uppercase; margin-bottom: 2pt; mso-outline-level:1; }
-  .subtitle { text-align: center; font-size: 11pt; margin-top:0; }
-  h2 {
-    font-size: 12pt; font-weight: bold;
-    background: #D9E2F3; mso-shading: #D9E2F3;
-    padding: 4pt 8pt; border: 1pt solid #000;
-    margin-top: 16pt; margin-bottom: 6pt;
-    mso-outline-level:2;
-  }
-  h3 { font-size: 11pt; font-weight: bold; margin-top: 12pt; margin-bottom: 4pt; mso-outline-level:3; }
-  table { width: 100%; border-collapse: collapse; mso-table-layout-alt: fixed; mso-padding-alt: 2pt 4pt 2pt 4pt; margin-bottom: 12pt; }
+  h1 { text-align: center; font-size: 14pt; font-weight: bold; text-transform: uppercase; margin-bottom: 2pt; }
+  .subtitle { text-align: center; font-size: 11pt; margin-top:0; font-style: italic; }
+  h2 { font-size: 12pt; font-weight: bold; background: #D9E2F3; mso-shading: #D9E2F3; padding: 4pt 8pt; border: 1pt solid #000; margin-top: 16pt; margin-bottom: 6pt; }
+  h3 { font-size: 11pt; font-weight: bold; margin-top: 12pt; margin-bottom: 4pt; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 12pt; }
   th, td { border: 1pt solid #000; mso-border-alt: solid black .5pt; padding: 4pt 6pt; vertical-align: top; }
-  th { background: #E7E6E6; mso-shading: #E7E6E6; font-weight: bold; }
+  th { background: #E7E6E6; mso-shading: #E7E6E6; }
   .label-col { width: 30%; font-weight: bold; background: #F2F2F2; mso-shading: #F2F2F2; }
   .warning-box { background: #FFF2CC; border: 1pt solid #BF9000; padding: 6pt; color: #7F6003; font-size: 10pt; }
-  .ttd-section { margin-top: 36pt; }
-  .ttd-table { border: none; width: 100%; mso-table-layout-alt: fixed; }
-  .ttd-table td { border: none; text-align: center; vertical-align: top; }
-  .ttd-name { font-weight: bold; border-bottom: 1pt solid #000; display: inline-block; min-width: 200px; margin-bottom: 3pt; padding-bottom: 2pt; }
-  ul, ol { margin: 4pt 0 4pt 0; padding-left: 18pt; }
-  li { margin-bottom: 2pt; }
-  .pertemuan-box { border: 1pt solid #000; padding: 8pt; margin-bottom: 12pt; background: #FFFFFF; }
-  .pertemuan-judul { font-weight: bold; color: #000; background: #E2EFDA; padding: 4pt; border-bottom: 1pt solid #000; margin: -8pt -8pt 8pt -8pt; }
+  .pertemuan-box { border: 1pt solid #000; padding: 8pt; margin-bottom: 12pt; }
+  .pertemuan-judul { font-weight: bold; background: #E2EFDA; padding: 4pt; margin: -8pt -8pt 8pt -8pt; border-bottom: 1pt solid #000; }
+  .ttd-table { border: none; width: 100%; } .ttd-table td { border: none; text-align: center; }
+  .ttd-name { font-weight: bold; border-bottom: 1pt solid #000; display: inline-block; min-width: 200px; }
+  ul, ol { margin: 4pt 0; padding-left: 18pt; }
 </style>
 </head>
 <body>
 <div class="Section1">
 <h1>RENCANA PEMBELAJARAN MENDALAM (RPM) - SPESIFIK</h1>
-<p class="subtitle"><b>${escapeHtml(judulGabung)}</b><br><i>Metode: ${escapeHtml(d.metode_pembelajaran)} | Kelas ${escapeHtml(d.identitas.kelas)} Fase ${escapeHtml(d.identitas.fase)}</i></p>
-
-${(isProfilKosong || isCPKosong || isTPKosong) ? `<div class="warning-box"><b>⚠️ Validasi Otomatis:</b><br>${isCPKosong ? '• CP masih kosong<br>' : ''}${isTPKosong ? '• Tujuan Pembelajaran masih kosong<br>' : ''}${isProfilKosong ? '• Profil Lulusan belum dipilih (Wajib 3-4 dimensi)<br>' : ''}</div>` : ''}
-
-<h2>A. IDENTITAS DOKUMEN & PERSIAPAN</h2>
+<p class="subtitle"><b>${escapeHtml(judulGabung)}</b><br>Metode: ${escapeHtml(d.metode_pembelajaran)} | Model: Pembelajaran Mendalam</p>
+${(isProfilKosong||isCPKosong||isTPKosong)?`<div class="warning-box"><b>⚠️ Validasi:</b><br>${isCPKosong?'• CP kosong<br>':''}${isTPKosong?'• TP kosong<br>':''}${isProfilKosong?'• Profil Lulusan belum dipilih (Wajib 3-4)<br>':''}</div>`:''}
+<h2>A. IDENTITAS DOKUMEN & INFORMASI UMUM</h2>
 <table>
   <tr><td class="label-col">Sekolah</td><td>${escapeHtml(d.identitas.sekolah)}</td></tr>
   <tr><td class="label-col">Guru</td><td>${escapeHtml(d.identitas.guru)}</td></tr>
   <tr><td class="label-col">Mata Pelajaran</td><td>${escapeHtml(d.identitas.mapel)}</td></tr>
   <tr><td class="label-col">Kelas / Fase</td><td>${escapeHtml(d.identitas.kelas)} (Fase ${escapeHtml(d.identitas.fase)})</td></tr>
-  <tr><td class="label-col">Tema</td><td>${escapeHtml(d.identitas.tema || d.identitas.topik || '-')}</td></tr>
-  <tr><td class="label-col">Sub Tema</td><td>${escapeHtml(d.identitas.sub_tema || d.identitas.subtema || '-')}</td></tr>
-  <tr><td class="label-col">Alokasi Waktu</td><td>${escapeHtml(d.identitas.alokasi_waktu || '-')}</td></tr>
-  <tr><td class="label-col">Metode Pembelajaran</td><td>${escapeHtml(d.metode_pembelajaran)}</td></tr>
-  <tr><td class="label-col">Target Peserta Didik</td><td>${nl2brSafe(d.target_peserta_didik)}</td></tr>
+  <tr><td class="label-col">Semester / Tahun Ajaran</td><td>Ganjil / 2025-2026</td></tr>
+  <tr><td class="label-col">Tema / Sub Tema</td><td>${escapeHtml(judulGabung)}</td></tr>
+  <tr><td class="label-col">Alokasi Waktu</td><td>${escapeHtml(d.identitas.alokasi_waktu||'-')}</td></tr>
+  <tr><td class="label-col">Model & Metode</td><td>Pembelajaran Mendalam - ${escapeHtml(d.metode_pembelajaran)}</td></tr>
   <tr><td class="label-col">Sarana & Prasarana</td><td>${nl2brSafe(d.sarana_prasarana)}</td></tr>
+  <tr><td class="label-col">Kemitraan</td><td>Orang tua mendampingi di rumah, kolaborasi dengan guru kelas</td></tr>
 </table>
-
-<h2>B. ANALISIS KESIAPAN MURID</h2>
+<h2>B. DESAIN AWAL - ANALISIS KESIAPAN MURID</h2>
+<p><b>Instrumen Diagnostik:</b> Observasi awal, tes lisan, tes tulisan awal sesuai Fase ${escapeHtml(d.identitas.fase)}.</p>
+<p><b>Target Peserta Didik:</b> ${nl2brSafe(d.target_peserta_didik)}</p>
 <table>
-  <tr><th style="width:15%;">Kelompok</th><th>Deskripsi & Strategi</th></tr>
+  <tr><th style="width:15%;">Kelompok</th><th>Karakteristik & Kebutuhan Belajar</th></tr>
   <tr><td class="label-col">🔴 Belum Siap</td><td>${nl2brSafe(d.analisis_kesiapan.belum_siap)}</td></tr>
-  <tr><td class="label-col">🟡 Siap</td><td>${nl2brSafe(d.analisis_kesiapan.siap)}</td></tr>
+  <tr><td class="label-col">🟡 Siap / Berkembang</td><td>${nl2brSafe(d.analisis_kesiapan.siap)}</td></tr>
   <tr><td class="label-col">🟢 Mahir</td><td>${nl2brSafe(d.analisis_kesiapan.mahir)}</td></tr>
 </table>
-
-<h2>C. TUJUAN & PROFIL LULUSAN</h2>
-<p><strong>Capaian Pembelajaran (CP):</strong></p>
-<p>${isCPKosong ? '<span style="color:red; font-weight:bold;">[CP BELUM DIISI]</span>' : nl2brSafe(d.tujuan_dan_profil.cp)}</p>
-
-<h3>Tujuan Pembelajaran (TP):</h3>
+<h2>C. DESAIN PEMBELAJARAN</h2>
+<h3>1. Capaian Pembelajaran (CP) - Fase ${escapeHtml(d.identitas.fase)}</h3>
+<p>${isCPKosong?'<span style="color:red;">[CP BELUM DIISI]</span>':nl2brSafe(d.tujuan_dan_profil.cp)}</p>
+<h3>2. Tujuan Pembelajaran (TP) - Format ABCD</h3>
 <ul>${listToHtml(d.tujuan_dan_profil.tujuan_pembelajaran)}</ul>
-
-<h3>Profil Lulusan (Dimensi):</h3>
-${isProfilKosong ? '<p><span style="color:red; font-weight:bold; background:yellow;">[WAJIB PILIH 3-4 PROFIL LULUSAN - SAAT INI KOSONG]</span></p>' : `<ul>${d.tujuan_dan_profil.profil_lulusan.map(p => `<li>${escapeHtml(p)}</li>`).join('')}</ul>`}
-
+<h3>3. Indikator Ketercapaian Tujuan Pembelajaran (IKTP) - [BARU]</h3>
+<ul>${listToHtml(iktpList, '<li style="color:red;">IKTP akan otomatis terisi setelah TP diisi</li>')}</ul>
+<h3>4. Dimensi Profil Lulusan (Wajib 3-4 Dimensi) - [FIX]</h3>
+${isProfilKosong?'<p><span style="color:red; background:yellow; font-weight:bold;">[BELUM DIPILIH - CENTANG 3-4 PROFIL DI FORM]</span></p>':`<ul>${profilLulusan.map(p=>`<li>${escapeHtml(p)} - Relevansi dengan materi ${escapeHtml(judulGabung)}</li>`).join('')}</ul>`}
+<h3>5. Lintas Disiplin Ilmu</h3>
+<p>${escapeHtml(lintas)}</p>
 <h2>D. LANGKAH PEMBELAJARAN MENDALAM</h2>
-<p><i>Prinsip: Berkesadaran (Mindful) - Bermakna (Meaningful) - Menggembirakan (Joyful) - Terintegrasi dalam Metode ${escapeHtml(d.metode_pembelajaran)}</i></p>
-${d.langkah_pembelajaran.map((p, idx) => `
+<p><i>Prinsip: Berkesadaran (Mindful), Bermakna (Meaningful), Menggembirakan (Joyful)</i></p>
+${d.langkah_pembelajaran.map((p,i)=>`
 <div class="pertemuan-box">
-  <div class="pertemuan-judul">${escapeHtml(p.judul || 'Pertemuan '+(idx+1))}</div>
-  <p><strong>A. Memahami (Berkesadaran):</strong><br>${nl2brSafe(p.memahami)}</p>
-  <p><strong>B. Mengaplikasikan (Bermakna & Menggembirakan):</strong><br>${nl2brSafe(p.mengaplikasikan)}</p>
-  <p><strong>C. Merefleksikan:</strong><br>${nl2brSafe(p.merefleksikan)}</p>
+  <div class="pertemuan-judul">${escapeHtml(p.judul || 'Pertemuan '+(i+1))}</div>
+  <p><b>A. Kegiatan Pendahuluan (Berkesadaran - 10'):</b> Salam, doa, apersepsi, pertanyaan pemantik.</p>
+  <p><b>B. Memahami (Mindful):</b><br>${nl2brSafe(p.memahami)}</p>
+  <p><b>C. Mengaplikasikan (Meaningful & Joyful):</b><br>${nl2brSafe(p.mengaplikasikan)}</p>
+  <p><b>D. Merefleksikan:</b><br>${nl2brSafe(p.merefleksikan)}</p>
+  <p><b>E. Penutup:</b> Penguatan, reward, doa, tugas kemitraan.</p>
 </div>
 `).join('')}
-
-<h2>E. ASESMEN HOLISTIK</h2>
+<h2>E. DESAIN ASESMEN HOLISTIK</h2>
 <table>
-  <tr><th style="width:20%;">Jenis Asesmen</th><th>Deskripsi & Instrumen</th></tr>
+  <tr><th>Jenis</th><th>Deskripsi</th></tr>
   <tr><td class="label-col">Diagnostik</td><td>${nl2brSafe(d.asesmen.diagnostik)}</td></tr>
   <tr><td class="label-col">Formatif</td><td>${nl2brSafe(d.asesmen.formatif)}</td></tr>
   <tr><td class="label-col">Sumatif</td><td>${nl2brSafe(d.asesmen.sumatif)}</td></tr>
-  <tr><td class="label-col">Rubrik Penilaian</td><td>${nl2brSafe(d.asesmen.rubrik_penilaian)}</td></tr>
+  <tr><td class="label-col">Rubrik 4 Level</td><td>${nl2brSafe(d.asesmen.rubrik_penilaian)}</td></tr>
 </table>
-
-<h2>F. DIFERENSIASI PEMBELAJARAN</h2>
+<h2>F. DIFERENSIASI PEMBELAJARAN - LENGKAP</h2>
 <table>
-  <tr><th style="width:20%;">Jenis</th><th>Strategi</th></tr>
-  <tr><td class="label-col">Remedial (Belum Siap)</td><td>${nl2brSafe(d.diferensiasi.remedial)}</td></tr>
-  <tr><td class="label-col">Pengayaan (Mahir)</td><td>${nl2brSafe(d.diferensiasi.pengayaan)}</td></tr>
+  <tr><th>Jenis</th><th>Strategi</th></tr>
+  <tr><td class="label-col">Konten</td><td>Belum Siap: disederhanakan & konkret. Siap: standar. Mahir: pengayaan.</td></tr>
+  <tr><td class="label-col">Proses</td><td>Belum Siap: individual & tutor sebaya. Mahir: jadi tutor.</td></tr>
+  <tr><td class="label-col">Produk</td><td>Pilihan: Poster, Video, LKPD.</td></tr>
+  <tr><td class="label-col">Remedial</td><td>${nl2brSafe(d.diferensiasi.remedial)}</td></tr>
+  <tr><td class="label-col">Pengayaan</td><td>${nl2brSafe(d.diferensiasi.pengayaan)}</td></tr>
 </table>
-
-<h2>G. REFLEKSI</h2>
+<h2>G. REFLEKSI GURU DAN MURID</h2>
 <table>
-  <tr><td class="label-col" style="width:20%;">Refleksi Guru</td><td>${nl2brSafe(d.refleksi.guru)}</td></tr>
-  <tr><td class="label-col">Refleksi Siswa</td><td>${nl2brSafe(d.refleksi.siswa)}</td></tr>
+  <tr><td class="label-col" style="width:20%;">Refleksi Murid</td><td>${nl2brSafe(d.refleksi.siswa)}</td></tr>
+  <tr><td class="label-col">Refleksi Guru</td><td>${nl2brSafe(d.refleksi.guru)}</td></tr>
 </table>
-
 <h2>H. LAMPIRAN</h2>
 <table>
-  <tr><td class="label-col" style="width:20%;">LKPD / LKM</td><td>${nl2brSafe(d.lampiran.lkpd)}</td></tr>
+  <tr><td class="label-col" style="width:20%;">LKPD</td><td>${nl2brSafe(d.lampiran.lkpd)}</td></tr>
   <tr><td class="label-col">Bahan Bacaan</td><td>${nl2brSafe(d.lampiran.bahan_bacaan)}</td></tr>
   <tr><td class="label-col">Glosarium</td><td>${nl2brSafe(d.lampiran.glosarium)}</td></tr>
 </table>
-
 <div class="ttd-section">
   <table class="ttd-table">
     <tr>
-      <td>
-        <div>Mengetahui,</div>
-        <div style="margin-bottom: 60px;">Kepala Sekolah<br>${escapeHtml(d.identitas.sekolah)}</div>
-        <div class="ttd-name">${escapeHtml(d.tanda_tangan.kepala_sekolah.nama)}</div>
-        <div>NIP: ${escapeHtml(d.tanda_tangan.kepala_sekolah.nip)}</div>
-      </td>
-      <td>
-        <div style="text-align:center;">Labolong, ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</div>
-        <div style="margin-bottom: 60px;">Guru Pengampu,<br>Guru Mata Pelajaran</div>
-        <div class="ttd-name">${escapeHtml(d.tanda_tangan.guru_pengampu.nama)}</div>
-        <div>NIP: ${escapeHtml(d.tanda_tangan.guru_pengampu.nip)}</div>
-      </td>
+      <td>Mengetahui,<br>Kepala Sekolah<br>${escapeHtml(d.identitas.sekolah)}<br><br><br><br><div class="ttd-name">${escapeHtml(d.tanda_tangan.kepala_sekolah.nama)}</div><br>NIP: ${escapeHtml(d.tanda_tangan.kepala_sekolah.nip)}</td>
+      <td>Labolong, ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}<br>Guru Pengampu,<br><br><br><br><br><div class="ttd-name">${escapeHtml(d.tanda_tangan.guru_pengampu.nama)}</div><br>NIP: ${escapeHtml(d.tanda_tangan.guru_pengampu.nip)}</td>
     </tr>
   </table>
 </div>
-
 </div>
 </body>
 </html>`;
 
-  // Generate file dengan BOM UTF-8 agar presisi di Word
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  let blob = new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' });
+  let url = URL.createObjectURL(blob);
+  let link = document.createElement('a');
   link.href = url;
-  const safeMetode = fileSafe(d.metode_pembelajaran);
-  const safeMapel = fileSafe(d.identitas.mapel);
-  const safeTema = fileSafe(d.identitas.tema || d.identitas.topik || 'tema');
-  link.download = `RPM_Spesifik_${safeMetode}_${safeMapel}_${safeTema}.doc`;
+  link.download = `RPM_Spesifik_${fileSafe(d.metode_pembelajaran)}_${fileSafe(d.identitas.mapel)}_${fileSafe(d.identitas.tema||d.identitas.topik||'tema')}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('📥 Word Presisi berhasil diunduh! Format A4 siap print.');
+  showToast('📥 Word Presisi Lengkap (Desain Awal + IKTP + Profil) berhasil diunduh!');
 }
+
 
 
 function gatherFormData(container) {
