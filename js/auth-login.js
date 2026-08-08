@@ -1,5 +1,5 @@
 /**
- * Auth Login Module - SDN 139 LAMANDA
+ * Auth Login Module - SALAM D MATASKA
  * Fitur: Email/Password Login, Device Session Management (RTDB), Data Check (Firestore), & Auto-Login Sync
  * Compatible: ES6 Module, Firebase v10.12.2
  */
