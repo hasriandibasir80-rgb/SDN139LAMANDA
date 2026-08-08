@@ -10,9 +10,16 @@
 //  - Export Word berbentuk tabel (Elemen | CP/TP/ATP | Materi)
 // UPDATE 07/08/2026:
 //  - Penambahan KOLOM KELAS sebelum kolom ELEMEN pada seluruh tabel
-//    (Form TP/CP/ATP, Daftar TP/CP/ATP, dan Export Word)
 //  - PERBAIKAN FILTER MAPEL: perbandingan tidak sensitif huruf besar/kecil
-//    (data 'pjok' dari generator tetap cocok dengan filter 'PJOK')
+// UPDATE 08/08/2026:
+//  - TOMBOL SISIPAN PER KOLOM (multi-nilai per sel): tombol "➕" kecil di
+//    SETIAP kolom (Kelas, Elemen, TP/CP/ATP, Materi) untuk menambah input
+//    sisipan pada baris yang sama — misal 1 TP punya 2 materi, atau 1 TP
+//    berlaku untuk 2 kelas — tanpa menduplikasi kolom lain.
+//    Nilai sisipan disimpan sebagai string gabungan " | " (tetap string,
+//    kompatibel 100% dengan logic lama), tampil bertumpuk (per baris) di
+//    Daftar & Export Word, dan terpecah kembali ke input saat Edit.
+//    Berlaku SERAGAM untuk tabel TP, CP, dan ATP.
 // CATATAN: Seluruh logic lama (CRUD, snapshot, edit, hapus, export, toast)
 //          dipertahankan 100%. Field lama (tujuan_pembelajaran & alur berupa
 //          array string) TETAP disimpan agar fitur lain (RPM, KKTP, LKPD,
@@ -87,24 +94,73 @@ async function loadMataPelajaran() {
 // ========== UTILITAS ==========
 function escapeHtml(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function escapeAttr(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
+// SISIPAN PER KOLOM: tampilan nilai gabungan " | " menjadi per-baris
+function multiDisplay(s) { return escapeHtml(s || '').split(' | ').join('<br>'); }
 
-// ========== TABEL DINAMIS (MODEL BARU + KOLOM KELAS) ==========
+// ========== TABEL DINAMIS (KOLOM KELAS + SISIPAN PER KOLOM) ==========
+function multiItemHTML(field, value, withDel, isTextarea, placeholder) {
+  const control = isTextarea
+    ? `<textarea class="dtp-cell" data-field="${field}" placeholder="${placeholder}">${escapeHtml(value)}</textarea>`
+    : `<input type="text" class="dtp-cell" data-field="${field}" placeholder="${placeholder}" value="${escapeAttr(value)}">`;
+  return `<div class="dtp-multi-item">${control}${withDel ? '<button type="button" class="dtp-multi-del" title="Hapus sisipan ini">✖</button>' : ''}</div>`;
+}
+
+function multiCellHTML(field, valuesArr, isTextarea, placeholder, addTitle) {
+  const items = (valuesArr.length ? valuesArr : [''])
+    .map((v, idx) => multiItemHTML(field, v, idx > 0, isTextarea, placeholder)).join('');
+  return `<td><div class="dtp-multi" data-multi="${field}">${items}</div><button type="button" class="dtp-add-cell" data-add="${field}" title="${addTitle}">➕</button></td>`;
+}
+
+function placeholderFor(field, midField, midPlaceholder) {
+  if (field === midField) return midPlaceholder;
+  if (field === 'kelas') return 'Kelas';
+  if (field === 'elemen') return 'Nama elemen';
+  return 'Materi pembelajaran';
+}
+
 function addTableRow(tbodyId, midField, midPlaceholder, values = {}) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
   const tr = document.createElement('tr');
-  tr.innerHTML = `<td><input type="text" class="dtp-cell" data-field="kelas" placeholder="Kelas" value="${escapeAttr(values.kelas || '')}"></td> <td><input type="text" class="dtp-cell" data-field="elemen" placeholder="Nama elemen" value="${escapeAttr(values.elemen || '')}"></td> <td><textarea class="dtp-cell" data-field="${midField}" placeholder="${midPlaceholder}">${escapeHtml(values[midField] || '')}</textarea></td> <td><input type="text" class="dtp-cell" data-field="materi" placeholder="Materi pembelajaran" value="${escapeAttr(values.materi || '')}"></td> <td style="text-align:center;"><button type="button" class="dtp-row-del" title="Hapus baris">✖</button></td>`;
+  // SISIPAN PER KOLOM: nilai gabungan " | " dipecah jadi beberapa input per sel
+  const split = (s) => String(s || '').split(' | ').map(x => x.trim()).filter(x => x !== '');
+  const midLabel = midField === 'deskripsi' ? 'CP' : midField.toUpperCase();
+  tr.innerHTML =
+    multiCellHTML('kelas', split(values.kelas), false, 'Kelas', 'Tambah sisipan Kelas pada baris ini') +
+    multiCellHTML('elemen', split(values.elemen), false, 'Nama elemen', 'Tambah sisipan Elemen pada baris ini') +
+    multiCellHTML(midField, split(values[midField]), true, midPlaceholder, `Tambah sisipan ${midLabel} pada baris ini`) +
+    multiCellHTML('materi', split(values.materi), false, 'Materi pembelajaran', 'Tambah sisipan Materi pada baris ini') +
+    `<td style="text-align:center;"><button type="button" class="dtp-row-del" title="Hapus baris">✖</button></td>`;
   tr.querySelector('.dtp-row-del').addEventListener('click', () => tr.remove());
+  // SISIPAN PER KOLOM: delegasi klik untuk tombol ➕ (tambah sisipan) dan ✖ (hapus sisipan)
+  tr.addEventListener('click', (e) => {
+    if (e.target.classList.contains('dtp-add-cell')) {
+      const field = e.target.dataset.add;
+      const wrap = tr.querySelector(`.dtp-multi[data-multi="${field}"]`);
+      if (wrap) wrap.insertAdjacentHTML('beforeend', multiItemHTML(field, '', true, field === midField, placeholderFor(field, midField, midPlaceholder)));
+    }
+    if (e.target.classList.contains('dtp-multi-del')) {
+      e.target.closest('.dtp-multi-item').remove();
+      const wrap = e.target.closest('.dtp-multi');
+      if (wrap && !wrap.querySelector('.dtp-multi-item')) {
+        const field = wrap.dataset.multi;
+        wrap.insertAdjacentHTML('beforeend', multiItemHTML(field, '', false, field === midField, placeholderFor(field, midField, midPlaceholder)));
+      }
+    }
+  });
   tbody.appendChild(tr);
 }
 
 function readTableRows(tbodyId, midField) {
   const rows = [];
   document.querySelectorAll(`#${tbodyId} tr`).forEach(tr => {
-    const kelas = (tr.querySelector('[data-field="kelas"]')?.value || '').trim();
-    const elemen = (tr.querySelector('[data-field="elemen"]')?.value || '').trim();
-    const mid = (tr.querySelector(`[data-field="${midField}"]`)?.value || '').trim();
-    const materi = (tr.querySelector('[data-field="materi"]')?.value || '').trim();
+    // SISIPAN PER KOLOM: semua input per kolom digabung dengan " | " (tetap string, kompatibel)
+    const get = (field) => Array.from(tr.querySelectorAll(`[data-field="${field}"]`))
+      .map(i => i.value.trim()).filter(Boolean).join(' | ');
+    const kelas = get('kelas');
+    const elemen = get('elemen');
+    const mid = get(midField);
+    const materi = get('materi');
     if (kelas || elemen || mid || materi) rows.push({ kelas, elemen, [midField]: mid, materi });
   });
   return rows;
@@ -118,7 +174,7 @@ function resetTable(tbodyId, midField, midPlaceholder) {
 
 function tableViewHTML(rows, midHeader, isATP = false) {
   const body = (rows || []).map(r =>
-    `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r[midHeader.toLowerCase()] ?? r[midHeader] ?? '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`
+    `<tr><td>${multiDisplay(r.kelas)}</td><td>${multiDisplay(r.elemen)}</td><td>${multiDisplay(r[midHeader.toLowerCase()] ?? r[midHeader])}</td><td>${multiDisplay(r.materi)}</td></tr>`
   ).join('');
   return `<div class="dtp-table-wrap"><table class="dtp-table view ${isATP ? 'atp' : ''}"><thead><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:46%">${midHeader}</th><th style="width:22%">Materi</th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -141,7 +197,7 @@ function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
   const style = document.createElement('style');
   style.id = CSS_ID;
-  style.textContent = `.dtp-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); } .dtp-header { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); } .dtp-header h2 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; } .dtp-header p { margin: 0; opacity: 0.95; font-size: 15px; } .dtp-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; } .dtp-tab { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; background: white; color: #be185d; transition: all 0.2s; } .dtp-tab.active { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; } .dtp-tab.atp-tab { color: #4338ca; } .dtp-tab.atp-tab.active { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-section { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); } .dtp-section-title { font-size: 18px; font-weight: 700; color: #be185d; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #fce7f3; } .dtp-section-title.atp { color: #4338ca; border-bottom-color: #ddd6fe; } .dtp-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; } .dtp-form-group { margin-bottom: 15px; } .dtp-form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #831843; } .dtp-form-control { width: 100%; padding: 12px 14px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; color: #831843; font-family: inherit; } .dtp-form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); } .dtp-form-control.atp { border-color: #c7d2fe; color: #3730a3; } .dtp-form-control.atp:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); } textarea.dtp-form-control { resize: vertical; min-height: 120px; } select.dtp-form-control { cursor: pointer; } .dtp-btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; } .dtp-btn:hover { transform: translateY(-2px); } .dtp-btn-primary { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); } .dtp-btn-indigo { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .dtp-btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } .dtp-btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } .dtp-btn-secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); } .dtp-btn-add { margin-top: 10px; background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); padding: 10px 18px; font-size: 13px; } .dtp-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; } .dtp-item { background: linear-gradient(135deg, #fff1f2 0%, #fce7f3 100%); padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #ec4899; } .dtp-item.atp-item { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border-left-color: #4f46e5; } .dtp-item-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; } .dtp-item-title { font-weight: 700; color: #be185d; font-size: 15px; } .dtp-item-title.atp { color: #4338ca; } .dtp-item-meta { font-size: 12px; color: #64748b; } .dtp-item-actions { display: flex; gap: 5px; } .dtp-item-actions button { padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; color: white; } .dtp-empty { text-align: center; padding: 30px; color: #64748b; background: white; border-radius: 10px; } .dtp-loading { text-align: center; padding: 20px; color: #831843; } .dtp-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: dtpSlideIn 0.3s ease; } .dtp-toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .dtp-toast-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } @keyframes dtpSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } .dtp-table-wrap { overflow-x: auto; border-radius: 8px; margin-top: 5px; } .dtp-table { width: 100%; border-collapse: collapse; background: white; } .dtp-table th { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 10px 8px; font-size: 13px; text-align: left; border: 1px solid #d8b4fe; } .dtp-table.atp th { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-table td { border: 2px solid #fbcfe8; padding: 6px; vertical-align: top; } .dtp-table.atp td { border-color: #c7d2fe; } .dtp-table.view td { border-width: 1px; border-color: #e2e8f0; font-size: 13px; color: #334155; padding: 8px; } .dtp-cell { width: 100%; box-sizing: border-box; border: 1px solid #e9d5ff; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; color: #831843; background: #fdf4ff; } .dtp-cell:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 2px rgba(236,72,153,.15); } textarea.dtp-cell { min-height: 56px; resize: vertical; } .dtp-row-del { background: #ef4444; color: white; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 12px; } .dtp-row-del:hover { background: #dc2626; } .dtp-filters { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; } .dtp-filters select, .dtp-filters input { padding: 10px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; } .dtp-filters.atp select, .dtp-filters.atp input { border-color: #c7d2fe; } @media (max-width: 768px) { .dtp-form-grid { grid-template-columns: 1fr; } .dtp-actions { flex-direction: column; } .dtp-btn { width: 100%; justify-content: center; } .dtp-filters { flex-direction: column; } }`;
+  style.textContent = `.dtp-container { background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 50%, #e0e7ff 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1200px; margin: 0 auto; box-shadow: 0 8px 24px rgba(236, 72, 153, 0.15); } .dtp-header { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 30px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 12px rgba(236, 72, 153, 0.3); } .dtp-header h2 { margin: 0 0 8px 0; font-size: 28px; font-weight: 700; } .dtp-header p { margin: 0; opacity: 0.95; font-size: 15px; } .dtp-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; } .dtp-tab { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; background: white; color: #be185d; transition: all 0.2s; } .dtp-tab.active { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; } .dtp-tab.atp-tab { color: #4338ca; } .dtp-tab.atp-tab.active { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-section { background: white; padding: 25px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(236, 72, 153, 0.1); } .dtp-section-title { font-size: 18px; font-weight: 700; color: #be185d; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 3px solid #fce7f3; } .dtp-section-title.atp { color: #4338ca; border-bottom-color: #ddd6fe; } .dtp-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; } .dtp-form-group { margin-bottom: 15px; } .dtp-form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px; color: #831843; } .dtp-form-control { width: 100%; padding: 12px 14px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; color: #831843; font-family: inherit; } .dtp-form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); } .dtp-form-control.atp { border-color: #c7d2fe; color: #3730a3; } .dtp-form-control.atp:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,.15); } textarea.dtp-form-control { resize: vertical; min-height: 120px; } select.dtp-form-control { cursor: pointer; } .dtp-btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; } .dtp-btn:hover { transform: translateY(-2px); } .dtp-btn-primary { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); } .dtp-btn-indigo { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .dtp-btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } .dtp-btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } .dtp-btn-secondary { background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); } .dtp-btn-add { margin-top: 10px; background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); padding: 10px 18px; font-size: 13px; } .dtp-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; justify-content: center; } .dtp-item { background: linear-gradient(135deg, #fff1f2 0%, #fce7f3 100%); padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 4px solid #ec4899; } .dtp-item.atp-item { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); border-left-color: #4f46e5; } .dtp-item-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px; flex-wrap: wrap; gap: 5px; } .dtp-item-title { font-weight: 700; color: #be185d; font-size: 15px; } .dtp-item-title.atp { color: #4338ca; } .dtp-item-meta { font-size: 12px; color: #64748b; } .dtp-item-actions { display: flex; gap: 5px; } .dtp-item-actions button { padding: 6px 12px; font-size: 12px; border: none; border-radius: 6px; cursor: pointer; color: white; } .dtp-empty { text-align: center; padding: 30px; color: #64748b; background: white; border-radius: 10px; } .dtp-loading { text-align: center; padding: 20px; color: #831843; } .dtp-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: dtpSlideIn 0.3s ease; } .dtp-toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); } .dtp-toast-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); } @keyframes dtpSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } } .dtp-table-wrap { overflow-x: auto; border-radius: 8px; margin-top: 5px; } .dtp-table { width: 100%; border-collapse: collapse; background: white; } .dtp-table th { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); color: white; padding: 10px 8px; font-size: 13px; text-align: left; border: 1px solid #d8b4fe; } .dtp-table.atp th { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); } .dtp-table td { border: 2px solid #fbcfe8; padding: 6px; vertical-align: top; } .dtp-table.atp td { border-color: #c7d2fe; } .dtp-table.view td { border-width: 1px; border-color: #e2e8f0; font-size: 13px; color: #334155; padding: 8px; } .dtp-cell { width: 100%; box-sizing: border-box; border: 1px solid #e9d5ff; border-radius: 6px; padding: 8px 10px; font-size: 13px; font-family: inherit; color: #831843; background: #fdf4ff; } .dtp-cell:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 2px rgba(236,72,153,.15); } textarea.dtp-cell { min-height: 56px; resize: vertical; } .dtp-row-del { background: #ef4444; color: white; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 12px; } .dtp-row-del:hover { background: #dc2626; } .dtp-multi-item { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; } .dtp-multi-item .dtp-cell { flex: 1; } .dtp-multi-del { background: #f87171; color: white; border: none; border-radius: 6px; width: 22px; height: 22px; cursor: pointer; font-size: 10px; flex: 0 0 auto; } .dtp-multi-del:hover { background: #ef4444; } .dtp-add-cell { margin-top: 2px; background: #8b5cf6; color: white; border: none; border-radius: 6px; padding: 3px 9px; font-size: 11px; cursor: pointer; font-weight: 600; } .dtp-add-cell:hover { background: #7c3aed; } .dtp-filters { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; } .dtp-filters select, .dtp-filters input { padding: 10px; border: 2px solid #fbcfe8; border-radius: 8px; font-size: 14px; } .dtp-filters.atp select, .dtp-filters.atp input { border-color: #c7d2fe; } @media (max-width: 768px) { .dtp-form-grid { grid-template-columns: 1fr; } .dtp-actions { flex-direction: column; } .dtp-btn { width: 100%; justify-content: center; } .dtp-filters { flex-direction: column; } }`;
   document.head.appendChild(style);
 }
 
@@ -206,7 +262,7 @@ function renderUI(container) {
             </table>
           </div>
           <button type="button" class="dtp-btn dtp-btn-add" id="btn-add-row-tp">➕ Tambah Baris</button>
-          <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini akan menjadi master data yang bisa dipilih oleh fitur RPM, KKTP, LKPD, dan Kisi-kisi.</p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Data ini akan menjadi master data yang bisa dipilih oleh fitur RPM, KKTP, LKPD, dan Kisi-kisi. Gunakan tombol "➕" kecil di bawah tiap kolom untuk menambah sisipan (misal: 1 TP dengan 2 materi) tanpa menduplikasi kolom lain.</p>
         </div>
       </div>
       <div class="dtp-actions">
@@ -276,7 +332,7 @@ function renderUI(container) {
             </table>
           </div>
           <button type="button" class="dtp-btn dtp-btn-add" id="btn-add-row-cp">➕ Tambah Baris</button>
-          <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Isi satu baris untuk setiap elemen CP. Gunakan tombol "➕ Tambah Baris" untuk menambah elemen.</p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 5px;">💡 Isi satu baris untuk setiap elemen CP. Gunakan tombol "➕ Tambah Baris" untuk menambah elemen, dan tombol "➕" kecil di bawah tiap kolom untuk sisipan (misal: 1 CP dengan 2 materi).</p>
         </div>
       </div>
       <div class="dtp-actions">
@@ -594,7 +650,7 @@ function handleExportTP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data TP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#7c3aed;}.meta{font-size:11pt;color:#64748b;}</style></head><body><h1>MASTER DATA TUJUAN PEMBELAJARAN (TP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Kelas ${filterKelas} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastTPData.forEach(d => {
     const rows = normalizeTPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Kelas ${escapeHtml(d.kelas)} | Semester ${escapeHtml(d.semester)}</div><div class="meta">${escapeHtml(d.topik)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">TP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.tp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Kelas ${escapeHtml(d.kelas)} | Semester ${escapeHtml(d.semester)}</div><div class="meta">${escapeHtml(d.topik)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">TP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${multiDisplay(r.kelas)}</td><td>${multiDisplay(r.elemen)}</td><td>${multiDisplay(r.tp)}</td><td>${multiDisplay(r.materi)}</td></tr>`).join('')}</table></div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -682,7 +738,7 @@ function handleExportCP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data CP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;margin-bottom:5px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#7c3aed;}.meta{font-size:11pt;color:#64748b;}</style></head><body><h1>MASTER DATA CAPAIAN PEMBELAJARAN (CP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Fase ${filterFase} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastCPData.forEach(d => {
     const rows = normalizeCPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester || '-')}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">CP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.deskripsi || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table></div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.mapel)} - Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester || '-')}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">CP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${multiDisplay(r.kelas)}</td><td>${multiDisplay(r.elemen)}</td><td>${multiDisplay(r.deskripsi)}</td><td>${multiDisplay(r.materi)}</td></tr>`).join('')}</table></div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
@@ -806,7 +862,7 @@ function handleExportATP(container) {
   let html = `<html><head><meta charset="utf-8"><title>Master Data ATP</title><style>body{font-family:'Times New Roman',serif;margin:2cm;line-height:1.6;}h1{text-align:center;font-size:16pt;margin-bottom:5px;}table{border-collapse:collapse;width:100%;margin-top:10px;}th,td{border:1px solid #000;padding:6px 8px;font-size:11pt;text-align:left;vertical-align:top;}th{background:#eeeeee;}.item{margin-bottom:25px;page-break-inside:avoid;}.item-header{font-weight:bold;font-size:12pt;margin-bottom:4px;color:#4338ca;}.meta{font-size:11pt;color:#64748b;}.catatan{margin-top:8px;font-style:italic;color:#6366f1;}</style></head><body><h1>MASTER DATA ALUR TUJUAN PEMBELAJARAN (ATP)</h1><p style="text-align:center;">SDN 139 LAMANDA | Filter: Kelas ${filterKelas} | Semester ${filterSemester} | Mapel ${filterMapel}</p><hr>`;
   lastATPData.forEach(d => {
     const rows = normalizeATPRows(d);
-    html += `<div class="item"><div class="item-header">${escapeHtml(d.judul || `${d.mapel} - Kelas ${d.kelas}`)}</div><div class="meta">${escapeHtml(d.mapel)} | Kelas ${escapeHtml(d.kelas)} | Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">ATP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${escapeHtml(r.kelas || '')}</td><td>${escapeHtml(r.elemen || '')}</td><td>${escapeHtml(r.atp || '')}</td><td>${escapeHtml(r.materi || '')}</td></tr>`).join('')}</table>${d.catatan ? `<div class="catatan">📝 ${escapeHtml(d.catatan)}</div>` : ''}</div>`;
+    html += `<div class="item"><div class="item-header">${escapeHtml(d.judul || `${d.mapel} - Kelas ${d.kelas}`)}</div><div class="meta">${escapeHtml(d.mapel)} | Kelas ${escapeHtml(d.kelas)} | Fase ${escapeHtml(d.fase)} | Semester ${escapeHtml(d.semester)}</div><table><tr><th style="width:10%">Kelas</th><th style="width:22%">Elemen</th><th style="width:40%">ATP</th><th style="width:28%">Materi</th></tr>${rows.map(r => `<tr><td>${multiDisplay(r.kelas)}</td><td>${multiDisplay(r.elemen)}</td><td>${multiDisplay(r.atp)}</td><td>${multiDisplay(r.materi)}</td></tr>`).join('')}</table>${d.catatan ? `<div class="catatan">📝 ${escapeHtml(d.catatan)}</div>` : ''}</div>`;
   });
   html += `</body></html>`;
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
