@@ -380,7 +380,7 @@ container.innerHTML = `
          </div>
          <div id="tpMethodMaster" class="tp-method-content">
            <button type="button" id="btnLoadMasterTP" class="rpm-btn rpm-btn-primary" style="width: 100%; margin-bottom: 10px; font-size: 13px; padding: 10px;">
-             🔄 Muat TP dari Master Data (Berdasarkan Mapel, Kelas, Tema & Sub Tema di atas)
+             🔄 Muat TP dari Master Data (Berdasarkan Mapel & Fase di atas)
            </button>
            <div id="tpToolbar" style="display: none; margin-bottom: 8px;">
              <button type="button" id="btnTPSelectAll" class="rpm-btn rpm-btn-secondary" style="padding: 6px 12px; font-size: 11px;">✅ Pilih Semua</button>
@@ -905,10 +905,9 @@ btn.textContent = originalText;
 async function loadMasterTP(container) {
 const mapelInput = container.querySelector('#rpm-mapel').value.trim();
 const kelasFull = container.querySelector('#rpm-kelas').value;
-const kelas = kelasFull ? kelasFull.split('|')[0] : '';
-const { searchCombined: topikInput } = getTemaSubTema(container);
-if (!mapelInput || !kelas) {
-showToast('⚠️ Mohon isi Mata Pelajaran dan Kelas terlebih dahulu!', 'error');
+const fase = kelasFull ? kelasFull.split('|')[1] : '';
+if (!mapelInput || !fase) {
+showToast('⚠️ Mohon isi Mata Pelajaran dan Fase terlebih dahulu!', 'error');
 return;
 }
 const btn = container.querySelector('#btnLoadMasterTP');
@@ -921,15 +920,14 @@ collection(db, 'data_tp'),
 where('userId', '==', currentUser.uid)
 );
 const snapshot = await getDocs(q);
-console.log('🔍 Load TP - Mapel:', mapelInput, 'Kelas:', kelas, 'Topik:', topikInput, 'Total docs:', snapshot.size);
+console.log('🔍 Load TP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
 const items = [];
 if (!snapshot.empty) {
    snapshot.forEach(docSnap => {
      const data = docSnap.data();
      const matchMapel = isMapelMatch(data.mapel, mapelInput);
-     const matchKelas = !kelas || data.kelas === kelas || String(data.kelas) === String(kelas);
-     const matchTopik = isTopikMatch((data.topik || '').toLowerCase(), (topikInput || '').toLowerCase());
-     if (matchMapel && matchKelas && matchTopik) {
+     const matchFase = data.fase === fase || !fase || !data.fase;
+     if (matchMapel && matchFase) {
        if (Array.isArray(data.tp_rows) && data.tp_rows.length) {
          data.tp_rows.forEach((r) => {
            const tp = r.tp || '';
@@ -954,7 +952,7 @@ if (items.length === 0) {
    list.style.display = 'none';
    toolbar.style.display = 'none';
    hint.style.display = 'block';
-   hint.textContent = '❌ Tidak ada TP yang cocok untuk Mapel & Kelas ini. Coba Opsi 2 atau 3.';
+   hint.textContent = '❌ Tidak ada TP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3.';
 } else {
    renderCheckList(container, '#listMasterTP', items);
    list.style.display = 'block';
