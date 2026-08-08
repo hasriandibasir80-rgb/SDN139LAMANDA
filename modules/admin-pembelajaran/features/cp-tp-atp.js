@@ -386,8 +386,10 @@ async function handleGenerate(container) {
     await autoSaveCPToMasterData(parsedData, { kelas, semester, mapel, jenjang }, dataTopik);
     // ⭐ TAMBAHAN SINKRONISASI OTOMATIS - TIDAK MENGHAPUS LOGIC LAMA
     let tpCount = 0;
+    let atpCount = 0;
     try { tpCount = await autoSaveTPToMasterData(parsedData, { kelas, semester, mapel, jenjang }, dataTopik); } catch (e) { console.warn('TP auto-save gagal', e); }
-    if (tpCount > 0) { showToast(`🔄 ${tpCount} TP & CP otomatis tersimpan ke Master Data!`, 'success'); }
+    try { atpCount = await autoSaveATPToMasterData(parsedData, { kelas, semester, mapel, jenjang }, dataTopik); } catch (e) { console.warn('ATP auto-save gagal', e); }
+    if (tpCount > 0 || atpCount > 0) { showToast(`🔄 ${tpCount} TP, CP & ${atpCount} ATP otomatis tersimpan ke Master Data!`, 'success'); }
     showToast('✅ Berhasil generate & tersimpan!', 'success');
   } catch (error) {
     console.error('❌ Error generating:', error);
@@ -710,6 +712,57 @@ async function autoSaveTPToMasterData(result, metadata, dataTopik = []) {
   } catch (e) { console.warn('Auto-save TP gagal', e); return 0; }
 }
 
+async function autoSaveATPToMasterData(result, metadata, dataTopik = []) {
+  try {
+    if (!result.atp || result.atp.length === 0) return 0;
+    let fase = 'A';
+    if (metadata.kelas === '3' || metadata.kelas === '4') fase = 'B';
+    else if (metadata.kelas === '5' || metadata.kelas === '6') fase = 'C';
+    const materiMap = buildMateriMap(dataTopik);
+    const fallbackMateri = (dataTopik[0] && dataTopik[0].topik) || 'Umum';
+    // Buat 1 dokumen ATP per generate, berisi semua alur
+    const allRows = [];
+    const allAlur = [];
+    result.atp.forEach(atpGroup => {
+      const items = Array.isArray(atpGroup.items) ? atpGroup.items : [atpGroup.items];
+      const materi = getMateriForSubTema(materiMap, atpGroup.subTema, fallbackMateri);
+      items.forEach(txt => {
+        allAlur.push(txt);
+        allRows.push({
+          kelas: metadata.kelas || '',
+          elemen: atpGroup.subTema || 'Umum',
+          atp: txt,
+          materi: materi
+        });
+      });
+    });
+    if (allRows.length === 0) return 0;
+    const judul = `${metadata.mapel} - Kelas ${metadata.kelas} | ${result.tp?.[0]?.subTema || dataTopik?.[0]?.topik || 'ATP'}`;
+    const payload = {
+      userId: currentUser.uid,
+      kelas: metadata.kelas,
+      fase: fase,
+      mapel: metadata.mapel,
+      semester: metadata.semester || '1',
+      judul: judul,
+      alur: allAlur,
+      atp_rows: allRows,
+      catatan: `Auto-generated dari ${dataTopik?.length || result.atp.length} topik`,
+      source: 'AI-Generator-AutoSave',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+    await addDoc(collection(db, 'data_atp'), payload);
+    console.log('✅ ATP berhasil disimpan ke Master Data');
+    return 1;
+  } catch (e) {
+    console.warn('Auto-save ATP gagal', e);
+    return 0;
+  }
+}
+
+
+
 async function handleSyncToMasterTP(container) {
   if (!lastGeneratedData || !lastGeneratedData.parsedData) {
     showToast('⚠️ Generate data terlebih dahulu sebelum menyinkronkan!', 'warning');
@@ -762,9 +815,21 @@ async function handleSyncToMasterTP(container) {
       };
       return addDoc(collection(db, 'data_tp'), payload);
     });
-    // Tunggu semua proses simpan selesai
+    // Tunggu semua proses simpan TP selesai
     await Promise.all(syncPromises);
-    showToast(`✅ Berhasil menyinkronkan ${tpData.length} data TP ke Master Data!`, 'success');
+    // ⭐ PERBAIKAN: Sync juga ATP ke data_atp (logic lama TP tetap dipertahankan)
+    try {
+      const atpData = parsedData.atp || [];
+      if (atpData.length > 0) {
+        await autoSaveATPToMasterData(parsedData, { kelas: metadata.kelas, semester: metadata.semester, mapel: metadata.mapel, jenjang: '' }, []);
+        showToast(`✅ Berhasil menyinkronkan ${tpData.length} data TP & ${atpData.length} kelompok ATP ke Master Data!`, 'success');
+      } else {
+        showToast(`✅ Berhasil menyinkronkan ${tpData.length} data TP ke Master Data!`, 'success');
+      }
+    } catch (e) {
+      console.warn('Sync ATP gagal', e);
+      showToast(`✅ Berhasil menyinkronkan ${tpData.length} data TP ke Master Data! (ATP gagal: ${e.message})`, 'warning');
+    }
   } catch (error) {
     console.error('❌ Error syncing to Master TP:', error);
     showToast('❌ Gagal menyinkronkan: ' + error.message, 'error');
