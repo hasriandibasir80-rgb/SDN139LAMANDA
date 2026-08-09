@@ -30,14 +30,6 @@ const FALLBACK_MAPEL = [
 ];
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-// FIX MULTI SEKOLAH - helper
-function getMySekolahId(){
-  return currentUser.sekolahId || currentUser.sekolah_id || currentUser.kodeSekolah || localStorage.getItem('sekolahId') || null;
-}
-function getMyUid(){
-  return currentUser.uid || currentUser.id || null;
-}
-
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
@@ -648,9 +640,7 @@ async function handleSimpanBank(container){
         level_kognitif: s.level_kognitif,
         tpId: s.tp_ref||'',
         kisiId,
-        userId: getMyUid(),
-        createdBy: getMyUid(),
-        sekolahId: getMySekolahId(),
+        userId: currentUser.uid,
         createdAt: serverTimestamp()
       });
       count++;
