@@ -1,8 +1,10 @@
 // modules/admin-pembelajaran/features/bank-soal.js
 // =========================================
-// BANK SOAL V3 HYBRID - Tab V1 + V2.1 - FIX MULTI SEKOLAH
-// PERBAIKAN: Tambah filter sekolahId agar lolos rules Version 3
-// LOGIC ASLI DIPERTAHANKAN 100%
+// BANK SOAL V3 HYBRID - Tab V1 + V2.1
+// V1: Daftar Semua (simple list, manage cepat) + V2.1: Wadah Pintar (filter, keranjang, jumlah bebas, LOTS/MOTS/HOTS, export 2 bagian)
+// FIX: Anti-Index (tanpa orderBy, sort client-side) - tidak perlu composite index
+// Kasus: PAI Kelas 1 = 100 soal, guru butuh bebas (misal 25) -> filter -> acak/proporsional -> keranjang -> export siswa & guru
+// Hanya yang tercentang yang terunduh, output bersih tanpa [PAIBD - ...]
 // =========================================
 
 import { db } from '../../../js/firebase-config.js';
@@ -33,15 +35,6 @@ const KELAS_LIST = ['1','2','3','4','5','6'];
 let activeTab = 'v1';
 let v1Page = 1;
 const V1_PER_PAGE = 20;
-let v1Filtered = [];
-
-// ===================== FIX HELPER SEKOLAH ID =====================
-function getMySekolahId(){
-  return currentUser.sekolahId || currentUser.sekolah_id || currentUser.kodeSekolah || null;
-}
-function getMyUid(){
-  return currentUser.uid || currentUser.id || null;
-}
 
 export async function init(container){
   loadCSS();
@@ -113,30 +106,38 @@ function renderUI(container){
   let mapelOptions = '<option value="">Semua Mapel</option>';
   dataMapel.forEach(m=>{ mapelOptions += `<option value="${m.id}">${m.icon||'📘'} ${m.nama}</option>`; });
   let kelasOptions = '<option value="">Semua Kelas</option>';
-  KELAS_LIST.forEach(k=> kelasOptions += `<option value="${k}">Kelas ${k}</option>`);
+  KELAS_LIST.forEach(k=>{ kelasOptions += `<option value="${k}">Kelas ${k}</option>`; });
 
   container.innerHTML = `
     <div class="bank-container">
       <div class="bank-header">
-        <div><h2 style="margin:0;">📚 Bank Soal Hybrid V3</h2><p style="margin:4px 0 0; font-size:12px; opacity:.9;">Kelola & Rakit Soal - Anti Index - Multi Sekolah</p></div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <span id="stat-total" style="background:rgba(255,255,255,.2); padding:6px 10px; border-radius:8px; font-size:11px;">Total: 0</span>
-          <span id="stat-terpilih" style="background:rgba(255,255,255,.2); padding:6px 10px; border-radius:8px; font-size:11px;">Terpilih: 0</span>
+        <div>
+          <h2 style="margin:0;">📚 Bank Soal V3 Hybrid - V1 Daftar + V2 Pintar</h2>
+          <p style="margin:4px 0 0; opacity:.9; font-size:12px;">V1: Kelola semua soal cepat | V2: Wadah kecil saring → ambil seperlunya (jumlah bebas, LOTS/MOTS/HOTS adjustable). Hanya tercentang yang terunduh, bersih tanpa [PAIBD...]</p>
+        </div>
+        <div style="background:rgba(255,255,255,.2); padding:8px 12px; border-radius:8px; font-size:11px; min-width:130px;">
+          <div>Total: <b id="stat-total">0</b> soal</div>
+          <div>Terfilter: <b id="stat-filtered">0</b> soal</div>
+          <div>Terpilih: <b id="stat-selected">0</b> soal</div>
+          <div style="margin-top:4px; font-size:10px; opacity:.9;">Mode: <span id="stat-mode">Anti-Index OK</span></div>
         </div>
       </div>
+
       <div class="tabs">
-        <button class="tab-btn active" data-tab="v1">📋 V1 Daftar Semua</button>
-        <button class="tab-btn" data-tab="v2">🧠 V2 Wadah Pintar</button>
+        <button class="tab-btn active" data-tab="v1">📋 Tab V1 - Daftar Semua (Manage)</button>
+        <button class="tab-btn" data-tab="v2">🧺 Tab V2 - Wadah Pintar (Saring & Ambil)</button>
       </div>
 
       <div id="tab-v1" class="tab-content active">
         <div class="bank-main">
-          <div class="filter-grid">
-            <div class="form-group"><label>Mapel</label><select id="v1-filter-mapel" class="form-control">${mapelOptions}</select></div>
-            <div class="form-group"><label>Kelas</label><select id="v1-filter-kelas" class="form-control">${kelasOptions}</select></div>
-            <div class="form-group"><label>Cari</label><input id="v1-search" class="form-control" placeholder="Cari soal..."></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; align-items:end;">
+            <div class="form-group" style="flex:1; min-width:180px; margin:0;"><label>🔎 Cari V1</label><input type="text" id="v1-search" class="form-control" placeholder="Cari soal, topik, kunci..."></div>
+            <div class="form-group" style="min-width:140px; margin:0;"><label>Mapel V1</label><select id="v1-mapel" class="form-control">${mapelOptions}</select></div>
+            <div class="form-group" style="min-width:120px; margin:0;"><label>Kelas V1</label><select id="v1-kelas" class="form-control">${kelasOptions}</select></div>
+            <button class="btn btn-primary" id="v1-btnFilter">Filter V1</button>
+            <button class="btn btn-secondary" id="v1-btnReset">Reset</button>
           </div>
-          <div id="v1-list"></div>
+          <div id="v1-list" style="max-height:650px; overflow-y:auto;"></div>
           <div id="v1-pagination" class="pagination"></div>
         </div>
       </div>
@@ -144,33 +145,90 @@ function renderUI(container){
       <div id="tab-v2" class="tab-content">
         <div class="bank-layout">
           <div class="bank-main">
-            <div class="filter-grid">
-              <div class="form-group"><label>Mapel</label><select id="filter-mapel" class="form-control">${mapelOptions}</select></div>
-              <div class="form-group"><label>Kelas</label><select id="filter-kelas" class="form-control">${kelasOptions}</select></div>
-              <div class="form-group"><label>Level</label><select id="filter-level" class="form-control"><option value="">Semua</option><option value="LOTS">LOTS</option><option value="MOTS">MOTS</option><option value="HOTS">HOTS</option></select></div>
+            <div style="background:#f0fdf4; border:1px solid #a7f3d0; padding:12px; border-radius:10px; margin-bottom:12px;">
+              <h4 style="margin:0 0 8px; color:#065f46; font-size:13px;">🔍 Filter Berlapis - Merampingkan (Fix Index Error)</h4>
+              <div class="filter-grid">
+                <div class="form-group"><label>📘 Mapel</label><select id="f-mapel" class="form-control">${mapelOptions}</select></div>
+                <div class="form-group"><label>🎓 Kelas</label><select id="f-kelas" class="form-control">${kelasOptions}</select></div>
+                <div class="form-group"><label>📝 Bentuk Soal</label>
+                  <select id="f-bentuk" class="form-control">
+                    <option value="">Semua Bentuk</option>
+                    <option value="PG">PG</option>
+                    <option value="Menjodohkan">Menjodohkan</option>
+                    <option value="Isian">Isian</option>
+                    <option value="Esai">Esai</option>
+                    <option value="Campuran">Campuran</option>
+                  </select>
+                </div>
+              </div>
+              <div class="filter-grid">
+                <div class="form-group"><label>📊 Level</label>
+                  <select id="f-level" class="form-control">
+                    <option value="">Semua Level</option>
+                    <option value="LOTS">LOTS - Mudah</option>
+                    <option value="MOTS">MOTS - Sedang</option>
+                    <option value="HOTS">HOTS - Sulit</option>
+                  </select>
+                </div>
+                <div class="form-group"><label>🏷️ Topik (otomatis)</label><select id="f-topik" class="form-control"><option value="">Semua Topik</option></select></div>
+                <div class="form-group"><label>🔎 Cari Kata</label><input type="text" id="f-search" class="form-control" placeholder="wudhu, shalat..."></div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                <button class="btn btn-primary" id="btnFilter">🔍 Terapkan Filter</button>
+                <button class="btn btn-secondary" id="btnResetFilter">🔄 Reset</button>
+                <button class="btn btn-secondary" id="btnSelectAllFiltered">☑️ Centang Semua Terfilter (<span id="count-filtered">0</span>)</button>
+                <button class="btn btn-secondary" id="btnClearSelected">❌ Bersihkan Pilihan</button>
+              </div>
             </div>
-            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;">
-              <button id="btnAcak" class="btn btn-primary">🎲 Acak</button>
-              <button id="btnAmbilProporsional" class="btn btn-warning">⚖️ Proporsional</button>
-              <button id="btnPilihSemua" class="btn btn-secondary">☑️ Pilih Semua Filter</button>
-              <button id="btnBersih" class="btn btn-secondary">🧹 Bersihkan</button>
-              <button id="btnHapusTerpilih" class="btn btn-danger">🗑️ Hapus Terpilih</button>
+            <div id="list-soal" style="max-height:600px; overflow-y:auto; border:1px solid #d1fae5; border-radius:8px; padding:8px;">
+              <div style="text-align:center; padding:40px; color:#6b7280;">Memuat bank soal...</div>
             </div>
-            <div style="background:#f0fdf4; padding:10px; border-radius:8px; margin-bottom:10px; display:flex; gap:10px; flex-wrap:wrap;">
-              <div class="level-input"><label>Butuh:</label><input id="input-jumlah-butuh" type="number" value="25" min="1"> soal</div>
-              <div class="level-input"><label>LOTS %</label><input id="input-lots" type="number" value="40"></div>
-              <div class="level-input"><label>MOTS %</label><input id="input-mots" type="number" value="40"></div>
-              <div class="level-input"><label>HOTS %</label><input id="input-hots" type="number" value="20"></div>
-            </div>
-            <div id="bank-list"></div>
           </div>
+
           <div class="bank-sidebar">
-            <h4 style="margin:0 0 10px;">🛒 Keranjang Soal</h4>
-            <div id="keranjang-list" style="min-height:100px; border:1px dashed #a7f3d0; border-radius:8px; padding:8px; margin-bottom:10px;"></div>
-            <div style="display:grid; gap:6px;">
-              <button id="btnExportSiswa" class="btn btn-primary">📄 Export Siswa (Bersih)</button>
-              <button id="btnExportGuru" class="btn btn-success">📄 Export Guru (+Kunci)</button>
-              <button id="btnExportBoth" class="btn btn-warning">📦 Export Keduanya</button>
+            <h4 style="margin:0 0 10px; color:#065f46;">🧺 Keranjang - Wadah Kecil</h4>
+            <div style="background:#ecfdf5; border:1px solid #10b981; border-radius:8px; padding:10px; margin-bottom:12px;">
+              <label style="font-size:11px; font-weight:700;">🎯 Jumlah yang Dibutuhkan (BEBAS - bukan fix 25)</label>
+              <div style="display:flex; gap:6px; margin-top:6px;">
+                <input type="number" id="input-jumlah-butuh" class="form-control" value="" placeholder="25, 30, 50 bebas" min="1" style="flex:1;">
+                <button class="btn btn-primary" id="btnAmbilAcak">🎲 Acak</button>
+              </div>
+              <small style="font-size:9px; color:#065f46;">Contoh: PAI Kelas 1 ada 100, butuh 25 → isi 25 → Acak</small>
+            </div>
+
+            <div style="background:#fefce8; border:1px solid #facc15; border-radius:8px; padding:10px; margin-bottom:12px;">
+              <label style="font-size:11px; font-weight:700;">📊 Komposisi LOTS/MOTS/HOTS (Bisa Diatur User)</label>
+              <div class="level-bar">
+                <div class="level-input"><span>LOTS</span><input type="number" id="input-lots" value="40" min="0" max="100">%</div>
+                <div class="level-input"><span>MOTS</span><input type="number" id="input-mots" value="40" min="0" max="100">%</div>
+                <div class="level-input"><span>HOTS</span><input type="number" id="input-hots" value="20" min="0" max="100">%</div>
+              </div>
+              <div style="display:flex; gap:6px; margin-top:8px;">
+                <button class="btn btn-warning" id="btnAmbilProporsional" style="flex:1;">⚖️ Ambil Proporsional</button>
+              </div>
+              <small style="font-size:9px;">Isi jumlah + atur % (total 100%) → Proporsional</small>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; margin-bottom:6px;">
+                <span>Terpilih: <span id="sidebar-count">0</span> soal</span>
+                <span style="color:#059669;"><span id="sidebar-lots">0</span>L / <span id="sidebar-mots">0</span>M / <span id="sidebar-hots">0</span>H</span>
+              </div>
+              <div id="keranjang-list" style="max-height:180px; overflow-y:auto; border:1px dashed #a7f3d0; border-radius:6px; padding:4px; background:#f9fefb;">
+                <div style="text-align:center; color:#9ca3af; font-size:11px; padding:10px;">Belum ada soal terpilih.</div>
+              </div>
+            </div>
+
+            <div style="background:#f0fdf4; border:1px solid #a7f3d0; border-radius:8px; padding:10px;">
+              <h5 style="margin:0 0 8px; font-size:11px;">📥 Hasil Unduhan - 2 Bagian (Hanya Tercentang)</h5>
+              <p style="font-size:9px; color:#6b7280; margin:0 0 8px;">Hanya soal yang tercentang di keranjang yang terunduh, output bersih tanpa [PAIBD...]</p>
+              <button class="btn btn-primary" id="btnExportSiswa" style="width:100%; margin-bottom:6px;">📄 1. Soal Siswa (Tanpa Kunci) - Bersih</button>
+              <button class="btn btn-success" id="btnExportGuru" style="width:100%; margin-bottom:6px;">📄 2. Soal Guru (Dengan Kunci + Pembahasan)</button>
+              <button class="btn btn-warning" id="btnExportBoth" style="width:100%;">📦 Export 2 File Sekaligus</button>
+            </div>
+
+            <div style="margin-top:10px; display:flex; gap:6px;">
+              <button class="btn btn-danger" id="btnHapusTerpilih" style="flex:1; font-size:11px;">🗑️ Hapus Terpilih</button>
             </div>
           </div>
         </div>
@@ -179,172 +237,237 @@ function renderUI(container){
   `;
 }
 
-// ===================== LOAD BANK SOAL - FIX UTAMA =====================
 async function loadBankSoal(container){
   try{
-    const sekolahId = getMySekolahId();
-    const uid = getMyUid();
-    if(!sekolahId){
-      console.warn("currentUser.sekolahId kosong, fallback ke uid saja");
-      showToast("⚠️ Akun belum ada sekolahId, hubungi Admin", "error");
-    }
-
-    container.querySelector('#v1-list').innerHTML = '<p style="text-align:center; padding:20px;">⏳ Memuat bank soal...</p>';
-
-    // Query ANTI INDEX: hanya pakai where sekolahId saja (tidak pakai orderBy)
-    // Ini yang bikin lolos rules Version 3
-    let q;
-    let collectionsToTry = ['bankSoal', 'bank_soal']; // coba 2 koleksi karena di projectmu ada 2 nama
-    let results = [];
-
-    for(let colName of collectionsToTry){
-      try{
-        if(sekolahId){
-          q = query(collection(db, colName), where("sekolahId", "==", sekolahId));
-        } else if(uid){
-          // Fallback untuk data lama yang belum ada sekolahId: pakai owner
-          q = query(collection(db, colName), where("createdBy", "==", uid));
-        } else {
-          q = query(collection(db, colName));
-        }
-        const snap = await getDocs(q);
-        snap.forEach(d=>{
-          results.push({ id: d.id, _col: colName, ...d.data() });
-        });
-      }catch(e){
-        // koleksi tidak ada / tidak punya akses, lanjutkan
-        console.log(`Skip ${colName}:`, e.message);
-      }
-    }
-
-    // Gabungkan & hilangkan duplikat berdasarkan id + pertanyaan
-    const map = new Map();
-    results.forEach(r=>{
-      if(!map.has(r.id)) map.set(r.id, r);
+    const q = query(collection(db,'bankSoal'), where('userId','==', currentUser.uid));
+    const snap = await getDocs(q);
+    allSoal = [];
+    const topikSet = new Set();
+    snap.forEach(d=>{
+      const data = { id: d.id, ...d.data() };
+      allSoal.push(data);
+      if(data.topik) topikSet.add(data.topik);
+      if(data.subTopik) topikSet.add(data.subTopik);
     });
-    allSoal = Array.from(map.values());
+    allSoal.sort((a,b)=>{
+      const ta = a.createdAt?.seconds || 0;
+      const tb = b.createdAt?.seconds || 0;
+      return tb - ta;
+    });
 
-    // Sort client-side (anti index)
-    allSoal.sort((a,b)=> (b.createdAt?.seconds||0) - (a.createdAt?.seconds||0));
+    const fTopik = container.querySelector('#f-topik');
+    if(fTopik){
+      fTopik.innerHTML = '<option value="">Semua Topik</option>';
+      Array.from(topikSet).sort().forEach(t=>{
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t.substring(0,50);
+        fTopik.appendChild(opt);
+      });
+    }
 
     filteredSoal = [...allSoal];
+    v1Page = 1;
     v1Filtered = [...allSoal];
-
-    console.log(`BankSoal loaded: ${allSoal.length} soal untuk sekolah ${sekolahId}`);
     updateStats(container);
     renderV1List(container);
     renderList(container);
-    renderKeranjang(container);
-
-    if(!allSoal.length){
-      showToast("Bank soal kosong untuk sekolah ini. Buat soal baru akan otomatis ada sekolahId.", "info");
-    }
-
+    showToast(`✅ ${allSoal.length} soal dimuat (V3 Hybrid Anti-Index)`, 'success');
   }catch(e){
     console.error(e);
-    container.querySelector('#v1-list').innerHTML = `<p style="color:#ef4444; text-align:center;">❌ Gagal load: ${e.message}<br><small>Pastikan dokumen sudah ada field sekolahId = ${getMySekolahId()}</small></p>`;
-    showToast("❌ " + e.message, "error");
+    container.querySelector('#list-soal').innerHTML = `<div style="color:red; padding:20px;">❌ Gagal load: ${e.message}</div>`;
+    container.querySelector('#v1-list').innerHTML = `<div style="color:red; padding:20px;">❌ Gagal load: ${e.message}</div>`;
+    showToast('❌ Gagal load bank soal','error');
   }
 }
 
-// ===================== SISA LOGIC ASLI - TIDAK DIUBAH =====================
-let currentFilterV1 = { mapel: '', kelas: '', search: '' };
-let currentFilterV2 = { mapel: '', kelas: '', level: '' };
-
 function updateStats(container){
-  if(container.querySelector('#stat-total')) container.querySelector('#stat-total').textContent = `Total: ${allSoal.length}`;
-  if(container.querySelector('#stat-terpilih')) container.querySelector('#stat-terpilih').textContent = `Terpilih: ${selectedIds.size}`;
+  const totalEl = container.querySelector('#stat-total');
+  const filteredEl = container.querySelector('#stat-filtered');
+  const selectedEl = container.querySelector('#stat-selected');
+  const countFilteredEl = container.querySelector('#count-filtered');
+  const sidebarCount = container.querySelector('#sidebar-count');
+  if(totalEl) totalEl.textContent = allSoal.length;
+  if(filteredEl) filteredEl.textContent = filteredSoal.length;
+  if(selectedEl) selectedEl.textContent = selectedIds.size;
+  if(countFilteredEl) countFilteredEl.textContent = filteredSoal.length;
+  if(sidebarCount) sidebarCount.textContent = selectedIds.size;
+
+  let lots=0,mots=0,hots=0;
+  allSoal.filter(s=> selectedIds.has(s.id)).forEach(s=>{
+    const lvl = (s.level_kognitif||'').toUpperCase();
+    if(lvl==='LOTS') lots++; else if(lvl==='MOTS') mots++; else if(lvl==='HOTS') hots++;
+    else if((s.tingkat||'').toLowerCase()==='mudah') lots++; else if((s.tingkat||'').toLowerCase()==='sedang') mots++; else if((s.tingkat||'').toLowerCase()==='sulit') hots++;
+  });
+  const elL = container.querySelector('#sidebar-lots');
+  const elM = container.querySelector('#sidebar-mots');
+  const elH = container.querySelector('#sidebar-hots');
+  if(elL) elL.textContent = lots;
+  if(elM) elM.textContent = mots;
+  if(elH) elH.textContent = hots;
+}
+
+let v1Filtered = [];
+function applyV1Filter(container){
+  const search = container.querySelector('#v1-search').value.toLowerCase().trim();
+  const mapel = container.querySelector('#v1-mapel').value;
+  const kelas = container.querySelector('#v1-kelas').value;
+  v1Filtered = allSoal.filter(s=>{
+    if(mapel && s.mapelId !== mapel) return false;
+    if(kelas && s.kelas !== kelas) return false;
+    if(search){
+      const hay = `${s.pertanyaan||''} ${s.topik||''} ${s.subTopik||''} ${s.kunci||''}`.toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  v1Page = 1;
+  renderV1List(container);
 }
 
 function renderV1List(container){
-  let list = container.querySelector('#v1-list');
-  if(!list) return;
-  let data = v1Filtered;
-  if(currentFilterV1.mapel) data = data.filter(s=> s.mapelId===currentFilterV1.mapel);
-  if(currentFilterV1.kelas) data = data.filter(s=> String(s.kelas)===String(currentFilterV1.kelas));
-  if(currentFilterV1.search){
-    const q = currentFilterV1.search.toLowerCase();
-    data = data.filter(s=> (s.pertanyaan||'').toLowerCase().includes(q));
-  }
-  const totalPages = Math.ceil(data.length / V1_PER_PAGE) || 1;
-  if(v1Page>totalPages) v1Page=totalPages;
+  if(!v1Filtered.length && allSoal.length) v1Filtered = [...allSoal];
+  const listEl = container.querySelector('#v1-list');
+  const pagEl = container.querySelector('#v1-pagination');
+  if(!listEl) return;
+  const totalPages = Math.ceil(v1Filtered.length / V1_PER_PAGE);
   const start = (v1Page-1)*V1_PER_PAGE;
-  const pageData = data.slice(start, start+V1_PER_PAGE);
+  const pageData = v1Filtered.slice(start, start+V1_PER_PAGE);
 
   if(!pageData.length){
-    list.innerHTML = '<p style="text-align:center; color:#6b7280; padding:20px;">Tidak ada soal.</p>';
-  }else{
-    list.innerHTML = pageData.map(s=>{
-      const checked = selectedIds.has(s.id) ? 'checked' : '';
-      const level = s.level_kognitif || s.tingkat || '-';
-      const badgeClass = level==='LOTS' ? 'badge-lots' : level==='MOTS' ? 'badge-mots' : level==='HOTS' ? 'badge-hots' : '';
-      return `<div class="soal-card-v1 ${selectedIds.has(s.id)?'selected':''}">
-        <div style="display:flex; gap:8px;">
-          <input type="checkbox" class="chk-soal-v1" data-id="${s.id}" ${checked}>
-          <div style="flex:1;">
-            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
-              <span class="badge">${s.mapelId||''} - Kls ${s.kelas||''}</span>
-              <span class="badge ${badgeClass}">${level}</span>
-              <span class="badge" style="background:#fef3c7;">${s._col||''}</span>
-            </div>
-            <div style="font-size:13px;">${(s.pertanyaan||'').substring(0,250)}</div>
+    listEl.innerHTML = `<div style="text-align:center; padding:30px; color:#6b7280;">Tidak ada soal. Coba reset filter V1.</div>`;
+    pagEl.innerHTML = '';
+    return;
+  }
+
+  let html = '';
+  pageData.forEach((s, idx)=>{
+    const globalIdx = start + idx + 1;
+    const levelClass = (s.level_kognitif==='HOTS'|| s.tingkat==='Sulit') ? 'badge-hots' : (s.level_kognitif==='MOTS'|| s.tingkat==='Sedang') ? 'badge-mots' : 'badge-lots';
+    html += `
+      <div class="soal-card-v1">
+        <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <span class="badge">${s.mapelId||'-'} | Kelas ${s.kelas||'-'}</span>
+            <span class="badge">${s.jenis||s.bentukSoal||'PG'}</span>
+            <span class="badge ${levelClass}">${s.level_kognitif||s.tingkat||'LOTS'}</span>
+            <span class="badge" style="background:#fef3c7;">${(s.topik||'').substring(0,25)}</span>
+          </div>
+          <div style="display:flex; gap:4px;">
+            <button class="btn-mini" style="background:#fee2e2; color:#991b1b;" data-v1-del="${s.id}">🗑️ Hapus</button>
+            <button class="btn-mini" style="background:#ecfdf5; color:#065f46;" data-v1-add="${s.id}">➕ Ke Keranjang</button>
           </div>
         </div>
-      </div>`;
-    }).join('');
+        <div style="font-size:13px; font-weight:600;">${globalIdx}. ${s.pertanyaan||''}</div>
+        ${s.opsi && Array.isArray(s.opsi) && s.opsi.length ? `<div style="font-size:11px; color:#4b5563; margin-top:4px;">${s.opsi.map((o,i)=> `${String.fromCharCode(65+i)}. ${o}`).join(' | ')}</div>` : ''}
+        <div style="font-size:10px; color:#6b7280; margin-top:4px;">Sub: ${s.subTopik||'-'} | Kunci: <b style="color:#059669;">${s.kunci||'-'}</b> | ${s.jenisAsesmen||''}</div>
+      </div>
+    `;
+  });
+  listEl.innerHTML = html;
+
+  let pagHtml = '';
+  for(let i=1;i<=totalPages;i++){
+    pagHtml += `<button class="page-btn ${i===v1Page?'active':''}" data-page="${i}">${i}</button>`;
   }
-  // pagination
-  const pag = container.querySelector('#v1-pagination');
-  if(pag){
-    let html='';
-    for(let i=1;i<=totalPages;i++){
-      html+=`<button class="page-btn ${i===v1Page?'active':''}" data-page="${i}">${i}</button>`;
-    }
-    pag.innerHTML = html;
-  }
-  list.querySelectorAll('.chk-soal-v1').forEach(chk=>{
-    chk.addEventListener('change', e=>{
-      const id = e.target.dataset.id;
-      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
-      updateStats(container); renderKeranjang(container);
+  pagEl.innerHTML = pagHtml;
+  pagEl.querySelectorAll('[data-page]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      v1Page = parseInt(e.target.dataset.page);
+      renderV1List(container);
     });
   });
-  const pagEl = container.querySelector('#v1-pagination');
-  if(pagEl){
-    pagEl.querySelectorAll('.page-btn').forEach(b=>{
-      b.addEventListener('click', e=>{
-        v1Page = parseInt(e.target.dataset.page);
+
+  listEl.querySelectorAll('[data-v1-del]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const id = e.target.dataset.v1Del;
+      if(!confirm('Hapus soal ini permanen?')) return;
+      try{
+        await deleteDoc(doc(db,'bankSoal', id));
+        allSoal = allSoal.filter(s=> s.id!==id);
+        v1Filtered = v1Filtered.filter(s=> s.id!==id);
+        filteredSoal = filteredSoal.filter(s=> s.id!==id);
+        selectedIds.delete(id);
+        updateStats(container);
         renderV1List(container);
-      });
+        renderList(container);
+        renderKeranjang(container);
+        showToast('🗑️ Dihapus','success');
+      }catch(err){ showToast('❌ '+err.message,'error'); }
     });
-  }
+  });
+  listEl.querySelectorAll('[data-v1-add]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = e.target.dataset.v1Add;
+      selectedIds.add(id);
+      updateStats(container);
+      renderKeranjang(container);
+      renderList(container);
+      showToast('➕ Ditambah ke keranjang (Tab V2)','success');
+    });
+  });
+}
+
+function applyFilters(container){
+  const mapel = container.querySelector('#f-mapel').value;
+  const kelas = container.querySelector('#f-kelas').value;
+  const bentuk = container.querySelector('#f-bentuk').value;
+  const level = container.querySelector('#f-level').value;
+  const topik = container.querySelector('#f-topik').value;
+  const search = container.querySelector('#f-search').value.toLowerCase().trim();
+
+  filteredSoal = allSoal.filter(s=>{
+    if(mapel && s.mapelId !== mapel) return false;
+    if(kelas && s.kelas !== kelas) return false;
+    if(bentuk && !((s.jenis||'').toLowerCase().includes(bentuk.toLowerCase()) || (s.bentukSoal||'').toLowerCase().includes(bentuk.toLowerCase()))) return false;
+    if(level && (s.level_kognitif||'').toUpperCase() !== level.toUpperCase() && (s.tingkat||'').toLowerCase() !== level.toLowerCase()) return false;
+    if(topik && !((s.topik||'').includes(topik) || (s.subTopik||'').includes(topik))) return false;
+    if(search){
+      const hay = `${s.pertanyaan||''} ${s.topik||''} ${s.subTopik||''} ${s.kunci||''}`.toLowerCase();
+      if(!hay.includes(search)) return false;
+    }
+    return true;
+  });
+  updateStats(container);
+  renderList(container);
 }
 
 function renderList(container){
-  const list = container.querySelector('#bank-list');
-  if(!list) return;
-  let data = filteredSoal;
-  if(currentFilterV2.mapel) data = data.filter(s=> s.mapelId===currentFilterV2.mapel);
-  if(currentFilterV2.kelas) data = data.filter(s=> String(s.kelas)===String(currentFilterV2.kelas));
-  if(currentFilterV2.level) data = data.filter(s=> (s.level_kognitif===currentFilterV2.level || s.tingkat===currentFilterV2.level));
-  
-  if(!data.length){
-    list.innerHTML = '<p style="text-align:center; color:#6b7280;">Tidak ada soal sesuai filter.</p>';
+  const listEl = container.querySelector('#list-soal');
+  if(!listEl) return;
+  if(!filteredSoal.length){
+    listEl.innerHTML = `<div style="text-align:center; padding:30px; color:#6b7280;">Tidak ada soal sesuai filter V2. Coba reset.</div>`;
     return;
   }
-  list.innerHTML = data.map(s=>{
-    const checked = selectedIds.has(s.id) ? 'checked' : '';
-    const level = s.level_kognitif || s.tingkat || '-';
-    return `<div class="soal-item ${selectedIds.has(s.id)?'selected':''}">
-      <input type="checkbox" class="chk-soal" data-id="${s.id}" ${checked}>
-      <div style="flex:1;"><div style="font-size:12px; font-weight:600;">${s.mapelId} - ${level} - ${s.topik||''}</div><div style="font-size:13px;">${(s.pertanyaan||'').substring(0,200)}</div></div>
-    </div>`;
-  }).join('');
-  list.querySelectorAll('.chk-soal').forEach(chk=>{
-    chk.addEventListener('change', e=>{
+  let html = '';
+  filteredSoal.forEach((s, idx)=>{
+    const isSelected = selectedIds.has(s.id);
+    const levelClass = (s.level_kognitif==='HOTS'|| s.tingkat==='Sulit') ? 'badge-hots' : (s.level_kognitif==='MOTS'|| s.tingkat==='Sedang') ? 'badge-mots' : 'badge-lots';
+    html += `
+      <div class="soal-item ${isSelected?'selected':''}" data-id="${s.id}">
+        <input type="checkbox" ${isSelected?'checked':''} data-action="check" data-id="${s.id}">
+        <div style="flex:1;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+            <span class="badge">${s.mapelId||'-'} | Kelas ${s.kelas||'-'}</span>
+            <span class="badge">${s.jenis||s.bentukSoal||'PG'}</span>
+            <span class="badge ${levelClass}">${s.level_kognitif||s.tingkat||'LOTS'}</span>
+            <span class="badge" style="background:#fef3c7;">${(s.topik||'').substring(0,30)}</span>
+          </div>
+          <div style="font-size:12px; font-weight:600;">${idx+1}. ${s.pertanyaan||''}</div>
+          <div style="font-size:10px; color:#6b7280; margin-top:2px;">Sub: ${s.subTopik||'-'} | Kunci: ${s.kunci||'-'}</div>
+        </div>
+      </div>
+    `;
+  });
+  listEl.innerHTML = html;
+  listEl.querySelectorAll('input[data-action="check"]').forEach(cb=>{
+    cb.addEventListener('change', (e)=>{
       const id = e.target.dataset.id;
-      if(e.target.checked) selectedIds.add(id); else selectedIds.delete(id);
-      updateStats(container); renderKeranjang(container); renderV1List(container);
+      if(e.target.checked) selectedIds.add(id);
+      else selectedIds.delete(id);
+      e.target.closest('.soal-item').classList.toggle('selected', e.target.checked);
+      updateStats(container);
+      renderKeranjang(container);
     });
   });
 }
@@ -353,47 +476,78 @@ function renderKeranjang(container){
   const el = container.querySelector('#keranjang-list');
   if(!el) return;
   if(!selectedIds.size){
-    el.innerHTML = '<p style="text-align:center; color:#9ca3af; font-size:11px;">Belum ada soal dipilih.</p>';
+    el.innerHTML = `<div style="text-align:center; color:#9ca3af; font-size:11px; padding:10px;">Belum ada soal terpilih.</div>`;
     return;
   }
   const selected = allSoal.filter(s=> selectedIds.has(s.id));
-  el.innerHTML = selected.map((s,i)=> `<div class="keranjang-item"><span>${i+1}. ${(s.pertanyaan||'').substring(0,40)}...</span><button class="btn-mini" style="background:#fee2e2; color:#ef4444;" data-id="${s.id}">x</button></div>`).join('');
-  el.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', e=>{
-      selectedIds.delete(e.target.dataset.id);
-      updateStats(container); renderList(container); renderV1List(container); renderKeranjang(container);
+  let html = '';
+  selected.forEach((s,i)=>{
+    html += `<div class="keranjang-item"><span>${i+1}. ${(s.pertanyaan||'').substring(0,35)}... [${s.level_kognitif||s.tingkat||''}]</span><button class="btn-mini" style="background:#fee2e2;" data-remove="${s.id}">✕</button></div>`;
+  });
+  el.innerHTML = html;
+  el.querySelectorAll('[data-remove]').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      const id = e.target.dataset.remove;
+      selectedIds.delete(id);
+      updateStats(container);
+      renderList(container);
+      renderV1List(container);
+      renderKeranjang(container);
     });
   });
 }
 
 function attachEvents(container){
   container.querySelectorAll('.tab-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      activeTab = btn.dataset.tab;
-      container.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      container.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-      container.querySelector(`#tab-${activeTab}`).classList.add('active');
+    btn.addEventListener('click', (e)=>{
+      const tab = e.target.dataset.tab;
+      container.querySelectorAll('.tab-btn').forEach(b=> b.classList.remove('active'));
+      e.target.classList.add('active');
+      container.querySelectorAll('.tab-content').forEach(c=> c.classList.remove('active'));
+      container.querySelector(`#tab-${tab}`).classList.add('active');
     });
   });
-  container.querySelector('#v1-filter-mapel')?.addEventListener('change', e=>{ currentFilterV1.mapel=e.target.value; v1Page=1; renderV1List(container); });
-  container.querySelector('#v1-filter-kelas')?.addEventListener('change', e=>{ currentFilterV1.kelas=e.target.value; v1Page=1; renderV1List(container); });
-  container.querySelector('#v1-search')?.addEventListener('input', e=>{ currentFilterV1.search=e.target.value; v1Page=1; renderV1List(container); });
 
-  container.querySelector('#filter-mapel')?.addEventListener('change', e=>{ currentFilterV2.mapel=e.target.value; renderList(container); });
-  container.querySelector('#filter-kelas')?.addEventListener('change', e=>{ currentFilterV2.kelas=e.target.value; renderList(container); });
-  container.querySelector('#filter-level')?.addEventListener('change', e=>{ currentFilterV2.level=e.target.value; renderList(container); });
+  container.querySelector('#v1-btnFilter').addEventListener('click', ()=> applyV1Filter(container));
+  container.querySelector('#v1-search').addEventListener('keypress', (e)=>{ if(e.key==='Enter') applyV1Filter(container); });
+  container.querySelector('#v1-btnReset').addEventListener('click', ()=>{
+    container.querySelector('#v1-search').value='';
+    container.querySelector('#v1-mapel').value='';
+    container.querySelector('#v1-kelas').value='';
+    v1Filtered = [...allSoal];
+    v1Page = 1;
+    renderV1List(container);
+  });
 
-  container.querySelector('#btnPilihSemua')?.addEventListener('click', ()=>{
+  container.querySelector('#btnFilter').addEventListener('click', ()=> applyFilters(container));
+  container.querySelector('#f-search').addEventListener('keypress', (e)=>{ if(e.key==='Enter') applyFilters(container); });
+  container.querySelector('#btnResetFilter').addEventListener('click', ()=>{
+    container.querySelector('#f-mapel').value='';
+    container.querySelector('#f-kelas').value='';
+    container.querySelector('#f-bentuk').value='';
+    container.querySelector('#f-level').value='';
+    container.querySelector('#f-topik').value='';
+    container.querySelector('#f-search').value='';
+    filteredSoal = [...allSoal];
+    updateStats(container);
+    renderList(container);
+  });
+  container.querySelector('#btnSelectAllFiltered').addEventListener('click', ()=>{
     filteredSoal.forEach(s=> selectedIds.add(s.id));
-    v1Filtered.forEach(s=> selectedIds.add(s.id));
-    updateStats(container); renderList(container); renderV1List(container); renderKeranjang(container);
+    updateStats(container);
+    renderList(container);
+    renderKeranjang(container);
+    renderV1List(container);
   });
-  container.querySelector('#btnBersih')?.addEventListener('click', ()=>{
+  container.querySelector('#btnClearSelected').addEventListener('click', ()=>{
     selectedIds.clear();
-    updateStats(container); renderList(container); renderV1List(container); renderKeranjang(container);
+    updateStats(container);
+    renderList(container);
+    renderV1List(container);
+    renderKeranjang(container);
   });
-  container.querySelector('#btnAcak').addEventListener('click', ()=>{
+
+  container.querySelector('#btnAmbilAcak').addEventListener('click', ()=>{
     const jumlah = parseInt(container.querySelector('#input-jumlah-butuh').value);
     if(!jumlah || jumlah<=0){ showToast('Isi jumlah dulu! Misal 25','error'); return; }
     let count = Math.min(jumlah, filteredSoal.length);
@@ -446,11 +600,7 @@ function attachEvents(container){
     if(!selectedIds.size){ showToast('Tidak ada yang dipilih','error'); return; }
     if(!confirm(`Hapus ${selectedIds.size} soal permanen?`)) return;
     try{
-      for(const id of selectedIds){ 
-        // coba hapus di kedua koleksi untuk jaga-jaga
-        try{ await deleteDoc(doc(db,'bankSoal', id)); }catch(e){}
-        try{ await deleteDoc(doc(db,'bank_soal', id)); }catch(e){}
-      }
+      for(const id of selectedIds){ await deleteDoc(doc(db,'bankSoal', id)); }
       allSoal = allSoal.filter(s=> !selectedIds.has(s.id));
       filteredSoal = filteredSoal.filter(s=> !selectedIds.has(s.id));
       v1Filtered = v1Filtered.filter(s=> !selectedIds.has(s.id));
