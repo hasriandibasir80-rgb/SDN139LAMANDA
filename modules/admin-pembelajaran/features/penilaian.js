@@ -1,21 +1,27 @@
 // modules/admin-pembelajaran/features/penilaian.js
 // =========================================
 // FITUR: PENILAIAN KURIKULUM MERDEKA + PEMBELAJARAN MENDALAM
-// REVISI: Sinkron Data Peserta Didik (Firebase) + Data Mapel (js/config/data-mapel.js) + Master TP
-// Pola adopsi dari kktp.js (hasriandibasir80-rgb)
+// REVISI:
+// 1. Tombol "Tarik Data Peserta Didik" dari Realtime Database (RTDB)
+// 2. Tombol Simpan -> localStorage + Firestore (upsert per siswa)
+// 3. Export Word lebih lengkap + filter kelas/mapel + landscape
 // =========================================
 
 import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, doc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const database = getDatabase();
+const firestore = getFirestore();
+const FS_COLLECTION = 'sdn139_penilaian_final';
 
 const CSS_PATH = '../../../css/modules/analisis-kktp.css';
 const CSS_ID = 'penilaian-kurmer-css';
 
-let dataSiswa = []; // dari Firebase
+let dataSiswa = [];
 let dataPenilaian = JSON.parse(localStorage.getItem('sdn139_penilaian_final') || '[]');
+let editMode = true;
 
-// Fallback Mapel - sama seperti kktp.js + dari screenshot data-mapel.js
+// Fallback Mapel
 const FALLBACK_MAPEL = [
   { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
   { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
@@ -34,7 +40,7 @@ export async function init(container, db) {
   loadCSS();
   renderUI(container);
   attachEvents();
-  await loadMataPelajaran(); // dari assets/data-mapel.json + js/config/data-mapel.js
+  await loadMataPelajaran();
 }
 
 export function cleanup() {
@@ -44,10 +50,12 @@ export function cleanup() {
 
 function loadCSS() {
   if (document.getElementById(CSS_ID)) return;
+
   const link = document.createElement('link');
   link.rel = 'stylesheet';
   link.href = CSS_PATH;
   link.id = CSS_ID;
+
   link.onerror = () => {
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
@@ -65,6 +73,7 @@ function loadCSS() {
     `;
     document.head.appendChild(style);
   };
+
   document.head.appendChild(link);
 }
 
@@ -72,7 +81,6 @@ async function loadMataPelajaran() {
   const selectMapel = document.getElementById('inpMapelPenilaian');
   if (!selectMapel) return;
 
-  // Coba 3 sumber: assets/data-mapel.json , js/config/data-mapel.js (ESM), fallback
   try {
     const res = await fetch('../../../assets/data-mapel.json');
     if (res.ok) {
@@ -85,7 +93,6 @@ async function loadMataPelajaran() {
   } catch (e) {}
 
   try {
-    // Coba import data-mapel.js config
     const mod = await import('../../../js/config/data-mapel.js');
     const list = mod.default || mod.DATA_MAPEL || mod.mataPelajaran || [];
     if (list.length) {
@@ -102,6 +109,7 @@ async function loadMataPelajaran() {
 function populateMapel(list) {
   const selectMapel = document.getElementById('inpMapelPenilaian');
   if (!selectMapel) return;
+
   selectMapel.innerHTML = '<option value="">-- Pilih Mapel --</option>';
   list.forEach(mapel => {
     const opt = document.createElement('option');
@@ -112,7 +120,7 @@ function populateMapel(list) {
 }
 
 function getMasterTP() {
-  const keys = ['data-tp','master-tp','sdn139_data_tp','cp-tp-atp','rpm-spesifik-data-tp'];
+  const keys = ['data-tp', 'master-tp', 'sdn139_data_tp', 'cp-tp-atp', 'rpm-spesifik-data-tp'];
   for (let k of keys) {
     try {
       const raw = localStorage.getItem(k);
@@ -128,7 +136,6 @@ function getMasterTP() {
 function renderUI(container) {
   container.innerHTML = `
     <div class="kktp-container">
-      <!-- TOMBOL KEMBALI KE MENU (ATAS) -->
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px;">
         <button onclick="window.location.href='adm-pembelajaran.html'" style="background:#0f172a;color:white;padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;">← Kembali ke Menu</button>
         <div style="font-size:12px; background:#eff6ff; border:1px solid #bfdbfe; padding:8px 12px; border-radius:20px;">🧠 KurMer + Pembelajaran Mendalam (Sadar, Makna, Gembira)</div>
@@ -136,13 +143,13 @@ function renderUI(container) {
 
       <div style="background:linear-gradient(135deg,#2563eb,#1e40af);color:white;padding:20px 24px;border-radius:14px;margin-bottom:20px;">
         <h2 style="margin:0;">📎 Penilaian Kurikulum Merdeka</h2>
-        <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">Tarik Data Siswa dari Global Monitoring (Firebase) + Mapel dari data-mapel.js + TP dari Master TP • Nilai bisa diklik untuk edit</p>
+        <p style="margin:6px 0 0; opacity:0.9; font-size:13px;">Tarik Data Siswa dari Data Peserta Didik (RTDB) + Mapel dari data-mapel.js + TP dari Master TP • Nilai bisa diklik untuk edit</p>
       </div>
 
       <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:20px;">
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;">
           <div>
-            <label style="font-size:12px;font-weight:700;">🎓 Kelas / Fase (dari KKTP)</label>
+            <label style="font-size:12px;font-weight:700;">🎓 Kelas / Fase</label>
             <select id="inpKelasPenilaian" class="form-control">
               <option value="">-- Pilih Kelas --</option>
               <option value="1">1 / Fase A</option>
@@ -153,12 +160,14 @@ function renderUI(container) {
               <option value="6">6 / Fase C</option>
             </select>
           </div>
+
           <div>
-            <label style="font-size:12px;font-weight:700;">📚 Mata Pelajaran (dari data-mapel.js)</label>
+            <label style="font-size:12px;font-weight:700;">📚 Mata Pelajaran</label>
             <select id="inpMapelPenilaian" class="form-control">
               <option value="">-- Pilih Mapel --</option>
             </select>
           </div>
+
           <div>
             <label style="font-size:12px;font-weight:700;">📝 Jenis Penilaian</label>
             <select id="inpJenisPenilaian" class="form-control">
@@ -180,6 +189,7 @@ function renderUI(container) {
             </select>
             <input id="inpTPManual" placeholder="Atau ketik TP manual jika belum ada" class="form-control" style="margin-top:8px;display:none;">
           </div>
+
           <div>
             <label style="font-size:12px;font-weight:700;">KKTP</label>
             <input id="inpKKTP" type="number" value="70" class="form-control">
@@ -192,12 +202,16 @@ function renderUI(container) {
         </div>
 
         <div style="margin-top:15px;background:#fffbeb;border-left:4px solid #f59e0b;padding:10px;border-radius:6px;font-size:12px;display:none;" id="infoSiswaBox">
-          ✅ Data siswa dimuat dari Firebase: <span id="infoSiswaCount">0</span> siswa. Klik angka nilai untuk edit langsung jika salah input.
+          ✅ Data siswa dimuat dari RTDB: <span id="infoSiswaCount">0</span> siswa. Klik angka nilai untuk edit langsung jika salah input.
         </div>
       </div>
 
       <div style="background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-        <h4 style="margin:0 0 12px;">👥 Daftar Nilai Peserta Didik (Tarik dari Data Peserta Didik)</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">
+          <h4 style="margin:0;">👥 Daftar Nilai Peserta Didik</h4>
+          <button id="btnTarikSiswa" class="btn-action" style="background:#0ea5e9;color:white;">🔄 Tarik Data Peserta Didik</button>
+        </div>
+
         <div style="overflow:auto;">
           <table class="siswa-table" id="tabelPenilaian">
             <thead>
@@ -215,7 +229,6 @@ function renderUI(container) {
           </table>
         </div>
 
-        <!-- TOMBOL BAWAH: UNDUH, SIMPAN, EDIT -->
         <div style="display:flex;gap:10px;justify-content:center;margin-top:20px;flex-wrap:wrap;">
           <button class="btn-action" id="btnSimpanPenilaian" style="background:#3b82f6;color:white;">💾 Simpan Penilaian</button>
           <button class="btn-action" id="btnEditMode" style="background:#f59e0b;color:white;">✏️ Mode Edit: ON</button>
@@ -228,24 +241,32 @@ function renderUI(container) {
 }
 
 function attachEvents() {
-  document.getElementById('inpKelasPenilaian').addEventListener('change', function() {
+  document.getElementById('inpKelasPenilaian').addEventListener('change', function () {
     const kelas = this.value;
     if (kelas) loadSiswaPenilaian(kelas);
   });
 
-  document.getElementById('inpMapelPenilaian').addEventListener('change', function() {
+  document.getElementById('btnTarikSiswa').addEventListener('click', tarikDataPesertaDidik);
+
+  document.getElementById('inpMapelPenilaian').addEventListener('change', function () {
     const mapel = this.value;
     const tpSelect = document.getElementById('inpTP');
     const master = getMasterTP();
-    const filtered = master.filter(t => !mapel || (t.mapel && t.mapel.toLowerCase().includes(mapel.toLowerCase())) || (t.mata_pelajaran && t.mata_pelajaran.toLowerCase().includes(mapel.toLowerCase())));
-    
+
+    const filtered = master.filter(t =>
+      !mapel ||
+      (t.mapel && t.mapel.toLowerCase().includes(mapel.toLowerCase())) ||
+      (t.mata_pelajaran && t.mata_pelajaran.toLowerCase().includes(mapel.toLowerCase()))
+    );
+
     tpSelect.innerHTML = '<option value="">-- Pilih TP --</option>';
+
     if (filtered.length) {
       filtered.forEach(t => {
         const opt = document.createElement('option');
         const tpText = t.tp || t.tujuan || t.deskripsi || '';
         opt.value = tpText;
-        opt.textContent = tpText.substring(0,80) + '...';
+        opt.textContent = tpText.substring(0, 80) + '...';
         tpSelect.appendChild(opt);
       });
     } else {
@@ -253,7 +274,7 @@ function attachEvents() {
     }
   });
 
-  document.getElementById('inpTP').addEventListener('change', function() {
+  document.getElementById('inpTP').addEventListener('change', function () {
     const manual = document.getElementById('inpTPManual');
     if (this.value === '__manual__' || this.value === '') manual.style.display = 'block';
     else manual.style.display = 'none';
@@ -265,74 +286,115 @@ function attachEvents() {
   document.getElementById('btnEditMode').addEventListener('click', toggleEditMode);
 }
 
-let editMode = true;
-
 function toggleEditMode() {
   editMode = !editMode;
   document.getElementById('btnEditMode').textContent = editMode ? '✏️ Mode Edit: ON' : '🔒 Mode Edit: OFF';
   document.getElementById('btnEditMode').style.background = editMode ? '#f59e0b' : '#6b7280';
+
   document.querySelectorAll('.nilai-cell').forEach(c => {
     c.style.pointerEvents = editMode ? 'auto' : 'none';
     c.style.opacity = editMode ? '1' : '0.6';
   });
 }
 
+// =========================
+// REVISI 1: TARIK DATA PESERTA DIDIK DARI RTDB
+// =========================
+async function tarikDataPesertaDidik() {
+  const kelas = document.getElementById('inpKelasPenilaian').value;
+  if (!kelas) return alert('Pilih Kelas terlebih dahulu!');
+  await loadSiswaPenilaian(kelas);
+}
+
+async function fetchSiswaFromRTDB(kelas) {
+  const paths = [
+    `siswa/${kelas}`,
+    `data-peserta-didik/${kelas}`,
+    `peserta-didik/${kelas}`,
+    `data_siswa/${kelas}`
+  ];
+
+  for (const p of paths) {
+    try {
+      const snap = await get(ref(database, p));
+      if (snap.exists()) return normalizeSiswa(snap.val());
+    } catch (e) {
+      // coba path berikutnya
+    }
+  }
+  return null;
+}
+
+function normalizeSiswa(raw) {
+  return Object.keys(raw)
+    .map(k => {
+      const v = raw[k];
+      if (v && typeof v === 'object') return { id: k, ...v };
+      return { id: k, nama: String(v) };
+    })
+    .sort((a, b) => (a.nama || '').localeCompare(b.nama || ''));
+}
+
 async function loadSiswaPenilaian(kelas) {
   const tbody = document.getElementById('tbodyPenilaian');
-  tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;">⏳ Memuat data siswa kelas ' + kelas + ' dari Firebase...</td></tr>';
+  tbody.innerHTML = `<tr><td colspan="5" style="padding:20px;">⏳ Menarik data peserta didik kelas ${kelas} dari Realtime Database...</td></tr>`;
 
   try {
-    const snapshot = await get(ref(database, `siswa/${kelas}`));
-    if (!snapshot.exists()) {
-      tbody.innerHTML = '<tr><td colspan="5" style="padding:20px;color:#ef4444;">⚠️ Belum ada data siswa untuk kelas ' + kelas + ' di Firebase. Isi dulu di Global Monitoring > Data Peserta Didik.</td></tr>';
+    const list = await fetchSiswaFromRTDB(kelas);
+
+    if (!list || !list.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="padding:20px;color:#ef4444;">⚠️ Belum ada data peserta didik untuk kelas ${kelas} di Realtime Database. Isi dulu di Global Monitoring → Data Peserta Didik.</td></tr>`;
       return;
     }
 
-    const raw = snapshot.val();
-    const list = Object.keys(raw).map(k => ({ id: k, ...raw[k] })).sort((a,b) => (a.nama||'').localeCompare(b.nama||''));
     dataSiswa = list;
-
     document.getElementById('infoSiswaBox').style.display = 'block';
     document.getElementById('infoSiswaCount').textContent = list.length;
 
     tbody.innerHTML = '';
+
     list.forEach((siswa, idx) => {
       const nama = (siswa.nama || 'Tanpa Nama').toUpperCase();
       const tr = document.createElement('tr');
+
       tr.dataset.nisn = siswa.nis || siswa.nisn || siswa.id;
       tr.dataset.nama = nama;
       tr.dataset.kelas = kelas;
 
-      // Cek apakah sudah ada penilaian sebelumnya
       const existing = dataPenilaian.find(d => d.nisn == (siswa.nis || siswa.nisn) && d.kelas == kelas);
       const nilaiAwal = existing ? existing.nilai : '';
 
       tr.innerHTML = `
-        <td>${idx+1}</td>
+        <td>${idx + 1}</td>
         <td class="nama-cell">${nama}</td>
-        <td>${kelas} / Fase ${kelas<=2?'A':kelas<=4?'B':'C'}</td>
-        <td class="nilai-cell" data-nilai="${nilaiAwal}" onclick="editNilai(this)">${nilaiAwal !== '' ? nilaiAwal : '<span style=color:#94a3b8;>Klik isi</span>'}</td>
+        <td>${kelas} / Fase ${kelas <= 2 ? 'A' : kelas <= 4 ? 'B' : 'C'}</td>
+        <td class="nilai-cell" data-nilai="${nilaiAwal}" onclick="editNilai(this)">${nilaiAwal !== '' ? nilaiAwal : '<span style="color:#94a3b8;">Klik isi</span>'}</td>
         <td class="predikat-cell" style="font-size:12px;">${existing ? getPredikatLabel(existing.nilai, existing.kktp) : '-'}</td>
       `;
+
       tbody.appendChild(tr);
     });
-
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = '<tr><td colspan="5" style="color:#ef4444;">Gagal memuat: ' + err.message + '</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" style="color:#ef4444;">Gagal memuat: ${err.message}</td></tr>`;
   }
 }
 
-function getPredikatLabel(nilai, kktp=70) {
-  if (nilai >= 90) return '<span style="background:#dcfce7;color:#166534;padding:4px 8px;border-radius:12px;font-size:11px;">BSB - Sangat Baik</span> <span style="font-size:11px;">Tutor sebaya</span>';
-  if (nilai >= 80) return '<span style="background:#dbeafe;color:#1e40af;padding:4px 8px;border-radius:12px;font-size:11px;">BSH - Sesuai Harapan</span> <span style="font-size:11px;">Pengayaan joyful</span>';
-  if (nilai >= kktp) return '<span style="background:#fef9c3;color:#854d0e;padding:4px 8px;border-radius:12px;font-size:11px;">MB - Mulai Berkembang</span> <span style="font-size:11px;">Penguatan bermakna</span>';
-  return '<span style="background:#fee2e2;color:#991b1b;padding:4px 8px;border-radius:12px;font-size:11px;">BB - Belum Berkembang</span> <span style="font-size:11px;">Remedial mindful</span>';
+function getPredikatInfo(nilai, kktp = 70) {
+  if (nilai >= 90) return { kode: 'BSB', ket: 'Sangat Baik', tindak: 'Tutor sebaya', badge: '#dcfce7', color: '#166534' };
+  if (nilai >= 80) return { kode: 'BSH', ket: 'Sesuai Harapan', tindak: 'Pengayaan joyful', badge: '#dbeafe', color: '#1e40af' };
+  if (nilai >= kktp) return { kode: 'MB', ket: 'Mulai Berkembang', tindak: 'Penguatan bermakna', badge: '#fef9c3', color: '#854d0e' };
+  return { kode: 'BB', ket: 'Belum Berkembang', tindak: 'Remedial mindful', badge: '#fee2e2', color: '#991b1b' };
 }
 
-window.editNilai = function(td) {
+function getPredikatLabel(nilai, kktp = 70) {
+  const p = getPredikatInfo(nilai, kktp);
+  return `<span style="background:${p.badge};color:${p.color};padding:4px 8px;border-radius:12px;font-size:11px;">${p.kode} - ${p.ket}</span> <span style="font-size:11px;">${p.tindak}</span>`;
+}
+
+window.editNilai = function (td) {
   if (!editMode) return;
-  if (td.querySelector('input')) return; // sudah edit
+  if (td.querySelector('input')) return;
 
   const current = td.dataset.nilai || '';
   td.classList.add('editing');
@@ -343,108 +405,279 @@ window.editNilai = function(td) {
   input.select();
 };
 
-window.selesaiEdit = function(input) {
+window.selesaiEdit = function (input) {
   const td = input.parentElement;
   let val = parseInt(input.value);
+
   if (isNaN(val) || input.value === '') {
     td.dataset.nilai = '';
-    td.innerHTML = '<span style=color:#94a3b8;>Klik isi</span>';
+    td.innerHTML = '<span style="color:#94a3b8;">Klik isi</span>';
     td.nextElementSibling.innerHTML = '-';
   } else {
-    if (val < 0) val = 0; if (val > 100) val = 100;
+    if (val < 0) val = 0;
+    if (val > 100) val = 100;
+
     td.dataset.nilai = val;
     td.innerHTML = val;
+
     const kktp = parseInt(document.getElementById('inpKKTP').value) || 70;
     td.nextElementSibling.innerHTML = getPredikatLabel(val, kktp);
   }
+
   td.classList.remove('editing');
 };
 
-function simpanPenilaian() {
+// =========================
+// REVISI 2: SIMPAN KE FIRESTORE
+// =========================
+async function simpanPenilaian() {
   const kelas = document.getElementById('inpKelasPenilaian').value;
   let mapel = document.getElementById('inpMapelPenilaian').value;
   let tp = document.getElementById('inpTP').value;
   const tpManual = document.getElementById('inpTPManual').value.trim();
+
   if (tp === '__manual__' || !tp) tp = tpManual;
+
   const kktp = parseInt(document.getElementById('inpKKTP').value) || 70;
   const jenis = document.getElementById('inpJenisPenilaian').value;
+
+  const prinsip = {
+    sadar: document.getElementById('pmSadar').checked,
+    makna: document.getElementById('pmMakna').checked,
+    gembira: document.getElementById('pmGembira').checked
+  };
 
   if (!kelas || !mapel) return alert('Pilih Kelas (1/Fase A - 6/Fase C) dan Mapel dari data-mapel.js dulu!');
   if (!tp) return alert('Pilih TP dari Master TP atau ketik manual!');
 
   const rows = document.querySelectorAll('#tbodyPenilaian tr');
   let count = 0;
+
+  const batch = writeBatch(firestore);
+
   rows.forEach(row => {
     const nisn = row.dataset.nisn;
     const nama = row.dataset.nama;
     const nilaiCell = row.querySelector('.nilai-cell');
     const nilai = parseInt(nilaiCell?.dataset.nilai);
+
     if (isNaN(nilai)) return;
 
-    // hapus data lama untuk nisn + mapel + tp yang sama
-    dataPenilaian = dataPenilaian.filter(d => !(d.nisn == nisn && d.mapel == mapel && d.tp == tp));
-
-    dataPenilaian.push({
+    const record = {
       id: Date.now() + Math.random(),
-      tgl: new Date().toISOString().slice(0,10),
-      nisn, nama, kelas,
-      mapel, tp, kktp, jenis,
+      tgl: new Date().toISOString().slice(0, 10),
+      nisn,
+      nama,
+      kelas,
+      mapel,
+      tp,
+      kktp,
+      jenis,
       nilai,
-      prinsip: {
-        sadar: document.getElementById('pmSadar').checked,
-        makna: document.getElementById('pmMakna').checked,
-        gembira: document.getElementById('pmGembira').checked
-      }
-    });
+      prinsip
+    };
+
+    // hapus data lama untuk nisn + mapel + tp + jenis yang sama
+    dataPenilaian = dataPenilaian.filter(d =>
+      !(d.nisn == nisn && d.mapel == mapel && d.tp == tp && d.jenis == jenis)
+    );
+
+    dataPenilaian.push(record);
     count++;
+
+    // upsert ke Firestore
+    const docId = docIdFor(record);
+    batch.set(doc(firestore, FS_COLLECTION, docId), record);
   });
 
   if (count === 0) return alert('Belum ada nilai yang diisi! Klik kolom nilai untuk edit.');
 
   localStorage.setItem('sdn139_penilaian_final', JSON.stringify(dataPenilaian));
 
-  // Simpan juga ke Firebase untuk backup (opsional)
+  const btn = document.getElementById('btnSimpanPenilaian');
+  btn.disabled = true;
+  btn.textContent = '⏳ Menyimpan...';
+
+  let fsStatus = '✅ Firestore: OK';
+
   try {
-    set(ref(database, `penilaian/${kelas}/${mapel.replace(/\s+/g,'_')}_${Date.now()}`), {
-      mapel, tp, kelas, kktp, jenis,
+    await batch.commit();
+  } catch (e) {
+    console.error('Firestore commit gagal:', e);
+    fsStatus = '⚠️ Firestore gagal: ' + e.message;
+  }
+
+  // Backup ke Realtime Database (opsional, tetap ada)
+  try {
+    await set(ref(database, `penilaian/${kelas}/${mapel.replace(/\s+/g, '_')}_${Date.now()}`), {
+      mapel,
+      tp,
+      kelas,
+      kktp,
+      jenis,
       jumlah: count,
       tanggal: new Date().toISOString(),
       data: dataPenilaian.filter(d => d.kelas == kelas && d.mapel == mapel).slice(-count)
     });
-  } catch (e) { console.log('Firebase save skip', e); }
+  } catch (e) {
+    console.log('RTDB backup skip', e);
+  }
 
-  alert(`✅ ${count} data penilaian berhasil disimpan! (Sinkron dengan KKTP)`);
+  btn.disabled = false;
+  btn.textContent = '💾 Simpan Penilaian';
+
+  alert(`✅ ${count} data penilaian berhasil disimpan!\n${fsStatus}\n(Sinkron dengan KKTP)`);
+}
+
+function slugify(s, max = 30) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, max) || 'x';
+}
+
+function simpleHash(s) {
+  let h = 0;
+  const str = String(s);
+  for (let i = 0; i < str.length; i++) {
+    h = (h * 31 + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
+function docIdFor(d) {
+  const nisn = String(d.nisn || '').replace(/[^a-zA-Z0-9]/g, '') || 'nonis';
+  return `${d.kelas}_${nisn}_${slugify(d.mapel, 20)}_${simpleHash(d.tp + '|' + d.jenis)}`;
 }
 
 function unduhCSV() {
   if (!dataPenilaian.length) return alert('Belum ada data penilaian!');
-  const header = ['Tanggal','NISN','Nama','Kelas','Fase','Mapel','TP','Jenis','KKTP','Nilai','Predikat','Prinsip PM'];
+
+  const header = ['Tanggal', 'NISN', 'Nama', 'Kelas', 'Fase', 'Mapel', 'TP', 'Jenis', 'KKTP', 'Nilai', 'Predikat', 'Tindak Lanjut', 'Prinsip PM'];
+
   const rows = dataPenilaian.map(d => {
-    const fase = d.kelas<=2?'Fase A':d.kelas<=4?'Fase B':'Fase C';
-    const pred = d.nilai>=90?'BSB':d.nilai>=80?'BSH':d.nilai>=d.kktp?'MB':'BB';
-    const prinsip = `${d.prinsip?.sadar?'Sadar ':''}${d.prinsip?.makna?'Makna ':''}${d.prinsip?.gembira?'Gembira':''}`.trim();
-    return [d.tgl,d.nisn,`"${d.nama}"`,`${d.kelas} / ${fase}`,fase,`"${d.mapel}"`,`"${d.tp.replace(/"/g,'""')}"`,d.jenis,d.kktp,d.nilai,pred,`"${prinsip}"`].join(',');
+    const fase = d.kelas <= 2 ? 'Fase A' : d.kelas <= 4 ? 'Fase B' : 'Fase C';
+    const p = getPredikatInfo(d.nilai, d.kktp);
+
+    const prinsip = `${d.prinsip?.sadar ? 'Sadar ' : ''}${d.prinsip?.makna ? 'Makna ' : ''}${d.prinsip?.gembira ? 'Gembira' : ''}`.trim();
+
+    return [
+      d.tgl,
+      d.nisn,
+      `"${d.nama}"`,
+      `${d.kelas} / ${fase}`,
+      fase,
+      `"${d.mapel}"`,
+      `"${String(d.tp || '').replace(/"/g, '""')}"`,
+      d.jenis,
+      d.kktp,
+      d.nilai,
+      p.kode,
+      p.tindak,
+      `"${prinsip}"`
+    ].join(',');
   });
+
   const csv = [header.join(','), ...rows].join('\n');
-  const blob = new Blob([csv], {type:'text/csv'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Penilaian_KurMer_Fase_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Penilaian_KurMer_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
 }
 
+// =========================
+// REVISI 3: EXPORT WORD
+// =========================
 function exportWord() {
-  if (!dataPenilaian.length) return alert('Belum ada data!');
-  const kelas = document.getElementById('inpKelasPenilaian').value || 'Semua';
-  const mapel = document.getElementById('inpMapelPenilaian').value || 'Semua Mapel';
-  
-  let table = '<table border="1" cellpadding="8" style="border-collapse:collapse;width:100%;font-family:Times;"><tr><th>No</th><th>NISN</th><th>Nama</th><th>Kelas</th><th>Nilai</th><th>Predikat</th><th>TP</th></tr>';
-  dataPenilaian.filter(d => kelas=='Semua' || d.kelas==kelas).forEach((d,i)=>{
-    const pred = d.nilai>=90?'BSB':d.nilai>=80?'BSH':d.nilai>=d.kktp?'MB':'BB';
-    table+=`<tr><td>${i+1}</td><td>${d.nisn}</td><td>${d.nama}</td><td>${d.kelas} / ${d.kelas<=2?'A':d.kelas<=4?'B':'C'}</td><td>${d.nilai}</td><td>${pred}</td><td>${d.tp}</td></tr>`;
-  });
-  table+='</table>';
+  if (!dataPenilaian.length) return alert('Belum ada data penilaian!');
 
-  const html = `<html><head><meta charset="utf-8"></head><body><h2 style="text-align:center;">REKAP PENILAIAN KURIKULUM MERDEKA</h2><p>Kelas: ${kelas} | Mapel: ${mapel}</p>${table}</body></html>`;
-  const blob = new Blob(['\ufeff', html], {type:'application/msword'});
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Penilaian_${mapel}_${kelas}.doc`; a.click();
+  const kelas = document.getElementById('inpKelasPenilaian').value;
+  const mapel = document.getElementById('inpMapelPenilaian').value;
+  const jenis = document.getElementById('inpJenisPenilaian').value;
+
+  const filtered = dataPenilaian.filter(d =>
+    (!kelas || d.kelas == kelas) &&
+    (!mapel || d.mapel == mapel)
+  );
+
+  if (!filtered.length) return alert('Tidak ada data untuk kelas/mapel yang dipilih!');
+
+  const faseLabel = kelas ? `Fase ${kelas <= 2 ? 'A' : kelas <= 4 ? 'B' : 'C'}` : '-';
+  const jenisLabel = document.querySelector(`#inpJenisPenilaian option[value="${jenis}"]`)?.textContent || jenis;
+  const tglCetak = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  let table = `
+    <table border="1" cellpadding="6" style="border-collapse:collapse;width:100%;font-family:'Times New Roman',serif;font-size:11pt;">
+      <tr style="background:#e2e8f0;">
+        <th>No</th>
+        <th>NISN</th>
+        <th>Nama Peserta Didik</th>
+        <th>Kelas</th>
+        <th>Nilai</th>
+        <th>Predikat</th>
+        <th>Tindak Lanjut</th>
+        <th>TP</th>
+      </tr>`;
+
+  filtered.forEach((d, i) => {
+    const p = getPredikatInfo(d.nilai, d.kktp);
+
+    table += `
+      <tr>
+        <td style="text-align:center;">${i + 1}</td>
+        <td style="text-align:center;">${d.nisn}</td>
+        <td>${d.nama}</td>
+        <td style="text-align:center;">${d.kelas} / Fase ${d.kelas <= 2 ? 'A' : d.kelas <= 4 ? 'B' : 'C'}</td>
+        <td style="text-align:center;">${d.nilai}</td>
+        <td style="text-align:center;">${p.kode} - ${p.ket}</td>
+        <td>${p.tindak}</td>
+        <td>${d.tp}</td>
+      </tr>`;
+  });
+
+  table += `</table>`;
+
+  const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="utf-8">
+      <title>Rekap Penilaian Kurikulum Merdeka</title>
+      <style>
+        @page { size: A4 landscape; margin: 1.5cm; }
+        body { font-family: 'Times New Roman', serif; }
+        h2 { text-align: center; margin-bottom: 4px; }
+        .sub { text-align: center; margin-top: 0; font-size: 12pt; }
+        .meta { margin: 12px 0; font-size: 12pt; }
+        table { margin-top: 10px; }
+        .ttd { margin-top: 40px; text-align: right; font-size: 12pt; }
+      </style>
+    </head>
+    <body>
+      <h2>REKAP PENILAIAN KURIKULUM MERDEKA</h2>
+      <p class="sub">SDN 139 PADANG • PEMBELAJARAN MENDALAM (SADAR • MAKNA • GEMBIRA)</p>
+
+      <div class="meta">
+        <p>Kelas: <b>${kelas || 'Semua'}</b> (${faseLabel}) &nbsp;&nbsp; Mapel: <b>${mapel || 'Semua'}</b></p>
+        <p>Jenis Penilaian: <b>${jenisLabel}</b> &nbsp;&nbsp; Tanggal Cetak: <b>${tglCetak}</b></p>
+      </div>
+
+      ${table}
+
+      <div class="ttd">
+        <p>Guru Kelas,</p>
+        <br><br><br>
+        <p><b>(_______________________)</b></p>
+      </div>
+    </body>
+    </html>`;
+
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Penilaian_${mapel || 'Semua'}_Kelas${kelas || 'Semua'}_${new Date().toISOString().slice(0, 10)}.doc`;
+  a.click();
 }
 
 // Agar kompatibel dengan loader lama yang pakai window.render
