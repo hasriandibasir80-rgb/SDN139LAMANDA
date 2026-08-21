@@ -26,7 +26,7 @@ const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
 // Konfigurasi Groq API
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-20b';
 let groqApiKey = null;
 let lastGeneratedData = null; // ⭐ TAMBAHAN: Menyimpan data hasil generate terakhir untuk sinkronisasi
 let dataMapel = [];
