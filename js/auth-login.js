@@ -1,5 +1,6 @@
+// AUTH V4 FINAL BUILD 2026-08-16 23:00
 /**
- * Auth Login Module - SALAM D MATASKA
+ * Auth Login Module - SDN 139 LAMANDA
  * Fitur: Email/Password Login, Device Session Management (RTDB), Data Check (Firestore), & Auto-Login Sync
  * Compatible: ES6 Module, Firebase v10.12.2
  */
@@ -142,7 +143,7 @@ async function handleLogout() {
   }
 }
 
-// === 3. Auth State Listener (AUTO-LOGIN & STATE SYNC) ===
+// === 3. Auth State Listener (AUTO-LOGIN & STATE SYNC) - FIXED V4 ===
 onAuthStateChanged(auth, async (user) => {
   const logoutBtn = document.getElementById('logoutBtn');
   
@@ -150,25 +151,35 @@ onAuthStateChanged(auth, async (user) => {
     console.log('🔐 Auth state: logged in as', user.email);
     if (logoutBtn) logoutBtn.classList.remove('hidden');
     
-    // ✅ AUTO-LOGIN SYNC: Pastikan hakAkses ada di localStorage saat refresh halaman
-    const existingHakAkses = localStorage.getItem('userHakAkses');
-    if (!existingHakAkses || existingHakAkses === 'null') {
-      console.log('🔄 Menyinkronkan ulang data hak akses dari Firestore...');
-      try {
-        const userData = await getUserData(user.uid);
-        localStorage.setItem('currentUser', JSON.stringify({
-          uid: user.uid, 
-          email: user.email,
-          displayName: user.displayName || user.email.split('@')[0],
-          role: userData.role,
-          hakAkses: userData.hakAkses
-        }));
-        localStorage.setItem('userRole', userData.role);
-        localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses));
-        console.log('✅ Sinkronisasi hak akses berhasil!');
-      } catch (error) {
-        console.warn('⚠️ Gagal sinkronisasi hak akses:', error);
-      }
+    // ✅ FIX UTAMA: SELALU sinkron dari Firestore setiap refresh / login
+    // Bug lama: hanya sync kalau localStorage kosong, jadi kalau hak akses diubah admin, user tidak pernah dapat yang baru
+    console.log('🔄 [FIX V4] Menyinkronkan ulang data hak akses dari Firestore (SELALU)...');
+    try {
+      const userData = await getUserData(user.uid);
+      console.log('✅ Data Firestore terbaru:', userData);
+      
+      // Simpan ke localStorage - TIMPA yang lama
+      const currentUserData = {
+        uid: user.uid, 
+        email: user.email,
+        displayName: user.displayName || user.email.split('@')[0],
+        role: userData.role,
+        hakAkses: userData.hakAkses
+      };
+      
+      localStorage.setItem('currentUser', JSON.stringify(currentUserData));
+      localStorage.setItem('userRole', userData.role);
+      localStorage.setItem('userHakAkses', JSON.stringify(userData.hakAkses));
+      localStorage.setItem('userName', currentUserData.displayName);
+      localStorage.setItem('userId', user.uid);
+      
+      console.log('✅ Sinkronisasi hak akses BERHASIL! Role:', userData.role, 'Jumlah akses:', userData.hakAkses.length, 'Isi:', userData.hakAkses);
+      
+      // Trigger custom event agar dashboard-controller tahu data baru datang
+      window.dispatchEvent(new CustomEvent('hakAksesUpdated', { detail: userData }));
+      
+    } catch (error) {
+      console.warn('⚠️ Gagal sinkronisasi hak akses:', error);
     }
   } else {
     console.log('🔐 Auth state: not logged in');
