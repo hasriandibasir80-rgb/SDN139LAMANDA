@@ -40,7 +40,7 @@
 
   <header class="header">
     <button class="menu-btn" id="menuBtn">☰</button>
-    <div class="logo-text">SDN<span> 139</span></div>
+    <div class="logo-text">SALAM <span> D MATASKA</span></div>
     <div style="width: 50px;"></div>
   </header>
 
@@ -106,7 +106,7 @@
     <a href="#" class="nav-item active"><span class="nav-icon">🏠</span><span class="nav-label">BERANDA</span></a>
     <a href="#" class="nav-item" id="navDaftar"><span class="nav-icon">✍️</span><span class="nav-label">DAFTAR</span></a>
     <a href="#" class="nav-item" id="navEksplor"><span class="nav-icon">🎁</span><span class="nav-label">EKSPLOR</span></a>
-    <a href="#" class="nav-item"><span class="nav-icon">💬</span><span class="nav-label">LIVECHAT</span></a>
+    <a href="#" class="nav-item" id="navLiveChat" onclick="window.liveChatToggle(); return false;"><span class="nav-icon">💬</span><span class="nav-label">LIVECHAT</span></a>
   </nav>
 
   <!-- Modal Eksplor -->
@@ -180,6 +180,14 @@
   <script type="module" src="js/firebase-config.js"></script>
   <script type="module" src="js/auth-login.js"></script>
 
+  <!-- ✅ LIVE CHAT -->
+  <!-- Halaman ini sudah punya trigger sendiri (tab LIVECHAT di bottom nav),
+       jadi floating button bawaan live-chat.js disembunyikan supaya tidak
+       ada 2 tombol chat tumpang tindih. Flag ini HARUS di-set sebelum
+       script live-chat.js dimuat. -->
+  <script>window.LIVECHAT_HIDE_FAB = true;</script>
+  <script type="module" src="js/live-chat/live-chat.js"></script>
+
   <!-- ✅ MODULAR SCRIPTS (DIPERBAIKI) -->
   <script type="module">
     import { LoginController } from './js/controllers/login-controller.js';
@@ -245,6 +253,19 @@
       btnCloseDaftar?.addEventListener('click', closeDaftar);
       btnCancelDaftar?.addEventListener('click', closeDaftar);
       modalDaftar?.addEventListener('click', function(e) { if (e.target === modalDaftar) closeDaftar(); });
+
+      // ✅ LIVE CHAT: sambungkan tab LIVECHAT di bottom nav ke widget chat
+      // yang dibuat oleh js/live-chat/live-chat.js. window.liveChatToggle
+      // sudah menangani sendiri kasus "belum login" (akan munculkan alert).
+      const navLiveChat = document.getElementById('navLiveChat');
+      navLiveChat?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (typeof window.liveChatToggle === 'function') {
+          window.liveChatToggle();
+        } else {
+          alert('Fitur LiveChat sedang memuat, coba lagi sebentar.');
+        }
+      });
 
       document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') { 
