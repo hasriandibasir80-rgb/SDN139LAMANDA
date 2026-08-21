@@ -32,13 +32,15 @@ export const konfigurasiFitur = {
     { nama: 'Simpan File', icon: '💾', link: 'modules/arsip/simpan-file.html' }
   ],
   
-  // ✅ MULTI-PAGE HTML (Langsung ke file .html)
-  'data-statistik': [
-    { nama: 'Demografi Sekolah', icon: '👥', link: 'modules/statistik/demografi.html' },
-    { nama: 'Kehadiran & Absensi', icon: '📈', link: 'modules/statistik/kehadiran.html' },
-    { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/prestasi.html' }
-  ],
-  
+ // ✅ STATISTIK - 6 Kartu (Pola SPA dengan ?fitur= )
+'data-statistik': [
+  { nama: 'Demografi Sekolah', icon: '👥', link: 'modules/statistik/index.html?fitur=demografi' },
+  { nama: 'Statistik Peserta Didik', icon: '🎓', link: 'modules/statistik/index.html?fitur=peserta-didik' },
+  { nama: 'Statistik GTK', icon: '👨‍🏫', link: 'modules/statistik/index.html?fitur=gtk' },
+  { nama: 'Analisis Kehadiran', icon: '📊', link: 'modules/statistik/index.html?fitur=analisis-kehadiran' },
+  { nama: 'Prestasi & Akademik', icon: '🏆', link: 'modules/statistik/index.html?fitur=prestasi' },
+  { nama: 'Rapor Pendidikan', icon: '📑', link: 'modules/statistik/index.html?fitur=rapor-pendidikan' },
+],
   // ✅ SPA (Single Page Application) dengan parameter ?fitur=
   'admin-pembelajaran': [
     { nama: 'CP, TP, & ATP', icon: '🎯', link: 'modules/admin-pembelajaran/adm-pembelajaran.html?fitur=cp-tp-atp' },
