@@ -10,7 +10,6 @@ const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const GROQ_MODEL = 'openai/gpt-oss-20b';
 
-
 let groqApiKey = null;
 const CSS_ID = 'rpm-spesifik-css';
 let currentEditId = null;
@@ -1326,43 +1325,97 @@ async function loadMasterCP(container) {
   btn.textContent = '⏳ Memuat...';
 
   try {
-    const q = query(
-      collection(db, 'data_cp'),
-      where('userId', '==', currentUser.uid)
-    );
-
-    const snapshot = await getDocs(q);
-
-    console.log('🔍 Load CP - Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snapshot.size);
-
     const items = [];
 
-    if (!snapshot.empty) {
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-
-        const matchMapel = isMapelMatch(data.mapel, mapelInput);
-        const matchFase = data.fase === fase || !fase || !data.fase;
-
-        if (matchMapel && matchFase) {
-          if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
-            data.elemen_cp.forEach((elemen) => {
-              const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
-
-              if (items.some(i => i.value === cpText)) return;
-
-              items.push({
-                value: cpText,
-                label: `${elemen.elemen} — ${elemen.deskripsi}`,
-                docId: docSnap.id
+    // 1. Coba dari data_cp dulu (ori)
+    try {
+      const q1 = query(
+        collection(db, 'data_cp'),
+        where('userId', '==', currentUser.uid)
+      );
+      const snap1 = await getDocs(q1);
+      console.log('🔍 Load CP - data_cp Mapel:', mapelInput, 'Fase:', fase, 'Total docs:', snap1.size);
+      if (!snap1.empty) {
+        snap1.forEach(docSnap => {
+          const data = docSnap.data();
+          const matchMapel = isMapelMatch(data.mapel, mapelInput);
+          const matchFase = data.fase === fase || !fase || !data.fase;
+          if (matchMapel && matchFase) {
+            if (data.elemen_cp && Array.isArray(data.elemen_cp)) {
+              data.elemen_cp.forEach((elemen) => {
+                const cpText = `${elemen.elemen}: ${elemen.deskripsi}`;
+                if (items.some(i => i.value === cpText)) return;
+                items.push({ value: cpText, label: `${elemen.elemen} — ${elemen.deskripsi}`, docId: docSnap.id });
               });
+            }
+            // fallback field cp langsung
+            if (data.cp && typeof data.cp === 'string' && data.cp.trim()){
+              if (!items.some(i=>i.value===data.cp)) items.push({ value: data.cp, label: data.cp, docId: docSnap.id });
+            }
+          }
+        });
+      }
+    } catch(e){ console.log('data_cp skip', e.message); }
+
+    // 2. FALLBACK - Karena user bilang CP & TP ada di data_tp, ambil juga dari data_tp
+    if (items.length === 0){
+      console.log('🔍 CP kosong di data_cp, fallback ke data_tp...');
+      const q2 = query(
+        collection(db, 'data_tp'),
+        where('userId', '==', currentUser.uid)
+      );
+      const snap2 = await getDocs(q2);
+      console.log('🔍 Load CP dari data_tp - Total docs:', snap2.size);
+      if (!snap2.empty){
+        snap2.forEach(docSnap=>{
+          const data = docSnap.data();
+          const matchMapel = isMapelMatch(data.mapel, mapelInput);
+          const matchFase = data.fase === fase || !fase || !data.fase;
+          if (!(matchMapel && matchFase)) return;
+
+          // Struktur data_tp punya banyak varian, coba semua:
+          // a) elemen_cp array (sama seperti data_cp)
+          if (data.elemen_cp && Array.isArray(data.elemen_cp)){
+            data.elemen_cp.forEach(el=>{
+              const cpText = `${el.elemen}: ${el.deskripsi}`;
+              if (items.some(i=>i.value===cpText)) return;
+              items.push({ value: cpText, label: `${el.elemen} — ${el.deskripsi}`, docId: docSnap.id });
             });
           }
-        }
-      });
+          // b) tp_rows yang berisi cp
+          if (Array.isArray(data.tp_rows)){
+            data.tp_rows.forEach(r=>{
+              // r.cp atau r.capaian atau r.tp yang sebenarnya adalah CP (di global monitoring CP dan TP mirip)
+              const possibleCP = r.cp || r.capaian_pembelajaran || r.capaian || '';
+              if (possibleCP && possibleCP.trim()){
+                if (items.some(i=>i.value===possibleCP)) return;
+                items.push({ value: possibleCP, label: `${r.elemen ? r.elemen+' — ' : ''}${possibleCP}`, docId: docSnap.id });
+              }
+              // Jika tp_rows tidak punya cp field, tapi punya tp yang panjang (seperti di screenshot 619, itu sebenarnya CP)
+              // Kita anggap TP yang panjang > 30 char sebagai CP juga untuk keperluan CP
+              if (r.tp && r.tp.length > 40 && r.tp.includes('Murid dapat') && !items.some(i=>i.value===r.tp)){
+                // Ini pola di screenshot 617: TP berisi "Murid dapat membaca..."
+                items.push({ value: r.tp, label: `${r.elemen ? r.elemen+' — ' : ''}${r.tp}`, docId: docSnap.id });
+              }
+            });
+          }
+          // c) data.cp langsung
+          if (data.cp && typeof data.cp === 'string' && data.cp.trim()){
+            if (!items.some(i=>i.value===data.cp)) items.push({ value: data.cp, label: data.cp, docId: docSnap.id });
+          }
+          // d) data.rows global monitoring punya Kelas, Elemen, CP, Materi (lihat screenshot 618/619)
+          if (Array.isArray(data.rows)){
+            data.rows.forEach(r=>{
+              if (r.cp && r.cp.trim() && !items.some(i=>i.value===r.cp)){
+                items.push({ value: r.cp, label: `${r.elemen||''} — ${r.cp}`, docId: docSnap.id });
+              }
+            });
+          }
+        });
+      }
     }
 
-    console.log('Total CP found:', items.length);
+    console.log('Total CP found (final):', items.length);
 
     const list = container.querySelector('#listMasterCP');
     const toolbar = container.querySelector('#cpToolbar');
@@ -1372,14 +1425,12 @@ async function loadMasterCP(container) {
       list.style.display = 'none';
       toolbar.style.display = 'none';
       hint.style.display = 'block';
-      hint.textContent = '❌ Tidak ada CP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3.';
+      hint.textContent = '❌ Tidak ada CP yang cocok untuk Mapel & Fase ini. Coba Opsi 2 atau 3. (Sudah cek data_cp dan data_tp)';
     } else {
       renderCheckList(container, '#listMasterCP', items);
-
       list.style.display = 'block';
       toolbar.style.display = 'block';
       hint.style.display = 'block';
-
       showToast(`✅ Ditemukan ${items.length} elemen CP — silakan centang yang dibutuhkan.`);
     }
   } catch (error) {
