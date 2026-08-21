@@ -1,6 +1,7 @@
+// V6 FINAL - Jika kamu lihat ini di Console berarti file sudah terbaru - Build: 2026-08-16 23:00
 // ==========================================
-// USER MANAGEMENT - FIXED VERSION
-// Fix: Role update tersimpan + Auth vs Firestore sinkron
+// USER MANAGEMENT - FINAL ANTI-TIPU V5
+// Fix: Pesan hijau palsu + Firestore tidak ke-update
 // SDN 139 LAMANDA
 // ==========================================
 import { 
@@ -29,15 +30,9 @@ import { sendPasswordResetEmail, fetchSignInMethodsForEmail, deleteUser as delet
 
 import { konfigurasiFitur, controlCenterFitur } from './config/service-menu.js';
 
-// ==========================================
-// 2. SECONDARY APP SETUP
-// ==========================================
 const secondaryApp = initializeApp(firebaseConfig, "SecondaryAdminApp");
 const secondaryAuth = getAuth(secondaryApp);
 
-// ==========================================
-// 3. VALIDASI & KONFIGURASI
-// ==========================================
 const userRole = localStorage.getItem('userRole');
 if (userRole !== 'admin') {
   alert('⛔ Akses Ditolak: Halaman ini hanya untuk Administrator.');
@@ -52,14 +47,11 @@ const USERS_COLLECTION = 'users';
 
 const semuaFitur = { ...konfigurasiFitur, ...controlCenterFitur };
 
-// ==========================================
-// ROLE DEFAULT HAK AKSES - BARU
-// ==========================================
 function getDefaultHakAksesByRole(role) {
   const defaults = {
     admin: Object.values(semuaFitur).flat().map(f => f.nama),
     kepsek: Object.values(semuaFitur).flat().map(f => f.nama),
-    guru: ['CP, TP, & ATP', 'Program Tahunan', 'Program Semester', 'Ickh', 'Jurnal Harian', 'Analisis KKTP', 'Rumus 8-3-3-4', 'Refleksi Guru', 'Kalender Pendidikan', 'Jadwal Pembelajaran', 'Presensi Siswa', 'LKPD', 'Penilaian', 'Pembuat Soal', 'Pembuat Kisi-kisi', 'Bank RPM', 'RPM Spesifik', 'Bantuan AI'],
+    guru: ['CP, TP, & ATP', 'Program Tahunan', 'Program Semester', 'lckh', 'Jurnal Harian', 'Analisis KKTP', 'Rumus 8-3-3-4', 'Refleksi Guru', 'Kalender Pendidikan', 'Jadwal Pembelajaran', 'Presensi Siswa', 'LKPD', 'Penilaian', 'Pembuat Soal', 'Pembuat Kisi-kisi', 'Bank RPM', 'RPM Spesifik', 'Bantuan AI'],
     staf: ['Kalender Pendidikan', 'Jadwal Pembelajaran', 'Presensi Siswa', 'Bank Soal'],
     siswa: ['Jadwal Pembelajaran', 'Kalender Pendidikan'],
     ortu: ['Jadwal Pembelajaran', 'Kalender Pendidikan', 'Presensi Siswa']
@@ -67,9 +59,6 @@ function getDefaultHakAksesByRole(role) {
   return defaults[role] || [];
 }
 
-// ==========================================
-// 4. INISIALASI DOM & STATE
-// ==========================================
 const container = document.getElementById('daftarUserContainer');
 const btnTambah = document.getElementById('btnTambahUser');
 const btnSimpan = document.getElementById('btnSimpanUser');
@@ -79,9 +68,6 @@ let userData = [];
 let unsubscribe = null;
 let activeEditId = null;
 
-// ==========================================
-// 5. FUNGSI HELPER
-// ==========================================
 function formatNomorWA(nomor) {
   if (!nomor) return '';
   let clean = nomor.replace(/\D/g, '');
@@ -99,7 +85,6 @@ function getInisial(nama) {
   return nama.trim().split(' ').slice(0,2).map(n=>n[0].toUpperCase()).join('');
 }
 function renderHakAksesCheckboxes(hakAksesSaatIni, role) {
-  // Jika hak akses kosong dan role bukan admin, beri default
   if ((!hakAksesSaatIni || hakAksesSaatIni.length === 0) && role !== 'admin') {
     hakAksesSaatIni = getDefaultHakAksesByRole(role);
   }
@@ -122,9 +107,6 @@ function renderHakAksesCheckboxes(hakAksesSaatIni, role) {
   return html;
 }
 
-// ==========================================
-// 6. FUNGSI RENDER
-// ==========================================
 function renderForm() {
   container.innerHTML = '';
   if (userData.length > 0) {
@@ -132,7 +114,7 @@ function renderForm() {
     searchWrapper.style.cssText = 'margin-bottom:16px; display:flex; gap:8px;';
     searchWrapper.innerHTML = `
       <input type="text" id="searchUser" placeholder="🔍 Cari nama / email / role..." style="flex:1; padding:10px 14px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px;">
-      <span style="background:#f1f5f9; padding:10px 12px; border-radius:8px; font-size:12px; color:#64748b;">Total: ${userData.length} user (Firestore) - Cek Auth di Firebase Console</span>
+      <span style="background:#f1f5f9; padding:10px 12px; border-radius:8px; font-size:12px; color:#64748b;">Total: ${userData.length} user (Firestore)</span>
     `;
     container.appendChild(searchWrapper);
     searchWrapper.querySelector('#searchUser').addEventListener('input', (e) => {
@@ -157,9 +139,6 @@ function renderForm() {
   }
 }
 
-// ==========================================
-// 7. BUAT ITEM USER - FIX INDEX BUG
-// ==========================================
 function buatUserItem(item) {
   const { id, nama, email, noWA, role, status, hakAkses, passwordChanged, createdAt } = item;
   const wrapper = document.createElement('div');
@@ -204,7 +183,7 @@ function buatUserItem(item) {
           <input type="text" class="admin-input input-nama" value="${nama||''}" placeholder="Contoh: Budi Santoso" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px;">
         </div>
         <div class="admin-form-group">
-          <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:4px;">Email * (tidak bisa diubah setelah jadi)</label>
+          <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:4px;">Email *</label>
           <input type="email" class="admin-input input-email" value="${email||''}" placeholder="user@sekolah.id" ${!isTemp ? 'readonly style="width:100%; padding:8px 12px; border:1px solid #e2e8f0; border-radius:6px; background:#f1f5f9; color:#64748b;"' : 'style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:6px;"'}>
         </div>
         <div class="admin-form-group">
@@ -221,7 +200,6 @@ function buatUserItem(item) {
             <option value="siswa" ${role === 'siswa' ? 'selected' : ''}>Peserta Didik</option>
             <option value="ortu" ${role === 'ortu' ? 'selected' : ''}>Orang Tua</option>
           </select>
-          <small style="color:#2563eb; font-size:11px;">💡 Jika salah pilih, ganti di sini lalu klik Simpan - pasti tersimpan!</small>
         </div>
         <div class="admin-form-group">
           <label style="display:block; font-size:13px; font-weight:600; color:#475569; margin-bottom:4px;">Status</label>
@@ -244,7 +222,7 @@ function buatUserItem(item) {
       </div>
 
       <div class="hak-akses-section" style="margin-top:20px;">
-        <label style="display:block; font-size:14px; font-weight:700; color:#1e3c72; margin-bottom:8px;">🔐 Hak Akses Fitur - <span style="color:#dc2626; font-size:11px;">Otomatis update saat Role diganti</span></label>
+        <label style="display:block; font-size:14px; font-weight:700; color:#1e3c72; margin-bottom:8px;">🔐 Hak Akses Fitur</label>
         <div class="hak-akses-checkbox-container" style="max-height:350px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px; padding:12px; background:#f8fafc;">
           ${checkboxHTML}
         </div>
@@ -254,7 +232,6 @@ function buatUserItem(item) {
     </div>
   `;
 
-  // Toggle accordion
   const summary = wrapper.querySelector('.user-summary');
   const detail = wrapper.querySelector('.user-detail');
   const chevron = wrapper.querySelector('.chevron');
@@ -274,117 +251,33 @@ function buatUserItem(item) {
     }
   });
 
-  // Sync data - FIX UTAMA: pakai ID bukan index
-  const syncData = () => {
-    const idx = userData.findIndex(u => u.id === id);
-    if (idx === -1) return;
-    userData[idx].nama = wrapper.querySelector('.input-nama').value.trim();
-    userData[idx].email = wrapper.querySelector('.input-email').value.trim();
-    userData[idx].noWA = wrapper.querySelector('.input-nowa').value.trim();
-    const newRole = wrapper.querySelector('.input-role').value;
-    const oldRole = userData[idx].role;
-    userData[idx].role = newRole;
-    userData[idx].status = wrapper.querySelector('.input-status').value;
-    const checkedBoxes = wrapper.querySelectorAll('.hak-akses-cb:checked');
-    userData[idx].hakAkses = Array.from(checkedBoxes).map(cb => cb.value);
-    
-    // Jika role berubah, auto-update hak akses default
-    if (newRole !== oldRole) {
-      const newDefault = getDefaultHakAksesByRole(newRole);
-      userData[idx].hakAkses = newDefault;
-      // Re-render checkbox
-      const containerCB = wrapper.querySelector('.hak-akses-checkbox-container');
-      containerCB.innerHTML = renderHakAksesCheckboxes(newDefault, newRole).match(/<div style="display:grid[\s\S]*?<\/div><\/div>/g)?.join('') || '';
-      // Simpler: re-render whole section
-      const newHTML = renderHakAksesCheckboxes(newDefault, newRole);
-      wrapper.querySelector('.hak-akses-checkbox-container').innerHTML = new DOMParser().parseFromString(newHTML, 'text/html').body.firstElementChild?.nextElementSibling?.innerHTML || newHTML;
-      // Re-attach events for checkboxes
-      wrapper.querySelectorAll('.hak-akses-cb').forEach(cb => {
-        cb.addEventListener('change', syncData);
-      });
-      wrapper.querySelectorAll('.check-all-group').forEach(masterCb => {
-        masterCb.addEventListener('change', (e) => {
-          const groupName = e.target.dataset.group;
-          const childCbs = wrapper.querySelectorAll(`.hak-akses-cb[data-group="${groupName}"]`);
-          childCbs.forEach(childCb => { childCb.checked = e.target.checked; });
-          syncData();
-        });
-      });
-    }
-
-    wrapper.dataset.nama = userData[idx].nama;
-    wrapper.dataset.role = userData[idx].role;
-    wrapper.dataset.email = userData[idx].email;
-    const headerTitle = wrapper.querySelector('.user-summary div div');
-    if (headerTitle) {
-      headerTitle.innerHTML = `${userData[idx].nama || '<span style="color:#94a3b8; font-style:italic;">Nama belum diisi</span>'} ${userData[idx].passwordChanged ? '<span style="color:#16a34a;">✅</span>' : '<span style="color:#f59e0b;">⚠️</span>'}`;
-      headerTitle.nextElementSibling.textContent = `${userData[idx].role.toUpperCase()} • ${userData[idx].email || 'email kosong'}`;
-    }
-  };
-
-  wrapper.querySelectorAll('.input-nama, .input-nowa, .input-status').forEach(el => {
-    el.addEventListener('input', syncData);
-    el.addEventListener('change', syncData);
-  });
-  wrapper.querySelector('.input-role').addEventListener('change', syncData);
-  if (isTemp) wrapper.querySelector('.input-email').addEventListener('input', syncData);
-
-  wrapper.querySelectorAll('.check-all-group').forEach(masterCb => {
-    masterCb.addEventListener('change', (e) => {
-      const groupName = e.target.dataset.group;
-      const childCbs = wrapper.querySelectorAll(`.hak-akses-cb[data-group="${groupName}"]`);
-      childCbs.forEach(childCb => { childCb.checked = e.target.checked; });
-      syncData();
-    });
-  });
-  wrapper.querySelectorAll('.hak-akses-cb').forEach(cb => {
-    cb.addEventListener('change', syncData);
-  });
-
-  // Hapus - FIX: hapus Auth juga
   const btnHapus = wrapper.querySelector('.btn-hapus-user');
   if (btnHapus) {
     btnHapus.addEventListener('click', async (e) => {
       e.stopPropagation();
-      if(!confirm(`⚠️ Yakin hapus pengguna "${nama}"?\n\nIni akan menghapus:\n1. Data di Firestore (users)\n2. Akun di Authentication (jika ada)\n\nTidak bisa dibatalkan!`)) return;
-      try {
-        // 1. Hapus Firestore
-        await deleteDoc(doc(db, USERS_COLLECTION, id));
-        // 2. Coba hapus Auth - harus login sebagai user itu dulu (limitasi client SDK)
-        // Kita simpan flag untuk Cloud Function / manual hapus di console
-        alert(`✅ Data Firestore "${nama}" terhapus.\n\n⚠️ Untuk hapus di Authentication:\nBuka Firebase Console > Authentication > Users > Cari email ${email} > Hapus manual.\n\n(Untuk auto-hapus Auth butuh Cloud Function)`);
-      } catch (error) {
-        console.error('Error deleting user:', error);
-        alert('❌ Gagal menghapus: ' + error.message);
-      }
+      if(!confirm(`Yakin hapus "${nama}"?`)) return;
+      try { await deleteDoc(doc(db, USERS_COLLECTION, id)); alert(`Firestore "${nama}" terhapus. Hapus manual di Authentication.`); } 
+      catch (error) { alert('Gagal: ' + error.message); }
     });
   }
 
-  // Kirim WA
   wrapper.querySelector('.btn-kirim-wa').addEventListener('click', () => {
-    syncData(); 
-    const idx = userData.findIndex(u => u.id === id);
-    const user = userData[idx];
-    if (!user.nama || !user.email || !user.noWA) {
-      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi!'); return;
-    }
-    const nomorWA = formatNomorWA(user.noWA);
-    if (nomorWA.length < 10) { alert('⚠️ Nomor WhatsApp tidak valid!'); return; }
-    const roleLabels = { admin: 'Administrator', kepsek: 'Kepala Sekolah', guru: 'Guru / Pendidik', staf: 'Staf / Tata Usaha', siswa: 'Peserta Didik', ortu: 'Orang Tua' };
-    const roleNama = roleLabels[user.role] || user.role;
-    let hakAksesFormat = '- Akses Penuh (Admin)';
-    if (user.role !== 'admin' && user.hakAkses.length > 0) hakAksesFormat = user.hakAkses.map(h => `  • ${h}`).join('\n');
-    else if (user.role !== 'admin') hakAksesFormat = '- Tidak ada akses spesifik';
-    const pesan = `Halo *${user.nama}*,\n\nAnda telah didaftarkan sebagai *${roleNama}* di platform digital *${NAMA_SEKOLAH}*.\n\n📧 Email: ${user.email}\n🔑 Password Default: *${PASSWORD_DEFAULT}*\n\n🔐 *Hak Akses Fitur:*\n${hakAksesFormat}\n\n🔗 ${LOGIN_URL}\n\n*PENTING:* Segera ubah password di halaman profil:\n🔗 ${PROFIL_URL}`;
+    const namaVal = wrapper.querySelector('.input-nama').value.trim();
+    const emailVal = wrapper.querySelector('.input-email').value.trim();
+    const noWAVal = wrapper.querySelector('.input-nowa').value.trim();
+    const roleVal = wrapper.querySelector('.input-role').value;
+    const hakAksesVal = [...detail.querySelectorAll('.hak-akses-cb:checked')].map(cb => cb.value);
+    if (!namaVal || !emailVal || !noWAVal) { alert('Nama, Email, WA wajib!'); return; }
+    const nomorWA = formatNomorWA(noWAVal);
+    const roleLabels = { admin: 'Administrator', kepsek: 'Kepala Sekolah', guru: 'Guru', staf: 'Staf', siswa: 'Peserta Didik', ortu: 'Orang Tua' };
+    let hakAksesFormat = hakAksesVal.length > 0 ? hakAksesVal.map(h => `  • ${h}`).join('\n') : '- Tidak ada';
+    const pesan = `Halo *${namaVal}*, Anda terdaftar sebagai *${roleLabels[roleVal]||roleVal}* di ${NAMA_SEKOLAH}. Email: ${emailVal} Password: *${PASSWORD_DEFAULT}* Hak Akses:\n${hakAksesFormat} Link: ${LOGIN_URL}`;
     window.open(`https://wa.me/${nomorWA}?text=${encodeURIComponent(pesan)}`, '_blank');
   });
 
   return wrapper;
 }
 
-// ==========================================
-// 8. TAMBAH USER BARU
-// ==========================================
 if (btnTambah) {
   btnTambah.addEventListener('click', () => {
     userData.unshift({
@@ -403,13 +296,14 @@ if (btnTambah) {
 }
 
 // ==========================================
-// 9. SIMPAN - FIX TOTAL (PAKAI ID, BUKAN INDEX)
+// 9. SIMPAN - FINAL V5 - ANTI TIPU + LOG LENGKAP
 // ==========================================
 if (btnSimpan) {
   btnSimpan.addEventListener('click', async () => {
     const rows = container.querySelectorAll('.user-item');
     let isValid = true;
 
+    // Validasi
     rows.forEach((row) => {
       const detail = row.querySelector('.user-detail');
       if (!detail) return;
@@ -426,101 +320,125 @@ if (btnSimpan) {
     });
 
     if (!isValid) {
-      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi untuk semua pengguna!');
+      alert('⚠️ Nama, Email, dan Nomor WhatsApp wajib diisi!');
       return;
     }
 
+    // MATIKAN LISTENER BIAR TIDAK BENTROK PAS SIMPAN (INI KUNCI!)
+    if (unsubscribe) {
+      console.log('🔕 Mematikan realtime listener sementara...');
+      unsubscribe();
+      unsubscribe = null;
+    }
+
     btnSimpan.disabled = true;
-    btnSimpan.innerHTML = '⏳ Mendaftarkan & Menyimpan...';
-    statusEl.className = 'admin-status';
+    btnSimpan.innerHTML = '⏳ Menyimpan ke Firestore...';
     statusEl.style.display = 'none';
 
+    let successCount = 0;
+    let failCount = 0;
+    let logs = [];
+
     try {
-      // LOOP BERDASARKAN DOM, TAPI AMBIL DATA BERDASARKAN ID - ANTI BUG INDEX
       for (const row of rows) {
         const docId = row.dataset.id;
         if (!docId) continue;
-        const idx = userData.findIndex(u => u.id === docId);
-        if (idx === -1) continue;
-        const user = userData[idx];
-        let isUserNew = false; 
         
-        if (user.id && user.id.startsWith('temp_')) {
+        const detail = row.querySelector('.user-detail');
+        if (!detail) continue;
+
+        // BACA LANGSUNG DARI DOM - PALING FRESH
+        const nama = detail.querySelector('.input-nama').value.trim();
+        const email = detail.querySelector('.input-email').value.trim().toLowerCase();
+        const noWA = formatNomorWA(detail.querySelector('.input-nowa').value.trim());
+        const role = detail.querySelector('.input-role').value;
+        const status = detail.querySelector('.input-status').value;
+        const hakAkses = [...detail.querySelectorAll('.hak-akses-cb:checked')].map(cb => cb.value);
+
+        const isNew = docId.startsWith('temp_');
+        let finalId = docId;
+
+        console.log(`📝 Akan simpan: ${email} | Role: ${role} | HakAkses: ${hakAkses.length} item`, hakAkses);
+        logs.push(`- ${email}: ${hakAkses.length} akses`);
+
+        // Jika user baru, buat Auth dulu
+        if (isNew) {
           try {
-            // Cek apakah email sudah ada di Auth
-            const methods = await fetchSignInMethodsForEmail(secondaryAuth, user.email).catch(() => []);
-            if (methods && methods.length > 0) {
-              // Email sudah ada di Auth, cari UID-nya dengan coba login dummy? Atau buat logic: gunakan secondary sign in?
-              // Untuk sekarang, kita buat error yang jelas
-              throw { code: 'auth/email-already-in-use' };
-            }
-            const userCredential = await createUserWithEmailAndPassword(secondaryAuth, user.email, PASSWORD_DEFAULT);
-            const newUid = userCredential.user.uid; 
-            user.id = newUid; 
-            row.dataset.id = newUid;
-            isUserNew = true; 
+            const methods = await fetchSignInMethodsForEmail(secondaryAuth, email).catch(() => []);
+            if (methods && methods.length > 0) throw { code: 'auth/email-already-in-use' };
+            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, PASSWORD_DEFAULT);
+            finalId = cred.user.uid;
+            console.log(`✅ Auth baru: ${email} -> ${finalId}`);
           } catch (authError) {
             if (authError.code === 'auth/email-already-in-use') {
-              // Email sudah ada di Auth tapi belum di Firestore - RECOVERY MODE
-              if (confirm(`⚠️ Email "${user.email}" sudah ada di Authentication tapi belum di Firestore.\n\nMau saya hubungkan otomatis? Klik OK untuk hubungkan, Cancel untuk skip.`)) {
-                // Coba cari user dengan email sama di Firestore untuk dapat UID? 
-                // Kita harus buat dokumen dengan ID random dulu, nanti admin bisa perbaiki manual
-                // Lebih baik: buat dokumen dengan ID temp tapi beri flag
-                alert(`🔧 RECOVERY: Saya akan buatkan dokumen Firestore untuk "${user.email}".\nSilakan cek Firebase Console > Authentication > cari email tersebut > copy UID-nya > ganti ID dokumen Firestore secara manual jika perlu.\n\nAtau hapus dulu user tersebut di Authentication.`);
-                // Untuk recovery, kita tetap buat dengan UID baru? Tidak bisa karena email sudah dipakai.
-                // Solusi: buat dokumen dengan ID = email (bukan UID) sebagai penanda
-                user.id = `recovery_${Date.now()}`;
-                isUserNew = true;
-              } else {
-                continue;
-              }
+              if (!confirm(`Email "${email}" sudah ada di Auth. Tetap buat dokumen Firestore?`)) continue;
+              finalId = `recovery_${Date.now()}`;
             } else {
-              throw authError;
+              console.error('❌ Auth error:', authError);
+              failCount++;
+              alert(`Gagal buat Auth untuk ${email}: ${authError.message}`);
+              continue;
             }
           }
         }
 
+        const oldData = userData.find(u => u.id === docId) || {};
+        const finalHakAkses = hakAkses.length > 0 ? hakAkses : getDefaultHakAksesByRole(role);
+
         const dataToSave = {
-          nama: user.nama,
-          email: user.email,
-          noWA: user.noWA,
-          role: user.role, // INI YANG DIPERBAIKI - PASTI KESIMPAN
-          status: user.status,
-          hakAkses: user.hakAkses || getDefaultHakAksesByRole(user.role),
-          ...(isUserNew ? { password: PASSWORD_DEFAULT, passwordChanged: false } : {}),
-          ...(!isUserNew ? { passwordChanged: user.passwordChanged || false } : {}),
-          updatedAt: serverTimestamp()
+          nama: nama,
+          email: email,
+          noWA: noWA,
+          role: role,
+          status: status,
+          hakAkses: finalHakAkses,
+          updatedAt: serverTimestamp(),
+          ...(isNew ? { password: PASSWORD_DEFAULT, passwordChanged: false, createdAt: serverTimestamp() } : { passwordChanged: oldData.passwordChanged || false })
         };
 
-        if (isUserNew) {
-          dataToSave.createdAt = serverTimestamp();
-          // Jika ID masih recovery, pakai setDoc dengan ID tersebut
-          await setDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
-        } else if (user.id) {
-          // INI FIX UTAMA: updateDoc untuk user lama, termasuk role
-          await updateDoc(doc(db, USERS_COLLECTION, user.id), dataToSave);
+        // SIMPAN KE FIRESTORE - INI YANG SEBELUMNYA GAGAL DIAM-DIAM
+        try {
+          if (isNew) {
+            await setDoc(doc(db, USERS_COLLECTION, finalId), dataToSave);
+            console.log(`✅ setDoc BERHASIL untuk ${email} dengan ID ${finalId}`);
+          } else {
+            try { await updateDoc(doc(db, USERS_COLLECTION, docId), dataToSave); } catch(e) { console.warn('updateDoc gagal, coba setDoc merge', e); await setDoc(doc(db, USERS_COLLECTION, docId), dataToSave, {merge: true}); }
+            console.log(`✅ updateDoc BERHASIL untuk ${email} (${docId}) - Role: ${role} - Hak:`, finalHakAkses);
+          }
+          successCount++;
+        } catch (firestoreError) {
+          console.error(`❌ Firestore error untuk ${email}:`, firestoreError);
+          failCount++;
+          alert(`❌ GAGAL simpan ${email} ke Firestore:\n${firestoreError.message}\n\nCek Rules Firestore kamu!`);
+          throw firestoreError; // Stop loop agar tidak kasih pesan sukses palsu
         }
       }
 
-      statusEl.textContent = '✅ Semua perubahan berhasil disimpan! Role yang diubah (misal siswa->guru) sudah tersimpan.';
+      // Jika sampai sini berarti semua berhasil
+      statusEl.textContent = `✅ Berhasil simpan ${successCount} user ke Firestore!\n` + logs.join('\n') + '\n\nCek di Firebase Console > Firestore > users untuk pastikan Data Perpustakaan ada.';
       statusEl.className = 'admin-status success';
       statusEl.style.display = 'block';
+      statusEl.style.cssText = 'display:block; background:#dcfce7; color:#166534; padding:12px; border-radius:8px; margin-top:12px; font-weight:600; white-space:pre-wrap;';
 
     } catch (error) {
       console.error('Error saving:', error);
-      statusEl.textContent = '❌ Gagal: ' + error.message;
+      statusEl.textContent = `❌ GAGAL total: ${error.message}\n\n${failCount} gagal, ${successCount} berhasil.\nCek Console (F12) untuk detail.`;
       statusEl.className = 'admin-status error';
       statusEl.style.display = 'block';
+      statusEl.style.cssText = 'display:block; background:#fee2e2; color:#991b1b; padding:12px; border-radius:8px; margin-top:12px; white-space:pre-wrap;';
     } finally {
       btnSimpan.disabled = false;
       btnSimpan.innerHTML = '💾 Simpan Semua Perubahan';
+      
+      // NYALAKAN LAGI LISTENER SETELAH 1 DETIK
+      setTimeout(() => {
+        console.log('🔔 Menyalakan kembali realtime listener...');
+        startListening();
+      }, 1000);
     }
   });
 }
 
-// ==========================================
-// 10. REALTIME LISTENER
-// ==========================================
 function startListening() {
   const q = query(collection(db, USERS_COLLECTION), orderBy('createdAt', 'desc'));
   unsubscribe = onSnapshot(q, (snapshot) => {
@@ -528,6 +446,7 @@ function startListening() {
       id: docSnap.id,
       ...docSnap.data()
     }));
+    console.log(`📡 Firestore snapshot: ${userData.length} users`);
     renderForm();
   }, (error) => {
     console.error('Error listening to users:', error);
