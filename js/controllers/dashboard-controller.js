@@ -6,6 +6,19 @@ function normalizeString(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-');
 }
 
+// === PATCH TAMBAHAN V4 - TANPA HAPUS LOGIC LAMA ===
+function getFreshHakAkses() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('userHakAkses') || '[]');
+    const norm = raw.map(item => normalizeString(item));
+    const isAdmin = localStorage.getItem('userRole') === 'admin' || norm.includes('*');
+    return { raw, norm, isAdmin };
+  } catch (e) {
+    return { raw: [], norm: [], isAdmin: false };
+  }
+}
+
+
 export class DashboardController {
   constructor() {
     this.layananSelect = document.getElementById('layananSelect');
@@ -21,13 +34,45 @@ export class DashboardController {
     this.isFullAccess = this.hakAksesNormalized.includes('*') || localStorage.getItem('userRole') === 'admin';
   }
 
-  init() {
+  async init() {
     this.injectUserActions(); // <--- FITUR BARU: inject tombol reset
     this.injectControlCenterIfAllowed();
     this.injectResetPasswordModal(); // <--- FITUR BARU: inject modal
+
+    // === PATCH: Tunggu profil-user.js yang sudah berhasil load Firestore (lihat screenshot kamu) ===
+    // Tanpa ini, dashboard render duluan pakai localStorage lama
+    await new Promise(resolve => {
+      let tries = 0;
+      const iv = setInterval(() => {
+        tries++;
+        const hak = localStorage.getItem('userHakAkses') || '';
+        // Kalau sudah ada data atau sudah 3 detik, lanjut
+        if (hak.length > 10 || tries >= 6) {
+          clearInterval(iv);
+          resolve();
+        }
+      }, 500);
+    });
+
+    // === PATCH: Refresh hakAksesNormalized dari localStorage FRESH (bukan dari constructor yang lama) ===
+    const fresh = getFreshHakAkses();
+    this.hakAksesNormalized = fresh.norm;
+    this.isFullAccess = fresh.isAdmin;
+
     this.loadSavedLayanan();
     this.attachEventListeners();
     this.displayUserName();
+
+    // Render ulang sekali lagi setelah 1 detik untuk pastikan
+    setTimeout(() => {
+      const saved = localStorage.getItem('layananAktif');
+      if (saved) {
+        const fresh2 = getFreshHakAkses();
+        this.hakAksesNormalized = fresh2.norm;
+        this.isFullAccess = fresh2.isAdmin;
+        this.renderFiturInternal(saved);
+      }
+    }, 1000);
   }
 
   // ==========================================
@@ -301,6 +346,14 @@ export class DashboardController {
       this.contentArea.innerHTML = '<p style="text-align:center; color:#6b7280; padding:20px;">Silakan pilih dan simpan layanan untuk melihat fitur internal.</p>';
       return;
     }
+
+    // === PATCH: BACA FRESH SETIAP RENDER (INI KUNCI FIX DATA PERPUSTAKAAN) ===
+    // Constructor kamu yang lama hanya baca sekali, jadi kalau profil-user.js update localStorage, tidak kepakai
+    const fresh = getFreshHakAkses();
+    this.hakAksesNormalized = fresh.norm;
+    this.isFullAccess = fresh.isAdmin;
+    console.log('🔍 Render fresh - hakAkses:', fresh.raw);
+
     const subFiturList = this.allConfig[featureKey];
     const featureTitle = this.layananSelect.options[this.layananSelect.selectedIndex].text;
     const mainFeatureNormalized = normalizeString(featureTitle);
