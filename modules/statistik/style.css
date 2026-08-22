@@ -1,0 +1,99 @@
+/* =========================================
+   DATA STATISTIK - STYLING
+   Adopsi dari ADM PEMBELAJARAN
+   ========================================= */
+.sub-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 25px;
+}
+.sub-menu-btn {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 13px;
+  color: #1f2937;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.sub-menu-btn:hover {
+  border-color: #3b82f6;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(59,130,246,0.15);
+}
+.sub-menu-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+.sub-menu-icon {
+  font-size: 28px;
+  display: block;
+  margin-bottom: 8px;
+}
+.btn-back {
+  display: inline-block;
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: all 0.2s;
+}
+.btn-back:hover {
+  background: #4b5563;
+  transform: translateX(-3px);
+}
+#dynamicContent > .empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 14px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+}
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+#dynamicContent {
+  width: 100%;
+}
+/* Card Statistik */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.stat-card h4 { margin: 0 0 8px 0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-card .value { font-size: 28px; font-weight: 800; color: #1e293b; }
+.stat-card .desc { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+@media (max-width: 640px) {
+  .sub-menu-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .sub-menu-btn { padding: 14px 10px; font-size: 12px; }
+  .sub-menu-icon { font-size: 22px; }
+  .btn-back { width: 100%; }
+}
