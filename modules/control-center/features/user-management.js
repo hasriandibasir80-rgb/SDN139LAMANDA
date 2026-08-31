@@ -27,16 +27,85 @@ const AVAILABLE_MODULES = [
   {
     id: 'admin-pembelajaran',
     name: 'Admin Pembelajaran',
-    icon: '',
+    icon: '📚',
     subModules: [
-      { id: 'rpm-spesifik', name: 'RPM Spesifik', icon: '🎯' },
-      { id: 'rpm-standar', name: 'RPM Standar', icon: '📋' },
-      { id: 'data-tp', name: 'Data TP', icon: '🎯' },
-      { id: 'lkpd', name: 'LKPD', icon: '📝' },
-      { id: 'kisi-kisi', name: 'Kisi-kisi', icon: '' },
-      { id: 'cp-tp-atp', name: 'CP/TP/ATP Generator', icon: '✨' }
+      { id: 'cp-tp-atp', name: 'CP, TP, & ATP', icon: '🎯' },
+      { id: 'program-tahunan', name: 'Program Tahunan', icon: '📅' },
+      { id: 'program-semester', name: 'Program Semester', icon: '📆' },
+      { id: 'lckh', name: 'LCKH', icon: '' },
+      { id: 'jurnal-harian', name: 'Jurnal Harian', icon: '📝' },
+      { id: 'bank-soal', name: 'Bank Soal', icon: '❓' },
+      { id: 'analisis-kktp', name: 'Analisis KKTP', icon: '📊' },
+      { id: 'rumus-8-3-3-4', name: 'Rumus 8-3-3-4', icon: '🔢' },
+      { id: 'refleksi-guru', name: 'Refleksi Guru', icon: '🔍' },
+      { id: 'kalender-pendidikan', name: 'Kalender Pendidikan', icon: '📅' },
+      { id: 'jadwal-pembelajaran', name: 'Jadwal Pembelajaran', icon: '⏰' },
+      { id: 'presensi-siswa', name: 'Presensi Siswa', icon: '✅' },
+      { id: 'lkpd', name: 'LKPD', icon: '📄' },
+      { id: 'penilaian', name: 'Penilaian', icon: '📈' },
+      { id: 'pembuat-soal', name: 'Pembuat Soal', icon: '✍️' },
+      { id: 'pembuat-kisi-kisi', name: 'Pembuat Kisi-kisi', icon: '📋' },
+      { id: 'bank-rpm', name: 'BANK RPM', icon: '📝' },
+      { id: 'rpm-spesifik', name: 'RPM Spesifik', icon: '' }
     ]
   },
+  {
+    id: 'global-monitoring',
+    name: 'Global Monitoring',
+    icon: '',
+    subModules: [
+      { id: 'data-peserta-didik', name: 'Data Peserta Didik', icon: '👨🎓' },
+      { id: 'supervisi-akademik', name: 'Supervisi Akademik', icon: '' },
+      { id: 'aset-sarana', name: 'Aset Sarana', icon: '🏫' },
+      { id: 'master-data', name: 'Master Data', icon: '' },
+      { id: 'evaluasi-mandiri', name: 'Evaluasi Mandiri', icon: '📊' },
+      { id: 'data-tp', name: 'Data TP', icon: '🎯' }
+    ]
+  },
+  {
+    id: 'control-center',
+    name: 'Control Center',
+    icon: '⚙️',
+    subModules: [
+      { id: 'manajemen-user', name: 'Manajemen Pengguna', icon: '' },
+      { id: 'pengaturan-situs', name: 'Pengaturan Situs', icon: '⚙️' },
+      { id: 'keamanan-log', name: 'Keamanan & Log', icon: '🔒' },
+      { id: 'data-statistik', name: 'Data & Statistik', icon: '📊' },
+      { id: 'monitoring', name: 'Monitoring', icon: '📡' }
+    ]
+  },
+  {
+    id: 'e-dokumen',
+    name: 'E-Dokumen',
+    icon: '',
+    subModules: [
+      { id: 'arsip', name: 'Arsip', icon: '🗄️' },
+      { id: 'upload-file', name: 'Upload File', icon: '📤' },
+      { id: 'laporan', name: 'Laporan', icon: '📄' }
+    ]
+  },
+  {
+    id: 'e-portal',
+    name: 'E-Portal',
+    icon: '',
+    subModules: [
+      { id: 'simpkb', name: 'SIMPKB', icon: '👨‍' },
+      { id: 'sindara', name: 'Sindara', icon: '🏫' },
+      { id: 'simacca', name: 'SIMACCA', icon: '📚' },
+      { id: 'data-perpustakaan', name: 'Data Perpustakaan', icon: '📖' }
+    ]
+  },
+  {
+    id: 'data-statistik',
+    name: 'Data Statistik',
+    icon: '',
+    subModules: [
+      { id: 'statistik-gtk', name: 'Statistik GTK', icon: '👥' },
+      { id: 'monitoring', name: 'Monitoring', icon: '📈' },
+      { id: 'bantuan-ai', name: 'Bantuan AI', icon: '🤖' }
+    ]
+  }
+];
   {
     id: 'global-monitoring',
     name: 'Global Monitoring',
