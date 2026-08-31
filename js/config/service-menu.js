@@ -76,7 +76,7 @@ export const konfigurasiFitur = {
     { nama: 'Data Peserta Didik', icon: '‍🎓', link: 'modules/global-monitoring/global-monitoring.html?fitur=data-peserta-didik' },
     { nama: 'Supervisi Akademik', icon: '', link: 'modules/global-monitoring/global-monitoring.html?fitur=supervisi-akademik' },
     { nama: 'Aset Sarana', icon: '🏫', link: 'modules/global-monitoring/global-monitoring.html?fitur=aset-sarana' },
-    { nama: 'Program Rencana', icon: '📝', link: 'modules/global-monitoring/global-monitoring.html?fitur=program-rencana' },
+    { nama: 'Master Data', icon: '📝', link: 'modules/global-monitoring/global-monitoring.html?fitur=master-data' },
     { nama: 'Evaluasi Mandiri', icon: '', link: 'modules/global-monitoring/global-monitoring.html?fitur=evaluasi-mandiri' },
     { nama: 'Data TP', icon: '🎯', link: 'modules/global-monitoring/global-monitoring.html?fitur=data-tp' }
   ]
