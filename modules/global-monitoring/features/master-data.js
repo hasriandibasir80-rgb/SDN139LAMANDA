@@ -1,46 +1,37 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, query, where, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+// modules/global-monitoring/features/master-data.js
+// =========================================
+// MASTER DATA MODULE
+// =========================================
 
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
+let db = null;
 let currentUser = null;
 let currentSchoolId = null;
 
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    loadUserProfile(user.uid);
+// Fungsi yang dipanggil oleh main.js
+export async function init(contentDiv, firebaseDb) {
+  db = firebaseDb;
+  
+  // Ambil data user yang login
+  const userData = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  currentUser = userData;
+  currentSchoolId = userData.idSekolah;
+  
+  if (!currentSchoolId) {
+    contentDiv.innerHTML = `
+      <div class="empty-state">
+        <h3>❌ Error</h3>
+        <p>School ID tidak ditemukan. Silakan login kembali.</p>
+      </div>
+    `;
+    return;
   }
-});
-
-async function loadUserProfile(uid) {
-  try {
-    const userDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', uid)));
-    if (!userDoc.empty) {
-      const userData = userDoc.docs[0].data();
-      currentSchoolId = userData.idSekolah;
-    }
-  } catch (error) {
-    console.error('Error loading user profile:', error);
-  }
+  
+  renderMasterDataUI(contentDiv);
 }
 
 function getCollectionPath(collectionName) {
-  if (!currentSchoolId) {
-    throw new Error('School ID not found. User may not be logged in.');
-  }
   return `sekolah/${currentSchoolId}/masterData/${collectionName}`;
 }
 
@@ -86,100 +77,7 @@ async function deleteData(collectionName, id) {
   }
 }
 
-export const masterData = {
-  async getPesertaDidik() {
-    return await getData('pesertaDidik');
-  },
-  
-  async savePesertaDidik(data, id = null) {
-    return await saveData('pesertaDidik', data, id);
-  },
-  
-  async deletePesertaDidik(id) {
-    return await deleteData('pesertaDidik', id);
-  },
-  
-  async getSarana() {
-    return await getData('sarana');
-  },
-  
-  async saveSarana(data, id = null) {
-    return await saveData('sarana', data, id);
-  },
-  
-  async deleteSarana(id) {
-    return await deleteData('sarana', id);
-  },
-  
-  async getTP() {
-    return await getData('tp');
-  },
-  
-  async saveTP(data, id = null) {
-    return await saveData('tp', data, id);
-  },
-  
-  async deleteTP(id) {
-    return await deleteData('tp', id);
-  },
-  
-  async getCP() {
-    return await getData('cp');
-  },
-  
-  async saveCP(data, id = null) {
-    return await saveData('cp', data, id);
-  },
-  
-  async deleteCP(id) {
-    return await deleteData('cp', id);
-  },
-  
-  async getATP() {
-    return await getData('atp');
-  },
-  
-  async saveATP(data, id = null) {
-    return await saveData('atp', data, id);
-  },
-  
-  async deleteATP(id) {
-    return await deleteData('atp', id);
-  },
-  
-  async getMapel() {
-    return await getData('mapel');
-  },
-  
-  async saveMapel(data, id = null) {
-    return await saveData('mapel', data, id);
-  },
-  
-  async deleteMapel(id) {
-    return await deleteData('mapel', id);
-  },
-  
-  async getKopAdministrasi() {
-    const data = await getData('kopAdministrasi');
-    return data.length > 0 ? data[0] : null;
-  },
-  
-  async saveKopAdministrasi(data, id = null) {
-    return await saveData('kopAdministrasi', data, id);
-  },
-  
-  getCurrentUser() {
-    return currentUser;
-  },
-  
-  getCurrentSchoolId() {
-    return currentSchoolId;
-  }
-};
-
-export function createMasterDataUI() {
-  const container = document.createElement('div');
-  container.className = 'master-data-container';
+function renderMasterDataUI(container) {
   container.innerHTML = `
     <style>
       .master-data-container {
@@ -331,33 +229,33 @@ export function createMasterDataUI() {
       }
     </style>
     
-    <div class="master-tabs">
-      <div class="master-tab active" data-tab="pesertaDidik">Peserta Didik</div>
-      <div class="master-tab" data-tab="sarana">Sarana</div>
-      <div class="master-tab" data-tab="tp">TP</div>
-      <div class="master-tab" data-tab="cp">CP</div>
-      <div class="master-tab" data-tab="atp">ATP</div>
-      <div class="master-tab" data-tab="mapel">Mapel</div>
-      <div class="master-tab" data-tab="kop">Kop Administrasi</div>
-    </div>
-    
-    <div class="master-content">
-      <div id="master-panel"></div>
-    </div>
-    
-    <div class="master-modal" id="masterModal">
-      <div class="master-modal-content">
-        <h3 id="modalTitle">Tambah Data</h3>
-        <form id="masterForm" class="master-form"></form>
-        <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-          <button type="button" class="master-btn master-btn-danger" onclick="closeModal()">Batal</button>
-          <button type="submit" class="master-btn master-btn-success" form="masterForm">Simpan</button>
+    <div class="master-data-container">
+      <div class="master-tabs">
+        <div class="master-tab active" data-tab="pesertaDidik">Peserta Didik</div>
+        <div class="master-tab" data-tab="sarana">Sarana</div>
+        <div class="master-tab" data-tab="tp">TP</div>
+        <div class="master-tab" data-tab="cp">CP</div>
+        <div class="master-tab" data-tab="atp">ATP</div>
+        <div class="master-tab" data-tab="mapel">Mapel</div>
+        <div class="master-tab" data-tab="kop">Kop Administrasi</div>
+      </div>
+      
+      <div class="master-content">
+        <div id="master-panel"></div>
+      </div>
+      
+      <div class="master-modal" id="masterModal">
+        <div class="master-modal-content">
+          <h3 id="modalTitle">Tambah Data</h3>
+          <form id="masterForm" class="master-form"></form>
+          <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+            <button type="button" class="master-btn master-btn-danger" onclick="closeModal()">Batal</button>
+            <button type="submit" class="master-btn master-btn-success" form="masterForm">Simpan</button>
+          </div>
         </div>
       </div>
     </div>
   `;
-  
-  document.body.appendChild(container);
   
   let currentTab = 'pesertaDidik';
   let editingId = null;
@@ -473,13 +371,13 @@ export function createMasterDataUI() {
     try {
       let data;
       switch(currentTab) {
-        case 'pesertaDidik': data = await masterData.getPesertaDidik(); break;
-        case 'sarana': data = await masterData.getSarana(); break;
-        case 'tp': data = await masterData.getTP(); break;
-        case 'cp': data = await masterData.getCP(); break;
-        case 'atp': data = await masterData.getATP(); break;
-        case 'mapel': data = await masterData.getMapel(); break;
-        case 'kop': data = await masterData.getKopAdministrasi(); data = data ? [data] : []; break;
+        case 'pesertaDidik': data = await getData('pesertaDidik'); break;
+        case 'sarana': data = await getData('sarana'); break;
+        case 'tp': data = await getData('tp'); break;
+        case 'cp': data = await getData('cp'); break;
+        case 'atp': data = await getData('atp'); break;
+        case 'mapel': data = await getData('mapel'); break;
+        case 'kop': data = await getData('kopAdministrasi'); data = data.length > 0 ? [data[0]] : []; break;
       }
       
       allData = data;
@@ -585,13 +483,13 @@ export function createMasterDataUI() {
     
     try {
       switch(currentTab) {
-        case 'pesertaDidik': await masterData.savePesertaDidik(data, editingId); break;
-        case 'sarana': await masterData.saveSarana(data, editingId); break;
-        case 'tp': await masterData.saveTP(data, editingId); break;
-        case 'cp': await masterData.saveCP(data, editingId); break;
-        case 'atp': await masterData.saveATP(data, editingId); break;
-        case 'mapel': await masterData.saveMapel(data, editingId); break;
-        case 'kop': await masterData.saveKopAdministrasi(data, editingId); break;
+        case 'pesertaDidik': await saveData('pesertaDidik', data, editingId); break;
+        case 'sarana': await saveData('sarana', data, editingId); break;
+        case 'tp': await saveData('tp', data, editingId); break;
+        case 'cp': await saveData('cp', data, editingId); break;
+        case 'atp': await saveData('atp', data, editingId); break;
+        case 'mapel': await saveData('mapel', data, editingId); break;
+        case 'kop': await saveData('kopAdministrasi', data, editingId); break;
       }
       
       closeModal();
@@ -606,13 +504,13 @@ export function createMasterDataUI() {
     
     try {
       switch(currentTab) {
-        case 'pesertaDidik': await masterData.deletePesertaDidik(id); break;
-        case 'sarana': await masterData.deleteSarana(id); break;
-        case 'tp': await masterData.deleteTP(id); break;
-        case 'cp': await masterData.deleteCP(id); break;
-        case 'atp': await masterData.deleteATP(id); break;
-        case 'mapel': await masterData.deleteMapel(id); break;
-        case 'kop': await masterData.deleteKopAdministrasi(id); break;
+        case 'pesertaDidik': await deleteData('pesertaDidik', id); break;
+        case 'sarana': await deleteData('sarana', id); break;
+        case 'tp': await deleteData('tp', id); break;
+        case 'cp': await deleteData('cp', id); break;
+        case 'atp': await deleteData('atp', id); break;
+        case 'mapel': await deleteData('mapel', id); break;
+        case 'kop': await deleteData('kopAdministrasi', id); break;
       }
       
       await refreshData();
@@ -631,6 +529,4 @@ export function createMasterDataUI() {
   });
   
   loadTabData();
-  
-  return container;
 }
