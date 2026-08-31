@@ -36,10 +36,10 @@ const MENU_ITEMS = [
     status: 'soon'
   },
   { 
-    id: 'program-rencana', 
+    id: 'Master-Data', 
     icon: '📝', 
-    title: 'Program Rencana', 
-    path: './features/program-rencana.js',
+    title: 'master-data', 
+    path: './features/master-data.js',
     status: 'soon'
   },
   { 
