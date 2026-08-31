@@ -5,7 +5,7 @@
 // TERINTEGRASI: Firebase Auth + Firestore
 // =========================================
 
-import { db } from '../../js/firebase-config.js';
+import { db } from '../../../js/firebase-config.js';
 import { 
   collection, addDoc, getDocs, query, where, orderBy, 
   doc, updateDoc, deleteDoc, serverTimestamp, getDoc 
