@@ -40,7 +40,7 @@ const MENU_ITEMS = [
     icon: '📝', 
     title: 'master-data', 
     path: './features/master-data.js',
-    status: 'soon'
+    status: 'ready'
   },
   { 
     id: 'evaluasi-mandiri', 
