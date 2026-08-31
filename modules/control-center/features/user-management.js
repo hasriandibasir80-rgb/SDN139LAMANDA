@@ -17,6 +17,7 @@ import {
 
 const auth = getAuth();
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+const USER_COLLECTION = 'users';
 const CSS_ID = 'user-management-css';
 
 // =========================================
@@ -34,17 +35,17 @@ const AVAILABLE_MODULES = [
       { id: 'lckh', name: 'LCKH', icon: '' },
       { id: 'jurnal-harian', name: 'Jurnal Harian', icon: '📝' },
       { id: 'bank-soal', name: 'Bank Soal', icon: '❓' },
-      { id: 'analisis-kktp', name: 'Analisis KKTP', icon: '📊' },
-      { id: 'rumus-8-3-3-4', name: 'Rumus 8-3-3-4', icon: '' },
+      { id: 'analisis-kktp', name: 'Analisis KKTP', icon: '' },
+      { id: 'rumus-8-3-3-4', name: 'Rumus 8-3-3-4', icon: '🔢' },
       { id: 'refleksi-guru', name: 'Refleksi Guru', icon: '🔍' },
       { id: 'kalender-pendidikan', name: 'Kalender Pendidikan', icon: '📅' },
-      { id: 'jadwal-pembelajaran', name: 'Jadwal Pembelajaran', icon: '' },
+      { id: 'jadwal-pembelajaran', name: 'Jadwal Pembelajaran', icon: '⏰' },
       { id: 'presensi-siswa', name: 'Presensi Siswa', icon: '✅' },
       { id: 'lkpd', name: 'LKPD', icon: '📄' },
-      { id: 'penilaian', name: 'Penilaian', icon: '📈' },
+      { id: 'penilaian', name: 'Penilaian', icon: '' },
       { id: 'pembuat-soal', name: 'Pembuat Soal', icon: '✍️' },
       { id: 'pembuat-kisi-kisi', name: 'Pembuat Kisi-kisi', icon: '📋' },
-      { id: 'bank-rpm', name: 'BANK RPM', icon: '' },
+      { id: 'bank-rpm', name: 'BANK RPM', icon: '📝' },
       { id: 'rpm-spesifik', name: 'RPM Spesifik', icon: '' }
     ]
   },
@@ -53,7 +54,7 @@ const AVAILABLE_MODULES = [
     name: 'Global Monitoring',
     icon: '📈',
     subModules: [
-      { id: 'data-peserta-didik', name: 'Data Peserta Didik', icon: '👨' },
+      { id: 'data-peserta-didik', name: 'Data Peserta Didik', icon: '👨🎓' },
       { id: 'supervisi-akademik', name: 'Supervisi Akademik', icon: '' },
       { id: 'aset-sarana', name: 'Aset Sarana', icon: '🏫' },
       { id: 'master-data', name: 'Master Data', icon: '' },
@@ -69,7 +70,7 @@ const AVAILABLE_MODULES = [
       { id: 'manajemen-user', name: 'Manajemen Pengguna', icon: '' },
       { id: 'pengaturan-situs', name: 'Pengaturan Situs', icon: '⚙️' },
       { id: 'keamanan-log', name: 'Keamanan & Log', icon: '🔒' },
-      { id: 'data-statistik', name: 'Data & Statistik', icon: '' },
+      { id: 'data-statistik', name: 'Data & Statistik', icon: '📊' },
       { id: 'monitoring', name: 'Monitoring', icon: '📡' }
     ]
   },
@@ -78,9 +79,9 @@ const AVAILABLE_MODULES = [
     name: 'E-Dokumen',
     icon: '',
     subModules: [
-      { id: 'arsip', name: 'Arsip', icon: '️' },
-      { id: 'upload-file', name: 'Upload File', icon: '' },
-      { id: 'laporan', name: 'Laporan', icon: '' }
+      { id: 'arsip', name: 'Arsip', icon: '🗄️' },
+      { id: 'upload-file', name: 'Upload File', icon: '📤' },
+      { id: 'laporan', name: 'Laporan', icon: '📄' }
     ]
   },
   {
@@ -99,7 +100,7 @@ const AVAILABLE_MODULES = [
     name: 'Data Statistik',
     icon: '📊',
     subModules: [
-      { id: 'statistik-gtk', name: 'Statistik GTK', icon: '👥' },
+      { id: 'statistik-gtk', name: 'Statistik GTK', icon: '' },
       { id: 'monitoring', name: 'Monitoring', icon: '' },
       { id: 'bantuan-ai', name: 'Bantuan AI', icon: '🤖' }
     ]
@@ -140,64 +141,268 @@ function loadCSS() {
   const style = document.createElement('style');
   style.id = CSS_ID;
   style.textContent = `
-    .um-container { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 16px; padding: 25px; font-family: 'Segoe UI', sans-serif; max-width: 1400px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); }
-    .um-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e9ecef; }
-    .um-title { font-size: 24px; font-weight: 700; color: #343a40; margin: 0; }
-    .um-btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; }
-    .um-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .um-container { 
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); 
+      border-radius: 16px; 
+      padding: 25px; 
+      font-family: 'Segoe UI', sans-serif; 
+      max-width: 1400px; 
+      margin: 0 auto; 
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
+    }
+    .um-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .um-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #343a40;
+      margin: 0;
+    }
+    .um-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      color: white;
+    }
+    .um-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
     .um-btn-primary { background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); }
     .um-btn-success { background: linear-gradient(135deg, #198754 0%, #157347 100%); }
     .um-btn-danger { background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%); }
     .um-btn-secondary { background: linear-gradient(135deg, #6c757d 0%, #565e64 100%); }
-    .um-form { background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
-    .um-form-title { font-size: 18px; font-weight: 700; color: #343a40; margin: 0 0 20px 0; padding-bottom: 10px; border-bottom: 2px solid #e9ecef; }
-    .um-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+    .um-form {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .um-form-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #343a40;
+      margin: 0 0 20px 0;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e9ecef;
+    }
+    .um-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 20px;
+    }
     .um-form-group { margin-bottom: 15px; }
-    .um-form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #495057; }
-    .um-input { width: 100%; padding: 12px 14px; border: 2px solid #ced4da; border-radius: 8px; font-size: 14px; box-sizing: border-box; background: white; color: #495057; font-family: inherit; transition: all 0.2s; }
-    .um-input:focus { outline: none; border-color: #0d6efd; box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25); }
-    .um-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
-    .um-permissions-section { margin-top: 25px; padding-top: 20px; border-top: 2px solid #e9ecef; }
-    .um-permissions-title { font-size: 16px; font-weight: 700; color: #343a40; margin-bottom: 15px; }
-    .um-permissions-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; }
-    .um-permission-module { background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; transition: all 0.2s; }
-    .um-permission-module:hover { border-color: #0d6efd; background: #e7f1ff; }
-    .um-permission-module-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6; }
-    .um-permission-module-header input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-    .um-permission-module-header label { font-weight: 700; font-size: 14px; color: #343a40; cursor: pointer; flex: 1; }
-    .um-permission-submodules { display: flex; flex-direction: column; gap: 8px; padding-left: 28px; }
-    .um-permission-submodule { display: flex; align-items: center; gap: 8px; }
-    .um-permission-submodule input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
-    .um-permission-submodule label { font-size: 13px; color: #495057; cursor: pointer; }
-    .um-table-container { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
-    .um-table { width: 100%; border-collapse: collapse; }
-    .um-table th { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 15px 12px; text-align: left; font-weight: 700; color: #495057; font-size: 14px; border-bottom: 2px solid #dee2e6; }
-    .um-table td { padding: 12px; border-bottom: 1px solid #dee2e6; font-size: 14px; color: #212529; }
+    .um-form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      color: #495057;
+    }
+    .um-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #ced4da;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+      background: white;
+      color: #495057;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    .um-input:focus {
+      outline: none;
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
+    }
+    .um-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+    .um-permissions-section {
+      margin-top: 25px;
+      padding-top: 20px;
+      border-top: 2px solid #e9ecef;
+    }
+    .um-permissions-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #343a40;
+      margin-bottom: 15px;
+    }
+    .um-permissions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 15px;
+    }
+    .um-permission-module {
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 15px;
+      transition: all 0.2s;
+    }
+    .um-permission-module:hover {
+      border-color: #0d6efd;
+      background: #e7f1ff;
+    }
+    .um-permission-module-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #dee2e6;
+    }
+    .um-permission-module-header input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    .um-permission-module-header label {
+      font-weight: 700;
+      font-size: 14px;
+      color: #343a40;
+      cursor: pointer;
+      flex: 1;
+    }
+    .um-permission-submodules {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-left: 28px;
+    }
+    .um-permission-submodule {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .um-permission-submodule input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .um-permission-submodule label {
+      font-size: 13px;
+      color: #495057;
+      cursor: pointer;
+    }
+    .um-table-container {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .um-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .um-table th {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 15px 12px;
+      text-align: left;
+      font-weight: 700;
+      color: #495057;
+      font-size: 14px;
+      border-bottom: 2px solid #dee2e6;
+    }
+    .um-table td {
+      padding: 12px;
+      border-bottom: 1px solid #dee2e6;
+      font-size: 14px;
+      color: #212529;
+    }
     .um-table tr:last-child td { border-bottom: none; }
     .um-table tr:hover td { background: #f8f9fa; }
-    .um-table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .um-action-btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: all 0.2s; color: white; }
+    .um-table-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .um-action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+      color: white;
+    }
     .um-action-btn:hover { transform: translateY(-1px); }
     .um-action-btn-edit { background: #0d6efd; }
     .um-action-btn-delete { background: #dc3545; }
     .um-action-btn-reset { background: #0dcaf0; color: #000; }
-    .um-role-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .um-role-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
     .um-role-admin { background: #d3d3d3; color: #343a40; }
     .um-role-guru { background: #e9ecef; color: #495057; }
     .um-role-siswa { background: #cfe2ff; color: #084298; }
     .um-role-ortu { background: #d1e7dd; color: #0f5132; }
     .um-role-kepsek { background: #fff3cd; color: #664d03; }
     .um-role-staf { background: #f8d7da; color: #842029; }
-    .um-status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .um-status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
     .um-status-active { background: #d1e7dd; color: #0f5132; }
     .um-status-inactive { background: #f8d7da; color: #842029; }
     .um-empty { text-align: center; padding: 40px; color: #6c757d; font-size: 14px; }
     .um-loading { text-align: center; padding: 30px; color: #6c757d; }
-    .um-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: umSlideIn 0.3s ease; }
+    .um-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 14px 24px;
+      border-radius: 10px;
+      z-index: 10001;
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      animation: umSlideIn 0.3s ease;
+    }
     .um-toast-success { background: linear-gradient(135deg, #198754 0%, #157347 100%); }
     .um-toast-error { background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%); }
-    @keyframes umSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    @media (max-width: 768px) { .um-grid { grid-template-columns: 1fr; } .um-permissions-grid { grid-template-columns: 1fr; } .um-header { flex-direction: column; gap: 15px; align-items: stretch; } .um-btn { width: 100%; justify-content: center; } .um-table-actions { flex-direction: column; } .um-action-btn { width: 100%; justify-content: center; } }
+    @keyframes umSlideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @media (max-width: 768px) {
+      .um-grid { grid-template-columns: 1fr; }
+      .um-permissions-grid { grid-template-columns: 1fr; }
+      .um-header { flex-direction: column; gap: 15px; align-items: stretch; }
+      .um-btn { width: 100%; justify-content: center; }
+      .um-table-actions { flex-direction: column; }
+      .um-action-btn { width: 100%; justify-content: center; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -210,7 +415,9 @@ function renderUI(container) {
     <div class="um-container">
       <div class="um-header">
         <h2 class="um-title">Manajemen Pengguna</h2>
-        <button class="um-btn um-btn-primary" id="btn-add-user">➕ Tambah Pengguna</button>
+        <button class="um-btn um-btn-primary" id="btn-add-user">
+          ➕ Tambah Pengguna
+        </button>
       </div>
 
       <div class="um-form" id="um-form" style="display: none;">
@@ -256,12 +463,13 @@ function renderUI(container) {
 
         <div class="um-permissions-section">
           <h4 class="um-permissions-title">🔐 Hak Akses (Centang fitur yang boleh diakses)</h4>
-          <div class="um-permissions-grid" id="um-permissions-container"></div>
+          <div class="um-permissions-grid" id="um-permissions-container">
+          </div>
         </div>
         
         <div class="um-actions">
           <button class="um-btn um-btn-secondary" id="btn-cancel-user">Batal</button>
-          <button class="um-btn um-btn-success" id="btn-save-user">💾 Simpan Pengguna</button>
+          <button class="um-btn um-btn-success" id="btn-save-user"> Simpan Pengguna</button>
         </div>
       </div>
 
@@ -277,7 +485,9 @@ function renderUI(container) {
             </tr>
           </thead>
           <tbody id="um-user-list">
-            <tr><td colspan="5" class="um-loading"> Memuat data pengguna...</td></tr>
+            <tr>
+              <td colspan="5" class="um-loading">⏳ Memuat data pengguna...</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -353,20 +563,14 @@ function attachEvents(container) {
 }
 
 // =========================================
-// LOAD USERS (Updated Path: schools/{NPSN}/users)
+// LOAD USERS
 // =========================================
 async function loadUsers(container) {
   const userList = container.querySelector('#um-user-list');
   userList.innerHTML = '<tr><td colspan="5" class="um-loading">⏳ Memuat data pengguna...</td></tr>';
 
-  const npsn = currentUser.idSekolah;
-  if (!npsn) {
-    userList.innerHTML = `<tr><td colspan="5" class="um-empty">⚠️ NPSN Sekolah tidak ditemukan pada profil admin.</td></tr>`;
-    return;
-  }
-
   try {
-    const q = query(collection(db, 'schools', npsn, 'users'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, USER_COLLECTION), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
@@ -404,7 +608,7 @@ async function loadUsers(container) {
     }).join('');
   } catch (error) {
     console.error('Error loading users:', error);
-    userList.innerHTML = `<tr><td colspan="5" class="um-empty">❌ Gagal memuat: ${error.message}</td></tr>`;
+    userList.innerHTML = `<tr><td colspan="5" class="um-empty"> Gagal memuat: ${error.message}</td></tr>`;
   }
 }
 
@@ -443,7 +647,7 @@ function setPermissionsToForm(container, permissions) {
 }
 
 // =========================================
-// SAVE USER (Updated Path: schools/{NPSN}/users)
+// SAVE USER
 // =========================================
 async function saveUser(container) {
   const userId = container.querySelector('#um-user-id').value;
@@ -456,7 +660,7 @@ async function saveUser(container) {
   const permissions = getPermissionsFromForm(container);
 
   if (!name || !email || !npsn) {
-    showToast('️ Nama, Email, dan NPSN wajib diisi!', 'error');
+    showToast('⚠️ Nama, Email, dan NPSN wajib diisi!', 'error');
     return;
   }
 
@@ -467,7 +671,7 @@ async function saveUser(container) {
 
   try {
     if (userId) {
-      const userRef = doc(db, 'schools', npsn, 'users', userId);
+      const userRef = doc(db, USER_COLLECTION, userId);
       await updateDoc(userRef, {
         namaLengkap: name,
         email: email,
@@ -483,7 +687,7 @@ async function saveUser(container) {
     } else {
       const credential = await createUserWithEmailAndPassword(auth, email, 'password123');
       
-      await addDoc(collection(db, 'schools', npsn, 'users'), {
+      await addDoc(collection(db, USER_COLLECTION), {
         userId: credential.user.uid,
         email: email,
         namaLengkap: name,
@@ -509,12 +713,11 @@ async function saveUser(container) {
 }
 
 // =========================================
-// EDIT USER (Updated Path)
+// EDIT USER
 // =========================================
 window.editUser = async function(userId) {
   try {
-    const npsn = currentUser.idSekolah;
-    const docRef = doc(db, 'schools', npsn, 'users', userId);
+    const docRef = doc(db, USER_COLLECTION, userId);
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
@@ -532,7 +735,7 @@ window.editUser = async function(userId) {
     container.querySelector('#um-user-id').value = userId;
     container.querySelector('#um-name').value = user.namaLengkap || '';
     container.querySelector('#um-email').value = user.email || '';
-    container.querySelector('#um-npsn').value = user.idSekolah || npsn;
+    container.querySelector('#um-npsn').value = user.idSekolah || '';
     container.querySelector('#um-school').value = user.namaSekolah || '';
     container.querySelector('#um-role').value = user.role || 'guru';
     container.querySelector('#um-status').value = user.status || 'active';
@@ -564,14 +767,13 @@ window.resetPassword = async function(email) {
 };
 
 // =========================================
-// DELETE USER (Updated Path)
+// DELETE USER
 // =========================================
 window.deleteUser = async function(userId) {
   if (!confirm('Hapus pengguna ini? Tindakan tidak dapat dibatalkan!')) return;
   
   try {
-    const npsn = currentUser.idSekolah;
-    await deleteDoc(doc(db, 'schools', npsn, 'users', userId));
+    await deleteDoc(doc(db, USER_COLLECTION, userId));
     showToast('✅ Pengguna dihapus!', 'success');
     const container = document.querySelector('.um-container');
     loadUsers(container);
@@ -601,6 +803,9 @@ function showToast(msg, type = 'success') {
   }, 3000);
 }
 
+// =========================================
+// HELPER: CHECK PERMISSION
+// =========================================
 export function hasPermission(user, moduleId, subModuleId = null) {
   if (!user || !user.permissions) return false;
   if (user.isAdmin) return true;
