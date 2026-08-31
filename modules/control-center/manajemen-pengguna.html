@@ -40,6 +40,16 @@
     </div>
   </div>
 
-  <script type="module" src="../../js/user-management.js"></script>
+  <script type="module">
+    import { db } from '../../js/firebase-config.js';
+    import { init } from './features/user-management.js';
+
+    const container = document.getElementById('daftarUserContainer');
+    if (container && typeof init === 'function') {
+      init(container, db);
+    } else {
+      console.error('Gagal memuat modul user-management atau container tidak ditemukan.');
+    }
+  </script>
 </body>
 </html>
