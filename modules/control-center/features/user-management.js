@@ -35,14 +35,14 @@ const AVAILABLE_MODULES = [
       { id: 'lckh', name: 'LCKH', icon: '' },
       { id: 'jurnal-harian', name: 'Jurnal Harian', icon: '📝' },
       { id: 'bank-soal', name: 'Bank Soal', icon: '❓' },
-      { id: 'analisis-kktp', name: 'Analisis KKTP', icon: '📊' },
+      { id: 'analisis-kktp', name: 'Analisis KKTP', icon: '' },
       { id: 'rumus-8-3-3-4', name: 'Rumus 8-3-3-4', icon: '🔢' },
       { id: 'refleksi-guru', name: 'Refleksi Guru', icon: '🔍' },
       { id: 'kalender-pendidikan', name: 'Kalender Pendidikan', icon: '📅' },
       { id: 'jadwal-pembelajaran', name: 'Jadwal Pembelajaran', icon: '⏰' },
       { id: 'presensi-siswa', name: 'Presensi Siswa', icon: '✅' },
       { id: 'lkpd', name: 'LKPD', icon: '📄' },
-      { id: 'penilaian', name: 'Penilaian', icon: '📈' },
+      { id: 'penilaian', name: 'Penilaian', icon: '' },
       { id: 'pembuat-soal', name: 'Pembuat Soal', icon: '✍️' },
       { id: 'pembuat-kisi-kisi', name: 'Pembuat Kisi-kisi', icon: '📋' },
       { id: 'bank-rpm', name: 'BANK RPM', icon: '📝' },
@@ -52,7 +52,7 @@ const AVAILABLE_MODULES = [
   {
     id: 'global-monitoring',
     name: 'Global Monitoring',
-    icon: '',
+    icon: '📈',
     subModules: [
       { id: 'data-peserta-didik', name: 'Data Peserta Didik', icon: '👨🎓' },
       { id: 'supervisi-akademik', name: 'Supervisi Akademik', icon: '' },
@@ -98,51 +98,11 @@ const AVAILABLE_MODULES = [
   {
     id: 'data-statistik',
     name: 'Data Statistik',
-    icon: '',
-    subModules: [
-      { id: 'statistik-gtk', name: 'Statistik GTK', icon: '👥' },
-      { id: 'monitoring', name: 'Monitoring', icon: '📈' },
-      { id: 'bantuan-ai', name: 'Bantuan AI', icon: '🤖' }
-    ]
-  }
-];
-  {
-    id: 'global-monitoring',
-    name: 'Global Monitoring',
-    icon: '📈',
-    subModules: [
-      { id: 'data-tp-monitor', name: 'Data TP', icon: '🎯' },
-      { id: 'data-cp-monitor', name: 'Data CP', icon: '📖' }
-    ]
-  },
-  {
-    id: 'control-center',
-    name: 'Control Center',
-    icon: '️',
-    subModules: [
-      { id: 'manajemen-user', name: 'Manajemen Pengguna', icon: '👥' },
-      { id: 'pengaturan-situs', name: 'Pengaturan Situs', icon: '⚙️' },
-      { id: 'keamanan-log', name: 'Keamanan & Log', icon: '🔒' },
-      { id: 'data-statistik', name: 'Data & Statistik', icon: '' },
-      { id: 'monitoring', name: 'Monitoring', icon: '📡' }
-    ]
-  },
-  {
-    id: 'arsip',
-    name: 'Arsip',
-    icon: '',
-    subModules: [
-      { id: 'arsip-upload', name: 'Upload Arsip', icon: '📤' },
-      { id: 'arsip-browse', name: 'Browse Arsip', icon: '' }
-    ]
-  },
-  {
-    id: 'statistik',
-    name: 'Statistik',
     icon: '📊',
     subModules: [
-      { id: 'demografi', name: 'Demografi', icon: '👥' },
-      { id: 'akademik', name: 'Akademik', icon: '' }
+      { id: 'statistik-gtk', name: 'Statistik GTK', icon: '' },
+      { id: 'monitoring', name: 'Monitoring', icon: '' },
+      { id: 'bantuan-ai', name: 'Bantuan AI', icon: '🤖' }
     ]
   }
 ];
@@ -190,7 +150,6 @@ function loadCSS() {
       margin: 0 auto; 
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); 
     }
-    
     .um-header {
       display: flex;
       justify-content: space-between;
@@ -199,14 +158,12 @@ function loadCSS() {
       padding-bottom: 15px;
       border-bottom: 2px solid #e9ecef;
     }
-    
     .um-title {
       font-size: 24px;
       font-weight: 700;
       color: #343a40;
       margin: 0;
     }
-    
     .um-btn {
       padding: 10px 20px;
       border: none;
@@ -220,17 +177,14 @@ function loadCSS() {
       transition: all 0.2s;
       color: white;
     }
-    
     .um-btn:hover {
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
-    
     .um-btn-primary { background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%); }
     .um-btn-success { background: linear-gradient(135deg, #198754 0%, #157347 100%); }
     .um-btn-danger { background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%); }
     .um-btn-secondary { background: linear-gradient(135deg, #6c757d 0%, #565e64 100%); }
-    
     .um-form {
       background: white;
       padding: 25px;
@@ -238,7 +192,6 @@ function loadCSS() {
       margin-bottom: 25px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
-    
     .um-form-title {
       font-size: 18px;
       font-weight: 700;
@@ -247,16 +200,13 @@ function loadCSS() {
       padding-bottom: 10px;
       border-bottom: 2px solid #e9ecef;
     }
-    
     .um-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 20px;
       margin-bottom: 20px;
     }
-    
     .um-form-group { margin-bottom: 15px; }
-    
     .um-form-group label {
       display: block;
       margin-bottom: 6px;
@@ -264,7 +214,6 @@ function loadCSS() {
       font-size: 14px;
       color: #495057;
     }
-    
     .um-input {
       width: 100%;
       padding: 12px 14px;
@@ -277,39 +226,33 @@ function loadCSS() {
       font-family: inherit;
       transition: all 0.2s;
     }
-    
     .um-input:focus {
       outline: none;
       border-color: #0d6efd;
       box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.25);
     }
-    
     .um-actions {
       display: flex;
       gap: 10px;
       margin-top: 20px;
       justify-content: flex-end;
     }
-    
     .um-permissions-section {
       margin-top: 25px;
       padding-top: 20px;
       border-top: 2px solid #e9ecef;
     }
-    
     .um-permissions-title {
       font-size: 16px;
       font-weight: 700;
       color: #343a40;
       margin-bottom: 15px;
     }
-    
     .um-permissions-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 15px;
     }
-    
     .um-permission-module {
       background: #f8f9fa;
       border: 2px solid #e9ecef;
@@ -317,12 +260,10 @@ function loadCSS() {
       padding: 15px;
       transition: all 0.2s;
     }
-    
     .um-permission-module:hover {
       border-color: #0d6efd;
       background: #e7f1ff;
     }
-    
     .um-permission-module-header {
       display: flex;
       align-items: center;
@@ -331,13 +272,11 @@ function loadCSS() {
       padding-bottom: 10px;
       border-bottom: 1px solid #dee2e6;
     }
-    
     .um-permission-module-header input[type="checkbox"] {
       width: 18px;
       height: 18px;
       cursor: pointer;
     }
-    
     .um-permission-module-header label {
       font-weight: 700;
       font-size: 14px;
@@ -345,44 +284,37 @@ function loadCSS() {
       cursor: pointer;
       flex: 1;
     }
-    
     .um-permission-submodules {
       display: flex;
       flex-direction: column;
       gap: 8px;
       padding-left: 28px;
     }
-    
     .um-permission-submodule {
       display: flex;
       align-items: center;
       gap: 8px;
     }
-    
     .um-permission-submodule input[type="checkbox"] {
       width: 16px;
       height: 16px;
       cursor: pointer;
     }
-    
     .um-permission-submodule label {
       font-size: 13px;
       color: #495057;
       cursor: pointer;
     }
-    
     .um-table-container {
       background: white;
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
-    
     .um-table {
       width: 100%;
       border-collapse: collapse;
     }
-    
     .um-table th {
       background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
       padding: 15px 12px;
@@ -392,23 +324,19 @@ function loadCSS() {
       font-size: 14px;
       border-bottom: 2px solid #dee2e6;
     }
-    
     .um-table td {
       padding: 12px;
       border-bottom: 1px solid #dee2e6;
       font-size: 14px;
       color: #212529;
     }
-    
     .um-table tr:last-child td { border-bottom: none; }
     .um-table tr:hover td { background: #f8f9fa; }
-    
     .um-table-actions {
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
     }
-    
     .um-action-btn {
       padding: 6px 12px;
       border: none;
@@ -421,12 +349,10 @@ function loadCSS() {
       transition: all 0.2s;
       color: white;
     }
-    
     .um-action-btn:hover { transform: translateY(-1px); }
     .um-action-btn-edit { background: #0d6efd; }
     .um-action-btn-delete { background: #dc3545; }
     .um-action-btn-reset { background: #0dcaf0; color: #000; }
-    
     .um-role-badge {
       display: inline-block;
       padding: 4px 10px;
@@ -434,14 +360,12 @@ function loadCSS() {
       font-size: 12px;
       font-weight: 600;
     }
-    
     .um-role-admin { background: #d3d3d3; color: #343a40; }
     .um-role-guru { background: #e9ecef; color: #495057; }
     .um-role-siswa { background: #cfe2ff; color: #084298; }
     .um-role-ortu { background: #d1e7dd; color: #0f5132; }
     .um-role-kepsek { background: #fff3cd; color: #664d03; }
     .um-role-staf { background: #f8d7da; color: #842029; }
-    
     .um-status-badge {
       display: inline-block;
       padding: 4px 10px;
@@ -449,13 +373,10 @@ function loadCSS() {
       font-size: 12px;
       font-weight: 600;
     }
-    
     .um-status-active { background: #d1e7dd; color: #0f5132; }
     .um-status-inactive { background: #f8d7da; color: #842029; }
-    
     .um-empty { text-align: center; padding: 40px; color: #6c757d; font-size: 14px; }
     .um-loading { text-align: center; padding: 30px; color: #6c757d; }
-    
     .um-toast {
       position: fixed;
       top: 20px;
@@ -468,15 +389,12 @@ function loadCSS() {
       box-shadow: 0 4px 16px rgba(0,0,0,0.15);
       animation: umSlideIn 0.3s ease;
     }
-    
     .um-toast-success { background: linear-gradient(135deg, #198754 0%, #157347 100%); }
     .um-toast-error { background: linear-gradient(135deg, #dc3545 0%, #bb2d3b 100%); }
-    
     @keyframes umSlideIn {
       from { transform: translateX(400px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-    
     @media (max-width: 768px) {
       .um-grid { grid-template-columns: 1fr; }
       .um-permissions-grid { grid-template-columns: 1fr; }
@@ -496,7 +414,7 @@ function renderUI(container) {
   container.innerHTML = `
     <div class="um-container">
       <div class="um-header">
-        <h2 class="um-title"> Manajemen Pengguna</h2>
+        <h2 class="um-title">Manajemen Pengguna</h2>
         <button class="um-btn um-btn-primary" id="btn-add-user">
           ➕ Tambah Pengguna
         </button>
@@ -551,7 +469,7 @@ function renderUI(container) {
         
         <div class="um-actions">
           <button class="um-btn um-btn-secondary" id="btn-cancel-user">Batal</button>
-          <button class="um-btn um-btn-success" id="btn-save-user">💾 Simpan Pengguna</button>
+          <button class="um-btn um-btn-success" id="btn-save-user"> Simpan Pengguna</button>
         </div>
       </div>
 
@@ -568,7 +486,7 @@ function renderUI(container) {
           </thead>
           <tbody id="um-user-list">
             <tr>
-              <td colspan="5" class="um-loading"> Memuat data pengguna...</td>
+              <td colspan="5" class="um-loading">⏳ Memuat data pengguna...</td>
             </tr>
           </tbody>
         </table>
@@ -656,7 +574,7 @@ async function loadUsers(container) {
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {
-      userList.innerHTML = `<tr><td colspan="5" class="um-empty"> Belum ada pengguna. Klik "Tambah Pengguna" untuk memulai!</td></tr>`;
+      userList.innerHTML = `<tr><td colspan="5" class="um-empty">Belum ada pengguna. Klik "Tambah Pengguna" untuk memulai!</td></tr>`;
       return;
     }
 
@@ -664,12 +582,12 @@ async function loadUsers(container) {
 
     userList.innerHTML = users.map(user => {
       const roleLabels = {
-        admin: ' Admin',
-        kepsek: ' Kepsek',
-        guru: '‍🏫 Guru',
-        staf: '💼 Staf',
-        siswa: '🎓 Siswa',
-        ortu: ' Ortu'
+        admin: 'Admin',
+        kepsek: 'Kepsek',
+        guru: 'Guru',
+        staf: 'Staf',
+        siswa: 'Siswa',
+        ortu: 'Ortu'
       };
       
       return `
@@ -680,9 +598,9 @@ async function loadUsers(container) {
           <td><span class="um-status-badge um-status-${user.status || 'active'}">${user.status === 'inactive' ? 'Non-Aktif' : 'Aktif'}</span></td>
           <td>
             <div class="um-table-actions">
-              <button class="um-action-btn um-action-btn-edit" onclick="editUser('${user.id}')">️ Edit</button>
-              <button class="um-action-btn um-action-btn-reset" onclick="resetPassword('${user.email}')">🔑 Reset</button>
-              <button class="um-action-btn um-action-btn-delete" onclick="deleteUser('${user.id}')">️ Hapus</button>
+              <button class="um-action-btn um-action-btn-edit" onclick="editUser('${user.id}')">Edit</button>
+              <button class="um-action-btn um-action-btn-reset" onclick="resetPassword('${user.email}')">Reset</button>
+              <button class="um-action-btn um-action-btn-delete" onclick="deleteUser('${user.id}')">Hapus</button>
             </div>
           </td>
         </tr>
@@ -690,7 +608,7 @@ async function loadUsers(container) {
     }).join('');
   } catch (error) {
     console.error('Error loading users:', error);
-    userList.innerHTML = `<tr><td colspan="5" class="um-empty">❌ Gagal memuat: ${error.message}</td></tr>`;
+    userList.innerHTML = `<tr><td colspan="5" class="um-empty"> Gagal memuat: ${error.message}</td></tr>`;
   }
 }
 
@@ -803,7 +721,7 @@ window.editUser = async function(userId) {
     const docSnap = await getDoc(docRef);
     
     if (!docSnap.exists()) {
-      showToast(' Pengguna tidak ditemukan!', 'error');
+      showToast('Pengguna tidak ditemukan!', 'error');
       return;
     }
 
@@ -829,7 +747,7 @@ window.editUser = async function(userId) {
     container.querySelector('#um-form').scrollIntoView({ behavior: 'smooth' });
   } catch (error) {
     console.error('Error editing user:', error);
-    showToast(' Gagal memuat data!', 'error');
+    showToast('Gagal memuat data!', 'error');
   }
 };
 
@@ -861,7 +779,7 @@ window.deleteUser = async function(userId) {
     loadUsers(container);
   } catch (error) {
     console.error('Error deleting user:', error);
-    showToast(' Gagal menghapus!', 'error');
+    showToast('Gagal menghapus!', 'error');
   }
 };
 
@@ -885,6 +803,9 @@ function showToast(msg, type = 'success') {
   }, 3000);
 }
 
+// =========================================
+// HELPER: CHECK PERMISSION
+// =========================================
 export function hasPermission(user, moduleId, subModuleId = null) {
   if (!user || !user.permissions) return false;
   if (user.isAdmin) return true;
