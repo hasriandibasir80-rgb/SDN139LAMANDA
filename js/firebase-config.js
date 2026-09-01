@@ -1,18 +1,59 @@
 /**
- * Firebase Configuration - Minimal & Clean
+ * Firebase Configuration - Unified Export Module
  * Version: 10.12.2 (Modular SDK)
- * Location: js/firebase-config.js - Sumber tunggal inisialisasi
- * Fungsi: HANYA inisialisasi, tidak ada logic bisnis
+ * Location: js/firebase-config.js (sumber tunggal)
  */
 
-// ✅ Import Firebase App Core
+// ✅ Import Firebase App
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"; // Ditambahkan untuk secondary app
 
-// ✅ Konfigurasi Firebase Project - SDN 139 LAMANDA
+// ✅ Import Firebase Auth + Functions
+import { 
+  signInWithEmailAndPassword, 
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile,
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ✅ Import Firebase Firestore + Functions
+import { 
+  getFirestore,
+  collection,
+  setDoc,
+  addDoc,
+  getDocs,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ✅ Import Firebase Realtime Database
+import {
+  getDatabase,
+  ref,
+  set,
+  get,
+  remove,
+  onDisconnect,
+  serverTimestamp as rtdbTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ✅ Konfigurasi Firebase Project
 const firebaseConfig = {
   apiKey: "AIzaSyDyRS8oVmg6euIvCo20cGpDSilDXe04Bl0",
   authDomain: "ddi-quis.firebaseapp.com",
@@ -35,6 +76,7 @@ try {
   rtdb = getDatabase(app);
   googleProvider = new GoogleAuthProvider();
   
+  // Log hanya muncul di localhost (development)
   if (typeof window !== 'undefined' && 
       (window.location.hostname === 'localhost' || 
        window.location.hostname === '127.0.0.1')) {
@@ -43,6 +85,7 @@ try {
 } catch (error) {
   console.error('❌ Firebase initialization failed:', error);
   
+  // Tampilkan pesan yang jelas ke user
   if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', () => {
       const errorBox = document.createElement('div');
@@ -66,6 +109,8 @@ try {
         <small>Tidak dapat terhubung ke database. Periksa koneksi internet Anda atau hubungi admin.</small>
       `;
       document.body.appendChild(errorBox);
+      
+      // Hilangkan otomatis setelah 10 detik
       setTimeout(() => errorBox.remove(), 10000);
     });
   }
@@ -74,32 +119,34 @@ try {
 }
 
 // =========================================
-// ✅ EXPORT MINIMAL - HANYA YANG DIBUTUHKAN UNTUK INIT
-// =========================================
-// ✅ Secondary App untuk admin create user tanpa logout (agar kompatibel dengan V6)
-let secondaryApp = null;
-let secondaryAuth = null;
-try {
-  secondaryApp = initializeApp(firebaseConfig, "SecondaryAdminApp");
-  secondaryAuth = getAuth(secondaryApp);
-} catch (e) {
-  // Jika sudah ada, gunakan auth utama sebagai fallback
-  secondaryApp = app;
-  secondaryAuth = auth;
-}
-
-// =========================================
-// ✅ EXPORT MINIMAL + SECONDARY (untuk kompatibilitas V6)
+// ✅ EXPORT SEMUA INSTANCES DAN FUNCTIONS
 // =========================================
 export { 
+  // === CONFIGURATION (BARU: Diperlukan untuk Secondary App di user-management) ===
   firebaseConfig,
   initializeApp,
   getAuth,
-  app, 
-  auth, 
-  db, 
-  rtdb, 
-  googleProvider,
-  secondaryApp,
-  secondaryAuth
+
+  // === INSTANCES ===
+  app, auth, db, rtdb, googleProvider,
+  
+  // === AUTH FUNCTIONS ===
+  signInWithEmailAndPassword, 
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile,
+  sendPasswordResetEmail,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  
+  // === FIRESTORE FUNCTIONS ===
+  collection, setDoc, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc,
+  query, orderBy, onSnapshot, serverTimestamp, where,
+  
+  // === REALTIME DATABASE FUNCTIONS ===
+  ref, set, get, remove, onDisconnect, rtdbTimestamp
 };
