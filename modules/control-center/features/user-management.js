@@ -1,9 +1,8 @@
 // modules/control-center/features/user-management.js
-// FINAL V7 - SINGLE FILE CONFIG - NO SPLIT - 930+ BARIS - TIDAK ADA YANG DIKURANGI
-// BUILD: 2026-09-01 V7 - FULL COMPATIBLE + SECONDARYAPP + CAPTCHA TETAP ADA
-// LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar + UID AUTH
+// FINAL V5 - AUTH UID + NPSN FOLDER + RULES UPDATE - 930+ BARIS
+// BUILD: 2026-09-01 V5 - UID AUTH TERSIMPAN DI AUTH & FIRESTORE
+// LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar
 
-// V7 - Hanya pakai firebase-config.js yang sudah FULL + secondaryApp (tidak butuh firebase-service.js)
 import { db, firebaseConfig } from '../../../js/firebase-config.js';
 import { 
   collection, 
