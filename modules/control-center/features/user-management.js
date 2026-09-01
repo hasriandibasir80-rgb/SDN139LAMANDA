@@ -802,43 +802,54 @@ async function saveUser(container) {
 
 async function editUser(userId, container) {
   try {
+    if (!container) container = activeContainer || document.querySelector('.um-container');
     const { npsn } = getUserQuery();
-    let snap = await getDoc(doc(dbInstance, SEKOLAH_COLLECTION, npsn, USER_COLLECTION, userId)).catch(() => null);
-    if (!snap || !snap.exists()) snap = await getDoc(doc(dbInstance, USER_COLLECTION, userId));
-    if (!snap.exists()) { showToast('Tidak ditemukan!', 'error'); return; }
+    let snap = null;
+    if (npsn) {
+      try { snap = await getDoc(doc(dbInstance, SEKOLAH_COLLECTION, npsn, USER_COLLECTION, userId)); } catch (e) { snap = null; }
+    }
+    if (!snap || !snap.exists()) {
+      snap = await getDoc(doc(dbInstance, USER_COLLECTION, userId));
+    }
+    if (!snap || !snap.exists()) { showToast('Tidak ditemukan di folder NPSN ' + (npsn || '-') + ' dan users global!', 'error'); return; }
     const user = snap.data();
     container.querySelector('#um-form').style.display = 'block';
     container.querySelector('#um-form-title').textContent = 'Edit Pengguna';
-    container.querySelector('#btn-save-user').textContent = '💾 Perbarui';
+    container.querySelector('#btn-save-user').textContent = '💾 Perbarui Pengguna';
     container.querySelector('#um-user-id').value = userId;
     container.querySelector('#um-name').value = user.nama || user.namaLengkap || '';
     container.querySelector('#um-email').value = user.email || '';
     container.querySelector('#um-wa').value = user.noWA || '';
-    container.querySelector('#um-npsn').value = user.idSekolah || user.npsn || currentNPSN;
+    container.querySelector('#um-npsn').value = user.idSekolah || user.npsn || currentNPSN || npsn;
     container.querySelector('#um-school').value = user.namaSekolah || NAMA_SEKOLAH;
     container.querySelector('#um-role').value = user.role || 'guru';
     container.querySelector('#um-status').value = user.status || 'aktif';
     setPermissionsToForm(container, user.permissions, user.hakAkses || []);
     container.querySelector('#um-form').scrollIntoView({ behavior: 'smooth' });
-  } catch {
-    showToast('Gagal load!', 'error');
+  } catch (e) {
+    console.error('editUser error:', e);
+    showToast('Gagal load! ' + e.message, 'error');
   }
 }
 
 async function sendWA(userId) {
   try {
     const { npsn } = getUserQuery();
-    let snap = await getDoc(doc(dbInstance, SEKOLAH_COLLECTION, npsn, USER_COLLECTION, userId)).catch(() => null);
+    let snap = null;
+    if (npsn) {
+      try { snap = await getDoc(doc(dbInstance, SEKOLAH_COLLECTION, npsn, USER_COLLECTION, userId)); } catch (e) { snap = null; }
+    }
     if (!snap || !snap.exists()) snap = await getDoc(doc(dbInstance, USER_COLLECTION, userId));
-    if (!snap.exists()) return;
+    if (!snap || !snap.exists()) { showToast('User tidak ditemukan!', 'error'); return; }
     const user = snap.data();
     const hakText = (user.hakAkses || []).length ? user.hakAkses.map(h => `  • ${h}`).join('\n') : '-';
     const pesan = `Halo *${user.nama || user.namaLengkap}*, terdaftar sebagai *${user.role}* di ${NAMA_SEKOLAH}. Email: ${user.email} Password: *${PASSWORD_DEFAULT}* Hak Akses:\n${hakText}\nLink: ${LOGIN_URL}`;
     const wa = formatNomorWA(user.noWA || '');
     if (!wa) { showToast('No WA kosong!', 'error'); return; }
     window.open(`https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`, '_blank');
-  } catch {
-    showToast('Gagal WA', 'error');
+  } catch (e) {
+    console.error('sendWA error:', e);
+    showToast('Gagal WA: ' + e.message, 'error');
   }
 }
 
