@@ -23,7 +23,7 @@ export async function init() {
       currentUserData.email = user.email;
       currentUserData.displayName = user.displayName || '';
       
-      // ⭐ Ambil data tambahan dari Firestore
+      // ⭐ Ambil data tambahan dari Firestore (termasuk NPSN jika ada)
       await loadUserData(user.uid);
       renderProfilButton();
     }
@@ -120,6 +120,10 @@ function showProfilView() {
           <input type="text" id="profilSekolah" class="form-control" value="${currentUserData.sekolah || ''}" disabled>
         </div>
         <div class="form-group">
+          <label>🏛️ NPSN Sekolah</label>
+          <input type="text" id="profilNpsn" class="form-control" value="${currentUserData.npsn || ''}" disabled>
+        </div>
+        <div class="form-group">
           <label>🎓 Kelas / Fase</label>
           <input type="text" id="profilKelas" class="form-control" value="${currentUserData.kelas || ''}" disabled>
         </div>
@@ -200,8 +204,10 @@ window.toggleEditMode = function(enable) {
   } else {
     viewBtns.style.display = 'flex';
     editBtns.style.display = 'none';
+    // Reset nilai ke data asli saat batal edit
     document.getElementById('profilNama').value = currentUserData.displayName || '';
     document.getElementById('profilSekolah').value = currentUserData.sekolah || '';
+    document.getElementById('profilNpsn').value = currentUserData.npsn || ''; // ⭐ BARU: Reset NPSN
     document.getElementById('profilKelas').value = currentUserData.kelas || '';
     document.getElementById('profilNip').value = currentUserData.nip || '';
     document.getElementById('profilKontak').value = currentUserData.kontak || '';
@@ -218,6 +224,7 @@ window.saveProfileData = async function() {
   
   const nama = document.getElementById('profilNama').value.trim();
   const sekolah = document.getElementById('profilSekolah').value.trim();
+  const npsn = document.getElementById('profilNpsn').value.trim(); // ⭐ BARU: Ambil nilai NPSN
   const kelas = document.getElementById('profilKelas').value.trim();
   const nip = document.getElementById('profilNip').value.trim();
   const kontak = document.getElementById('profilKontak').value.trim();
@@ -234,16 +241,16 @@ window.saveProfileData = async function() {
     }
     
     // 2. Siapkan data untuk Firestore
-    // ⚠️ Field-field ini SUDAH diizinkan oleh rules Firestore Anda (hasOnly)
     const newData = {
       uid: user.uid,
       email: user.email,
       displayName: nama,
       sekolah: sekolah,
+      npsn: npsn, // ⭐ BARU: Masukkan NPSN ke data yang akan disimpan
       kelas: kelas,
       nip: nip,
       kontak: kontak,
-      updatedAt: new Date().toISOString() // Format timestamp Firestore yang aman
+      updatedAt: new Date().toISOString()
     };
     
     // 3. Simpan ke Firestore dengan merge: true (update jika ada, buat jika belum)
@@ -252,7 +259,7 @@ window.saveProfileData = async function() {
     
     console.log('✅ Data berhasil disimpan ke Firestore!');
     
-    // 4. Update LocalStorage agar dashboard langsung sinkron
+    // 4. ⭐ PENTING: Update LocalStorage agar sub-fitur lain bisa AUTO-FILL
     const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
     Object.assign(currentUser, newData);
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -299,13 +306,11 @@ export function showOnNoService() {
   if (profilView) profilView.style.display = 'none';
 }
 
-
 // ===== FITUR BARU: GANTI PASSWORD USER SENDIRI =====
 window.handleGantiPassword = async function() {
   const oldPass = document.getElementById('oldPassword')?.value.trim();
   const newPass = document.getElementById('newPassword')?.value.trim();
   const confirmPass = document.getElementById('confirmPassword')?.value.trim();
-  const statusEl = document.getElementById('passwordStatus');
   
   if (!oldPass || !newPass || !confirmPass) {
     showPasswordStatus('⚠️ Semua field password wajib diisi!', 'error');
@@ -404,10 +409,6 @@ function showPasswordStatus(msg, type) {
   el.style.color = type === 'success' ? '#166534' : '#991b1b';
   el.style.border = `1px solid ${type === 'success' ? '#bbf7d0' : '#fecaca'}`;
 }
-
-// Hook after showProfilView to update password info
-const originalShowProfilView = null;
-
 
 function showToast(message, type = 'success') {
   const existing = document.querySelector('.toast-notification');
