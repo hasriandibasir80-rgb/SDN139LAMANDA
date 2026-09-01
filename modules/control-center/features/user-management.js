@@ -3,7 +3,8 @@
 // BUILD: 2026-09-01
 // LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar
 
-import { db, firebaseConfig } from '../../../js/firebase-config.js';
+import { db, auth, secondaryAuth, firebaseConfig } from '../../../js/firebase-config.js';
+import { saveUserToFirestore, createUserInAuth } from '../../../js/firebase-service.js';
 import { 
   collection, 
   query, 
