@@ -1,10 +1,10 @@
 // modules/control-center/features/user-management.js
-// FINAL V4 FULL - TIDAK ADA YANG DIKURANGI - 760+ BARIS
-// BUILD: 2026-09-01
+// FINAL V6 - SPLIT CONFIG + SERVICE - 930+ BARIS - TIDAK ADA YANG DIKURANGI
+// BUILD: 2026-09-01 V6 - CONFIG MINIMAL + SERVICE LENGKAP + AUTH UID + NPSN
 // LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar
 
-import { db, auth, secondaryAuth, firebaseConfig } from '../../../js/firebase-config.js';
-import { saveUserToFirestore, createUserInAuth } from '../../../js/firebase-service.js';
+// V6 - Menggunakan firebase-config.js (minimal) + firebase-service.js (logic)
+import { db, auth, firebaseConfig, secondaryApp, secondaryAuth } from '../../../js/firebase-config.js';
 import { 
   collection, 
   query, 
@@ -16,19 +16,19 @@ import {
   getDoc, 
   setDoc, 
   onSnapshot, 
-  getDocs
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { 
-  getAuth, 
-  createUserWithEmailAndPassword, 
-  sendPasswordResetEmail, 
-  fetchSignInMethodsForEmail
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-const auth = getAuth();
-const secondaryApp = firebaseConfig ? initializeApp(firebaseConfig, "SecondaryAdminApp") : null;
-const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : auth;
+  getDocs,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  fetchSignInMethodsForEmail,
+  saveUserToFirestore,
+  createUserInAuth,
+  formatNomorWA as formatWAFromService,
+  validateEmail as validateEmailFromService,
+  getCurrentUser as getCurrentUserFromService,
+  getUserQuery as getUserQueryFromService,
+  getCurrentNPSN
+} from '../../../js/firebase-service.js';
+// initializeApp & getAuth sudah di-export dari firebase-service.js & firebase-config.js
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const userRoleLegacy = localStorage.getItem('userRole');
@@ -757,7 +757,12 @@ async function saveUser(container) {
       }
     }
 
+    const adminUid = auth.currentUser ? auth.currentUser.uid : (currentUser.uid || '');
     const dataToSave = {
+      uid: finalId,
+      userId: finalId,
+      authUid: finalId,
+      id: finalId,
       nama: name,
       namaLengkap: name,
       email: email,
@@ -771,8 +776,11 @@ async function saveUser(container) {
       hakAkses: hakAkses.length > 0 ? hakAkses : getDefaultHakAksesByRole(role),
       isAdmin: role === 'admin',
       password: PASSWORD_DEFAULT,
+      createdBy: adminUid,
+      createdByAdmin: adminUid,
+      createdByEmail: auth.currentUser ? auth.currentUser.email : currentUser.email,
       updatedAt: serverTimestamp(),
-      ...(isNew ? { createdAt: serverTimestamp(), passwordChanged: false } : {})
+      ...(isNew ? { createdAt: serverTimestamp(), passwordChanged: false, authCreated: true } : {})
     };
 
     const mainRef = doc(dbInstance, USER_COLLECTION, finalId);
