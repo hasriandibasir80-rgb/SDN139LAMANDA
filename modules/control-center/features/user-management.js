@@ -7,9 +7,10 @@ import {
   collection, addDoc, getDocs, query, orderBy, 
   doc, updateDoc, deleteDoc, serverTimestamp, getDoc, setDoc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
   getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail,
-  fetchSignInMethodsForEmail, initializeApp
+  fetchSignInMethodsForEmail
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const auth = getAuth();
