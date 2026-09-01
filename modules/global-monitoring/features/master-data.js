@@ -1,9 +1,9 @@
 // modules/global-monitoring/features/master-data.js
 // =========================================
-// MASTER DATA MODULE
+// MASTER DATA MODULE - Updated untuk struktur schools/{NPSN}
 // =========================================
 
-import { collection, doc, getDocs, setDoc, deleteDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { collection, doc, getDocs, setDoc, deleteDoc, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let db = null;
 let currentUser = null;
@@ -13,32 +13,40 @@ let currentSchoolId = null;
 export async function init(contentDiv, firebaseDb) {
   db = firebaseDb;
   
-  // Ambil data user yang login
+  // Ambil data user yang login dari localStorage
   const userData = JSON.parse(localStorage.getItem('currentUser') || '{}');
   currentUser = userData;
-  currentSchoolId = userData.idSekolah;
+  
+  // Gunakan field npsn atau idSekolah (support kedua format)
+  currentSchoolId = userData.npsn || userData.idSekolah;
   
   if (!currentSchoolId) {
     contentDiv.innerHTML = `
       <div class="empty-state">
         <h3>❌ Error</h3>
-        <p>School ID tidak ditemukan. Silakan login kembali.</p>
+        <p>School ID (NPSN) tidak ditemukan. Silakan update profil Anda terlebih dahulu atau login kembali.</p>
+        <button onclick="window.location.href='../../modules/profil-user/profil-user.html'" style="margin-top:10px; padding:10px 20px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">
+          Update Profil
+        </button>
       </div>
     `;
     return;
   }
   
+  console.log('✅ Master Data initialized for school:', currentSchoolId);
   renderMasterDataUI(contentDiv);
 }
 
 function getCollectionPath(collectionName) {
-  return `sekolah/${currentSchoolId}/masterData/${collectionName}`;
+  // Gunakan path yang konsisten: schools/{NPSN}/masterData/{collection}
+  return `schools/${currentSchoolId}/masterData/${collectionName}`;
 }
 
 async function getData(collectionName) {
   try {
     const collectionPath = getCollectionPath(collectionName);
-    const snapshot = await getDocs(collection(db, collectionPath));
+    const q = query(collection(db, collectionPath), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
     const data = [];
     snapshot.forEach(doc => {
       data.push({ id: doc.id, ...doc.data() });
@@ -57,8 +65,9 @@ async function saveData(collectionName, data, id = null) {
     await setDoc(docRef, {
       ...data,
       updatedAt: new Date().toISOString(),
-      updatedBy: currentUser?.uid || 'unknown'
-    });
+      updatedBy: currentUser?.uid || 'unknown',
+      npsn: currentSchoolId // Simpan NPSN untuk referensi
+    }, { merge: true });
     return docRef.id;
   } catch (error) {
     console.error(`Error saving ${collectionName}:`, error);
@@ -84,6 +93,20 @@ function renderMasterDataUI(container) {
         padding: 20px;
         max-width: 1200px;
         margin: 0 auto;
+      }
+      .school-info {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .school-info h3 {
+        margin: 0 0 5px 0;
+      }
+      .school-info p {
+        margin: 0;
+        opacity: 0.9;
       }
       .master-tabs {
         display: flex;
@@ -230,6 +253,11 @@ function renderMasterDataUI(container) {
     </style>
     
     <div class="master-data-container">
+      <div class="school-info">
+        <h3>🏫 ${currentUser.namaSekolah || 'Data Sekolah'}</h3>
+        <p>NPSN: ${currentSchoolId}</p>
+      </div>
+      
       <div class="master-tabs">
         <div class="master-tab active" data-tab="pesertaDidik">Peserta Didik</div>
         <div class="master-tab" data-tab="sarana">Sarana</div>
@@ -332,7 +360,7 @@ function renderMasterDataUI(container) {
       title: 'Kop Administrasi',
       fields: [
         { name: 'namaSekolah', label: 'Nama Sekolah', type: 'text', required: true },
-        { name: 'npsn', label: 'NPSN', type: 'text', required: true },
+        { name: 'npsn', label: 'NPSN', type: 'text', required: true, readonly: true },
         { name: 'alamat', label: 'Alamat', type: 'textarea', required: true },
         { name: 'kepalaSekolah', label: 'Kepala Sekolah', type: 'text', required: true },
         { name: 'nipKepalaSekolah', label: 'NIP Kepala Sekolah', type: 'text', required: true },
@@ -377,13 +405,21 @@ function renderMasterDataUI(container) {
         case 'cp': data = await getData('cp'); break;
         case 'atp': data = await getData('atp'); break;
         case 'mapel': data = await getData('mapel'); break;
-        case 'kop': data = await getData('kopAdministrasi'); data = data.length > 0 ? [data[0]] : []; break;
+        case 'kop': 
+          data = await getData('kopAdministrasi'); 
+          // Untuk kop, hanya ambil yang pertama jika ada
+          if (data.length > 0 && !editingId) {
+            editingId = data[0].id;
+            document.getElementById('searchInput').parentElement.querySelector('button').style.display = 'none';
+          }
+          break;
       }
       
       allData = data;
       renderTable(data);
     } catch (error) {
-      dataContainer.innerHTML = '<p style="color: red;">Error loading data</p>';
+      console.error('Error loading data:', error);
+      dataContainer.innerHTML = '<p style="color: red;">Error loading data: ' + error.message + '</p>';
     }
   }
   
@@ -409,7 +445,7 @@ function renderMasterDataUI(container) {
       });
       html += `<td>
         <button class="master-btn master-btn-primary" onclick="editData('${item.id}')">Edit</button>
-        <button class="master-btn master-btn-danger" onclick="deleteDataItem('${item.id}')">Hapus</button>
+        ${currentTab !== 'kop' ? `<button class="master-btn master-btn-danger" onclick="deleteDataItem('${item.id}')">Hapus</button>` : ''}
       </td>`;
       html += '</tr>';
     });
@@ -453,7 +489,10 @@ function renderMasterDataUI(container) {
       html += '<div class="master-form-group">';
       html += `<label>${field.label}${field.required ? ' *' : ''}</label>`;
       
-      if (field.type === 'select') {
+      if (field.readonly) {
+        // Field readonly untuk NPSN
+        html += `<input type="${field.type}" name="${field.name}" value="${currentSchoolId}" readonly style="background:#f5f5f5;">`;
+      } else if (field.type === 'select') {
         html += `<select name="${field.name}" ${field.required ? 'required' : ''}>`;
         html += '<option value="">Pilih...</option>';
         field.options.forEach(opt => {
@@ -489,10 +528,11 @@ function renderMasterDataUI(container) {
         case 'cp': await saveData('cp', data, editingId); break;
         case 'atp': await saveData('atp', data, editingId); break;
         case 'mapel': await saveData('mapel', data, editingId); break;
-        case 'kop': await saveData('kopAdministrasi', data, editingId); break;
+        case 'kop': await saveData('kopAdministrasi', data, editingId || 'default'); break;
       }
       
       closeModal();
+      editingId = null;
       await refreshData();
     } catch (error) {
       alert('Error saving data: ' + error.message);
@@ -524,6 +564,10 @@ function renderMasterDataUI(container) {
       document.querySelectorAll('.master-tab').forEach(t => t.classList.remove('active'));
       tab.classList.add('active');
       currentTab = tab.dataset.tab;
+      editingId = null;
+      if (currentTab === 'kop') {
+        document.getElementById('searchInput').parentElement.querySelector('button').style.display = '';
+      }
       loadTabData();
     });
   });
