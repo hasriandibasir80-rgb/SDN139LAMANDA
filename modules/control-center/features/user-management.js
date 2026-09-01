@@ -1,10 +1,10 @@
 // modules/control-center/features/user-management.js
-// FINAL V6 - SPLIT CONFIG + SERVICE - 930+ BARIS - TIDAK ADA YANG DIKURANGI
-// BUILD: 2026-09-01 V6 - CONFIG MINIMAL + SERVICE LENGKAP + AUTH UID + NPSN
-// LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar
+// FINAL V7 - SINGLE FILE CONFIG - NO SPLIT - 930+ BARIS - TIDAK ADA YANG DIKURANGI
+// BUILD: 2026-09-01 V7 - FULL COMPATIBLE + SECONDARYAPP + CAPTCHA TETAP ADA
+// LOGIC: Lama + Baru + Folder NPSN + Alert + Hook Tombol Luar + UID AUTH
 
-// V6 - Menggunakan firebase-config.js (minimal) + firebase-service.js (logic)
-import { db, auth, firebaseConfig, secondaryApp, secondaryAuth } from '../../../js/firebase-config.js';
+// V7 - Hanya pakai firebase-config.js yang sudah FULL + secondaryApp (tidak butuh firebase-service.js)
+import { db, firebaseConfig } from '../../../js/firebase-config.js';
 import { 
   collection, 
   query, 
@@ -16,19 +16,19 @@ import {
   getDoc, 
   setDoc, 
   onSnapshot, 
-  getDocs,
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail,
-  fetchSignInMethodsForEmail,
-  saveUserToFirestore,
-  createUserInAuth,
-  formatNomorWA as formatWAFromService,
-  validateEmail as validateEmailFromService,
-  getCurrentUser as getCurrentUserFromService,
-  getUserQuery as getUserQueryFromService,
-  getCurrentNPSN
-} from '../../../js/firebase-service.js';
-// initializeApp & getAuth sudah di-export dari firebase-service.js & firebase-config.js
+  getDocs
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  sendPasswordResetEmail, 
+  fetchSignInMethodsForEmail
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const auth = getAuth();
+const secondaryApp = firebaseConfig ? initializeApp(firebaseConfig, "SecondaryAdminApp") : null;
+const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : auth;
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const userRoleLegacy = localStorage.getItem('userRole');
