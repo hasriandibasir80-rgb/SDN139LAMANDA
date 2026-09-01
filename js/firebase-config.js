@@ -76,6 +76,21 @@ try {
 // =========================================
 // ✅ EXPORT MINIMAL - HANYA YANG DIBUTUHKAN UNTUK INIT
 // =========================================
+// ✅ Secondary App untuk admin create user tanpa logout (agar kompatibel dengan V6)
+let secondaryApp = null;
+let secondaryAuth = null;
+try {
+  secondaryApp = initializeApp(firebaseConfig, "SecondaryAdminApp");
+  secondaryAuth = getAuth(secondaryApp);
+} catch (e) {
+  // Jika sudah ada, gunakan auth utama sebagai fallback
+  secondaryApp = app;
+  secondaryAuth = auth;
+}
+
+// =========================================
+// ✅ EXPORT MINIMAL + SECONDARY (untuk kompatibilitas V6)
+// =========================================
 export { 
   firebaseConfig,
   initializeApp,
@@ -84,5 +99,7 @@ export {
   auth, 
   db, 
   rtdb, 
-  googleProvider
+  googleProvider,
+  secondaryApp,
+  secondaryAuth
 };
