@@ -9,6 +9,166 @@
   <link rel="stylesheet" href="../../css/core/reset.css">
   <link rel="stylesheet" href="../../css/layouts/main-layout.css">
   <link rel="stylesheet" href="style.css">
+  
+  <style>
+    /* Tambahan CSS untuk tombol Tambah Kop yang lebih menonjol */
+    .sub-menu-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .sub-menu-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 15px;
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+      font-weight: 600;
+      color: #343a40;
+      min-height: 120px;
+      text-align: center;
+    }
+    
+    .sub-menu-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+      border-color: #007bff;
+      background: #f8f9fa;
+    }
+    
+    .sub-menu-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+    
+    /* Tombol Tambah Kop yang lebih menonjol */
+    .sub-menu-btn.kop-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-color: #667eea;
+    }
+    
+    .sub-menu-btn.kop-btn:hover {
+      background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+      border-color: #764ba2;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+      font-size: 16px;
+    }
+    
+    .btn-back {
+      margin: 15px 20px;
+      padding: 10px 20px;
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-back:hover {
+      background: #5a6268;
+      transform: translateX(-3px);
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 20px 40px;
+    }
+    
+    /* Error state styling */
+    .error-state {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      max-width: 600px;
+      margin: 40px auto;
+    }
+    
+    .error-state h3 {
+      color: #dc3545;
+      margin-bottom: 15px;
+    }
+    
+    .error-state p {
+      color: #6c757d;
+      margin-bottom: 20px;
+    }
+    
+    .error-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .btn-primary {
+      padding: 12px 24px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-primary:hover {
+      background: #0056b3;
+    }
+    
+    .btn-success {
+      padding: 12px 24px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    
+    .btn-success:hover {
+      background: #218838;
+    }
+    
+    @media (max-width: 768px) {
+      .sub-menu-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        padding: 10px;
+      }
+      
+      .sub-menu-btn {
+        min-height: 100px;
+        padding: 15px 10px;
+        font-size: 12px;
+      }
+      
+      .sub-menu-icon {
+        font-size: 24px;
+      }
+    }
+  </style>
 </head>
 <body>
   <header class="header">
@@ -23,7 +183,7 @@
       ← Kembali ke Menu
     </button>
 
-    <!-- Menu Sub-Fitur (Grid 5 Card) -->
+    <!-- Menu Sub-Fitur (Grid) -->
     <div id="subMenuContainer" class="sub-menu-grid"></div>
 
     <!-- Area Konten Dinamis -->
@@ -34,7 +194,10 @@
     </div>
   </div>
 
+  <!-- Firebase Config (Hanya inisialisasi, tidak ada fungsi yang dipanggil langsung) -->
   <script type="module" src="../../js/firebase-config.js"></script>
+  
+  <!-- Main Controller -->
   <script type="module" src="main.js"></script>
 </body>
 </html>
