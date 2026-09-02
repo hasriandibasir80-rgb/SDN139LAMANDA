@@ -31,7 +31,7 @@ export async function init(contentDiv, firebaseDb) {
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button onclick="window.location.href='../../profil-user/profil-user.html'" 
                   style="padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-             Update Profil
+            🔄 Update Profil
           </button>
           <button onclick="window.inputNPSNManual()" 
                   style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
@@ -66,7 +66,8 @@ window.inputNPSNManual = function() {
 };
 
 function getCollectionPath() {
-  return `schools/${currentSchoolId}/kopAdministrasi`;
+  // ✅ DIPERBAIKI: Menggunakan 'sekolah' bukan 'schools' agar sesuai dengan struktur database
+  return `sekolah/${currentSchoolId}/kopAdministrasi`;
 }
 
 async function loadExistingKop() {
@@ -291,7 +292,7 @@ function renderKopUI(container) {
     
     <div class="kop-container">
       <div class="kop-header">
-        <h2>️ Pengaturan Kop Surat</h2>
+        <h2>🏛️ Pengaturan Kop Surat</h2>
         <p><strong>Sekolah:</strong> ${currentUser.namaSekolah || '-'}</p>
         <p><strong>NPSN:</strong> ${currentSchoolId}</p>
         <p style="font-size:13px; margin-top:10px; opacity:0.9;">
@@ -307,11 +308,11 @@ function renderKopUI(container) {
         
         <div class="kop-form-grid">
           <div class="kop-form-group">
-            <label>🏛️ Nama Kabupaten</label>
+            <label>️ Nama Kabupaten</label>
             <input type="text" id="kopNamaKabupaten" placeholder="Contoh: BULUKUMBA" oninput="updatePreview()">
           </div>
           <div class="kop-form-group">
-            <label> Dinas</label>
+            <label>🏢 Dinas</label>
             <input type="text" id="kopDinas" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN" oninput="updatePreview()">
           </div>
           <div class="kop-form-group">
@@ -319,7 +320,7 @@ function renderKopUI(container) {
             <input type="text" id="kopNamaSekolah" placeholder="Contoh: SDN 139 LAMANDA" oninput="updatePreview()">
           </div>
           <div class="kop-form-group full-width">
-            <label> Alamat Lengkap</label>
+            <label>📍 Alamat Lengkap</label>
             <input type="text" id="kopAlamat" placeholder="Contoh: Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba" oninput="updatePreview()">
           </div>
         </div>
