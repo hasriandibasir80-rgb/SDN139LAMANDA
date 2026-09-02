@@ -12,7 +12,7 @@ if (!currentUser.uid) {
   window.location.href = '../../index.html';
 }
 
-// ✅ DAFTAR 6 SUB-FITUR MONITORING
+// ✅ DAFTAR SUB-FITUR MONITORING (termasuk KOP)
 const MENU_ITEMS = [
   { 
     id: 'data-peserta-didik', 
@@ -30,15 +30,15 @@ const MENU_ITEMS = [
   },
   { 
     id: 'aset-sarana', 
-    icon: '🏫', 
+    icon: '', 
     title: 'Aset Sarana', 
     path: './features/aset-sarana.js',
     status: 'soon'
   },
   { 
-    id: 'Master-Data', 
+    id: 'master-data', 
     icon: '📝', 
-    title: 'master-data', 
+    title: 'Master Data', 
     path: './features/master-data.js',
     status: 'ready'
   },
@@ -55,17 +55,26 @@ const MENU_ITEMS = [
     title: 'Data TP', 
     path: './features/data-tp.js',
     status: 'ready' 
+  },
+  { 
+    id: 'KOP', 
+    icon: '🏛️', 
+    title: 'Kop Administrasi', 
+    path: './features/kop/kop.js',
+    status: 'ready'
   }
 ];
 
 // ✅ INISIALISASI DENGAN AUTO-LOAD DARI URL PARAMETER
 document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
-  const targetFiturId = urlParams.get('fitur'); // Contoh: ?fitur=data-tp
+  const targetFiturId = urlParams.get('fitur'); // Contoh: ?fitur=KOP
 
   if (targetFiturId) {
-    // Cari fitur yang cocok di MENU_ITEMS
-    const targetItem = MENU_ITEMS.find(item => item.id === targetFiturId);
+    // Cari fitur yang cocok di MENU_ITEMS (case-insensitive)
+    const targetItem = MENU_ITEMS.find(item => 
+      item.id.toLowerCase() === targetFiturId.toLowerCase()
+    );
     
     if (targetItem) {
       // Sembunyikan menu grid dan tombol kembali sejak awal
