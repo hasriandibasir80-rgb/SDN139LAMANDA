@@ -44,7 +44,7 @@ const MENU_ITEMS = [
   },
   { 
     id: 'evaluasi-mandiri', 
-    icon: '📈', 
+    icon: '', 
     title: 'Evaluasi Mandiri', 
     path: './features/evaluasi-mandiri.js',
     status: 'soon'
@@ -60,7 +60,7 @@ const MENU_ITEMS = [
     id: 'KOP', 
     icon: '🏛️', 
     title: 'Kop Administrasi', 
-    path: './features/kop/kop.js',
+    path: './features/kop.js',  // ✅ FIXED: Path langsung ke kop.js
     status: 'ready'
   }
 ];
@@ -144,7 +144,7 @@ async function loadFeature(feature, clickedBtn) {
     console.error(`Gagal memuat ${feature.title}:`, error);
     contentDiv.innerHTML = `
       <div class="empty-state">
-        <h3>❌ Gagal Memuat Modul</h3>
+        <h3> Gagal Memuat Modul</h3>
         <p>Error: ${error.message}</p>
       </div>
     `;
