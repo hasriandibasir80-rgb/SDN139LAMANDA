@@ -37,16 +37,16 @@ const CSS_ID = 'cp-generator-css';
 
 const FALLBACK_MAPEL = [
   { id: 'paibd', nama: 'Pendidikan Agama Islam dan Budi Pekerti', singkatan: 'PAIBD', icon: '🕌' },
-  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '🔢' },
+  { id: 'matematika', nama: 'Matematika', singkatan: 'Matematika', icon: '' },
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇩' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
   { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
 ];
 
 /**
@@ -75,7 +75,7 @@ function loadFeatureCSS() {
   cssLink.href = CSS_PATH;
   cssLink.id = CSS_ID;
   cssLink.onerror = () => {
-    console.warn('⚠️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
+    console.warn('️ CSS eksternal gagal, menggunakan inline CSS (Tampilan tetap aman)');
     const style = document.createElement('style');
     style.id = CSS_ID + '-inline';
     style.textContent = getInlineCSS();
@@ -289,7 +289,7 @@ function attachEventListeners(container) {
   if (btnPrint) btnPrint.addEventListener('click', () => {
     const resultContainer = container.querySelector('#cp-result-table-container');
     if (!resultContainer || resultContainer.innerHTML.trim() === '') {
-      showToast('⚠️ Generate data dulu sebelum print!', 'warning');
+      showToast('️ Generate data dulu sebelum print!', 'warning');
       return;
     }
     window.print();
@@ -298,7 +298,7 @@ function attachEventListeners(container) {
   if (btnDownload) btnDownload.addEventListener('click', () => downloadCTAResult(container));
   const btnSave = container.querySelector('#cp-btn-save');
   if (btnSave) btnSave.addEventListener('click', () => handleSave(container));
-  // ⭐ TAMBAHAN: Event listener untuk tombol sinkronisasi
+  //  TAMBAHAN: Event listener untuk tombol sinkronisasi
   const btnSyncTP = container.querySelector('#cp-btn-sync-tp');
   if (btnSyncTP) btnSyncTP.addEventListener('click', () => handleSyncToMasterTP(container));
   const btnRegenerate = container.querySelector('#cp-btn-regenerate');
@@ -351,7 +351,7 @@ async function handleGenerate(container) {
   const resultDiv = container.querySelector('#cp-result');
   if (resultDiv) resultDiv.classList.remove('cp-hidden');
   const resultContainer = container.querySelector('#cp-result-table-container');
-  resultContainer.innerHTML = '<p class="cp-loading">⏳ AI sedang membuat CP, TP, dan ATP... Mohon tunggu 15-30 detik.</p>';
+  resultContainer.innerHTML = '<p class="cp-loading"> AI sedang membuat CP, TP, dan ATP... Mohon tunggu 15-30 detik.</p>';
   try {
     const prompt = buildPrompt(dataTopik, { sekolah, jenjang, kelas, semester, mapel, guru, tahun });
     const response = await fetch(GROQ_API_URL, {
@@ -607,12 +607,16 @@ async function autoSaveCPToMasterData(result, metadata, dataTopik = []) {
   }
 }
 
-function downloadCTAResult(container) {
+// =========================================
+// FUNGSI DOWNLOAD WORD (DIPERBAIKI: ALIGNMENT & KOP SURAT)
+// =========================================
+async function downloadCTAResult(container) {
   const resultContainer = container.querySelector('#cp-result-table-container');
   if (!resultContainer || resultContainer.innerHTML.trim() === '') {
-    showToast('⚠️ Generate data dulu sebelum download!', 'warning');
+    showToast('️ Generate data dulu sebelum download!', 'warning');
     return;
   }
+
   const mapel = normalizeMapel(container.querySelector('#cp-mapel')?.value) || 'Mapel';
   const kelas = container.querySelector('#cp-kelas')?.value || '';
   const semester = container.querySelector('#cp-semester')?.value || '';
@@ -620,18 +624,122 @@ function downloadCTAResult(container) {
   const tahun = container.querySelector('#cp-kop-tahun')?.value || '';
   const guru = container.querySelector('#cp-guru')?.value || '';
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
-  let htmlContent = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'> <head> <meta charset='utf-8'> <title>CP_TP_ATP_${mapel}_Kelas${kelas}</title> <style> @page { size: A4; margin: 2cm; } body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 2cm; line-height: 1.5; } h1 { text-align: center; font-size: 16pt; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; } h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; } h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; } table { border-collapse: collapse; width: 100%; margin-bottom: 20px; } th { background-color: #f0f0f0; border: 1px solid #000; padding: 8px; text-align: left; font-weight: bold; font-size: 11pt; } td { border: 1px solid #000; padding: 8px; vertical-align: top; font-size: 11pt; } .col-elemen { width: 18%; font-weight: bold; background-color: #f9f9f9; } .col-no { width: 8%; text-align: center; font-weight: bold; background-color: #f9f9f9; } .col-deskripsi { width: 74%; } .page-break { page-break-after: always; } </style> </head> <body> <div style="text-align: center; margin-bottom: 30px;"> <h1>PERANGKAT PEMBELAJARAN</h1> <h2>${mapel.toUpperCase()}</h2> <table style="margin: 15px auto; border: none;"> <tr><td style="border: none;"><strong>Sekolah</strong></td><td style="border: none;">: ${sekolah}</td></tr> <tr><td style="border: none;"><strong>Tahun Ajaran</strong></td><td style="border: none;">: ${tahun}</td></tr> <tr><td style="border: none;"><strong>Kelas / Semester</strong></td><td style="border: none;">: ${kelas} / ${labelSemester}</td></tr> <tr><td style="border: none;"><strong>Guru Pengampu</strong></td><td style="border: none;">: ${guru}</td></tr> </table> </div>`;
+
+  // 1. Ambil Data Kop Surat secara Dinamis (Jika ada)
+  let kopHTML = '';
+  try {
+    // Import dinamis untuk menghindari error jika file kop.js belum ada
+    const kopModule = await import('../../global-monitoring/features/kop.js');
+    const kopData = await kopModule.getKopData();
+    if (kopData) {
+      kopHTML = kopModule.generateKopHTML(kopData);
+    }
+  } catch (error) {
+    console.warn('Gagal memuat kop surat, menggunakan header default.', error);
+  }
+
+  // 2. Template HTML dengan CSS Khusus Microsoft Word (Alignment Fixed)
+  let htmlContent = `
+    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+    <head>
+      <meta charset='utf-8'>
+      <title>CP_TP_ATP_${mapel}_Kelas${kelas}</title>
+      <style>
+        @page { size: A4; margin: 2cm 2cm 2cm 2cm; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; }
+        
+        h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; text-transform: uppercase; }
+        h2 { text-align: center; font-size: 14pt; font-weight: bold; margin: 5px 0 20px 0; text-decoration: underline; }
+        
+        /* Tabel Informasi Sekolah (Biarkan rata kiri agar rapi) */
+        .info-table { width: 100%; border: none; margin-bottom: 20px; font-size: 12pt; }
+        .info-table td { border: none; padding: 4px 0; vertical-align: top; text-align: left; }
+
+        h3 { font-size: 12pt; font-weight: bold; margin-top: 25px; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; text-align: left; }
+
+        table.data-table { border-collapse: collapse; width: 100%; margin-bottom: 20px; font-size: 11pt; }
+
+        /* 1. HEADER TABEL: RATA TENGAH */
+        table.data-table th {
+          background-color: #e6e6e6 !important;
+          border: 1px solid #000 !important;
+          padding: 8px;
+          text-align: center !important; /* DIPAKSA TENGAH */
+          font-weight: bold;
+          -webkit-print-color-adjust: exact;
+        }
+
+        /* 2. ISI TABEL DEFAULT: RATA TENGAH VERTIKAL & HORIZONTAL */
+        table.data-table td {
+          border: 1px solid #000 !important;
+          padding: 8px;
+          vertical-align: middle !important; /* RATA TENGAH VERTIKAL */
+          text-align: center !important;     /* RATA TENGAH HORIZONTAL */
+        }
+
+        /* 3. KOLOM KHUSUS: SUB TEMA / ELEMEN */
+        .col-elemen {
+          width: 20%;
+          font-weight: bold;
+          background-color: #f2f2f2 !important;
+          text-align: center !important;
+          -webkit-print-color-adjust: exact;
+        }
+
+        /* 4. KOLOM KHUSUS: NOMOR */
+        .col-no {
+          width: 10%;
+          text-align: center !important;
+          font-weight: bold;
+          background-color: #f2f2f2 !important;
+          -webkit-print-color-adjust: exact;
+        }
+
+        /* 5. KOLOM KHUSUS: DESKRIPSI (Teks Panjang) */
+        /* PENTING: Ini harus justify/left agar teks panjang mudah dibaca dan tidak berantakan */
+        .col-deskripsi {
+          width: 70%;
+          text-align: justify !important; /* Rata kanan-kiri agar rapi di Word */
+          vertical-align: middle !important;
+        }
+
+        .page-break { page-break-after: always; }
+        .signature { margin-top: 50px; text-align: right; font-size: 12pt; page-break-inside: avoid; }
+      </style>
+    </head>
+    <body>
+      ${kopHTML ? kopHTML : '<div style="text-align:center; margin-bottom:20px;"><h1>PERANGKAT PEMBELAJARAN</h1><h2>' + mapel.toUpperCase() + '</h2></div>'}
+      ${kopHTML ? '<h1 style="margin-top:20px;">PERANGKAT PEMBELAJARAN</h1><h2>' + mapel.toUpperCase() + '</h2>' : ''}
+
+      <table class="info-table">
+        <tr><td width="130"><strong>Sekolah</strong></td><td width="10">:</td><td>${sekolah}</td></tr>
+        <tr><td><strong>Tahun Ajaran</strong></td><td>:</td><td>${tahun}</td></tr>
+        <tr><td><strong>Kelas / Semester</strong></td><td>:</td><td>${kelas} / ${labelSemester}</td></tr>
+        <tr><td><strong>Guru Pengampu</strong></td><td>:</td><td>${guru}</td></tr>
+      </table>
+  `;
+
+  // 3. Render Tabel-tabel Hasil
   const tables = resultContainer.querySelectorAll('.cp-table');
-  const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', '📊 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
+  const titles = ['🎯 1. CAPAIAN PEMBELAJARAN (CP)', '🏁 2. TUJUAN PEMBELAJARAN (TP)', ' 3. ALUR TUJUAN PEMBELAJARAN (ATP)'];
+  
   tables.forEach((table, idx) => {
     if (idx > 0) htmlContent += '<div class="page-break"></div>';
-    htmlContent += `<h3>${titles[idx]}</h3><table>`;
+    
+    htmlContent += `<h3>${titles[idx]}</h3>`;
+    htmlContent += '<table class="data-table">';
+    
+    // Header Tabel
     const headers = table.querySelectorAll('thead th');
     if (headers.length > 0) {
       htmlContent += '<thead><tr>';
-      headers.forEach(th => { htmlContent += `<th>${th.textContent}</th>`; });
+      headers.forEach(th => { 
+        htmlContent += `<th>${th.textContent}</th>`; 
+      });
       htmlContent += '</tr></thead>';
     }
+    
+    // Body Tabel
     htmlContent += '<tbody>';
     const rows = table.querySelectorAll('tbody tr');
     rows.forEach(row => {
@@ -639,31 +747,54 @@ function downloadCTAResult(container) {
       const cells = row.querySelectorAll('td');
       cells.forEach(cell => {
         const rowspan = cell.getAttribute('rowspan');
-        const className = cell.className;
         const rowspanAttr = rowspan ? ` rowspan="${rowspan}"` : '';
-        htmlContent += `<td class="${className}"${rowspanAttr}>${cell.innerHTML}</td>`;
+        
+        // Tentukan class khusus agar Word tahu mana yang harus rata tengah, mana yang justify
+        let wordClass = '';
+        if (cell.classList.contains('cp-col-elemen')) {
+          wordClass = 'col-elemen';
+        } else if (cell.classList.contains('cp-col-no')) {
+          wordClass = 'col-no';
+        } else {
+          // Ini adalah kolom deskripsi/teks panjang
+          wordClass = 'col-deskripsi'; 
+        }
+        
+        htmlContent += `<td class="${wordClass}"${rowspanAttr}>${cell.innerHTML}</td>`;
       });
       htmlContent += '</tr>';
     });
     htmlContent += '</tbody></table>';
   });
-  htmlContent += `<div style="margin-top: 30px; text-align: right; font-size: 10pt; color: #666;"> <p>Dokumen ini dibuat secara otomatis oleh Sistem Administrasi Pembelajaran</p> <p>SDN 139 LAMANDA | ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p> </div> </body> </html>`;
+
+  // 4. Tanda Tangan Penutup
+  htmlContent += `
+    <div class="signature">
+      <p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      <p style="margin-top: 70px;"><strong><u>${guru}</u></strong></p>
+    </div>
+    </body>
+    </html>
+  `;
+
+  // 5. Proses Download
   const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `CP_TP_ATP_${mapel}_Kelas${kelas}_Sem${semester}.doc`;
+  link.download = `CP_TP_ATP_${mapel.replace(/\s+/g, '_')}_Kelas${kelas}_Sem${semester}.doc`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  showToast('✅ File Word berhasil diunduh!', 'success');
+  
+  showToast('✅ File Word profesional berhasil diunduh!', 'success');
 }
 
 async function handleSave(container) {
   const resultContainer = container.querySelector('#cp-result-table-container');
   if (!resultContainer || resultContainer.innerHTML.trim() === '') {
-    showToast('⚠️ Generate data dulu!', 'warning'); return;
+    showToast('️ Generate data dulu!', 'warning'); return;
   }
   showToast('✅ Data sudah otomatis tersimpan saat generate!', 'success');
 }
@@ -760,8 +891,6 @@ async function autoSaveATPToMasterData(result, metadata, dataTopik = []) {
     return 0;
   }
 }
-
-
 
 async function handleSyncToMasterTP(container) {
   if (!lastGeneratedData || !lastGeneratedData.parsedData) {
