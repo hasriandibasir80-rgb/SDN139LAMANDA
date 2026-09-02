@@ -163,7 +163,7 @@ function renderUI(container) {
         </div>
         <div class="promes-actions" style="justify-content: flex-start;">
           <button class="promes-btn promes-btn-primary" id="btn-load-tp">🔄 Load Data TP</button>
-          <button class="promes-btn promes-btn-success" id="btn-generate-ai" style="display: none;">✨ Generate Strategi & Asesmen (AI)</button>
+          <button class="promes-btn promes-btn-success" id="btn-generate-ai" style="display: none;">✨ Generate Alokasi, Jadwal, Strategi & Asesmen (AI)</button>
         </div>
         <div id="promes-tp-info" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;">
           <p style="margin: 0; font-size: 13px;"></p>
@@ -360,10 +360,12 @@ async function handleGenerateWithAI(container) {
     const mapel = container.querySelector('#promes-mapel').value;
     const kelas = container.querySelector('#promes-kelas').value;
     const semester = container.querySelector('#promes-semester').value;
+    const tahun = container.querySelector('#promes-tahun').value;
     const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
+    const rentangBulan = semester === '1' ? 'Juli - Desember' : 'Januari - Juni';
 
     let prompt = `Bertindaklah sebagai ahli kurikulum dan pembelajaran mendalam (Deep Learning). \n`;
-    prompt += `Buatkan "Strategi & Aktivitas Pembelajaran" dan "Bentuk Asesmen Otentik" untuk mata pelajaran ${mapel} Kelas ${kelas} Semester ${labelSemester}.\n\n`;
+    prompt += `Buatkan "Alokasi Waktu", "Bulan / Minggu", "Strategi & Aktivitas Pembelajaran", dan "Bentuk Asesmen Otentik" untuk mata pelajaran ${mapel} Kelas ${kelas} Semester ${labelSemester} Tahun Ajaran ${tahun}.\n\n`;
     prompt += `Berikut adalah data yang harus Anda lengkapi:\n`;
     
     promesRows.forEach((row, idx) => {
@@ -373,11 +375,12 @@ async function handleGenerateWithAI(container) {
     });
 
     prompt += `ATURAN OUTPUT:\n`;
-    prompt += `1. Berikan jawaban HANYA dalam bentuk JSON array yang valid.\n`;
-    prompt += `2. Setiap item memiliki properti: "no" (angka), "strategi" (string, gunakan <br> untuk baris baru), dan "asesmen" (string, gunakan <br> untuk baris baru).\n`;
-    prompt += `3. Strategi harus berpusat pada siswa (4C: Critical Thinking, Collaboration, Communication, Creativity).\n`;
-    prompt += `4. Asesmen harus otentik (Formatif & Sumatif).\n`;
-    prompt += `Contoh format:\n[\n  {"no": 1, "strategi": "Diskusi kelompok...", "asesmen": "Formatif: Observasi..."},\n  ...\n]`;
+    prompt += `1. Berikan jawaban HANYA dalam bentuk JSON array yang valid, tanpa teks tambahan di luar JSON.\n`;
+    prompt += `2. Setiap item memiliki properti: "no" (angka), "alokasi" (string singkat, contoh: "4 JP"), "bulanMinggu" (string singkat, contoh: "Juli: M1-M2"), "strategi" (string, gunakan <br> untuk baris baru), dan "asesmen" (string, gunakan <br> untuk baris baru).\n`;
+    prompt += `3. Susun "bulanMinggu" secara berurutan dan TIDAK tumpang tindih antar baris, mengikuti kalender semester ${labelSemester} (${rentangBulan}), dengan total alokasi waktu yang realistis untuk satu semester (± 16-18 minggu efektif dibagi sesuai jumlah baris data).\n`;
+    prompt += `4. Strategi harus berpusat pada siswa (4C: Critical Thinking, Collaboration, Communication, Creativity).\n`;
+    prompt += `5. Asesmen harus otentik (Formatif & Sumatif).\n`;
+    prompt += `Contoh format:\n[\n  {"no": 1, "alokasi": "4 JP", "bulanMinggu": "Juli: M1-M2", "strategi": "Diskusi kelompok...", "asesmen": "Formatif: Observasi..."},\n  ...\n]`;
 
     const response = await fetch(GROQ_API_URL, {
       method: 'POST',
@@ -406,17 +409,19 @@ async function handleGenerateWithAI(container) {
       throw new Error('AI menghasilkan format yang tidak valid.');
     }
 
-    // Update baris
+    // Update baris (alokasi, bulan/minggu, strategi, asesmen)
     generatedData.forEach((item) => {
       const idx = item.no - 1;
       if (promesRows[idx]) {
+        promesRows[idx].alokasi = item.alokasi || promesRows[idx].alokasi || '';
+        promesRows[idx].bulanMinggu = item.bulanMinggu || promesRows[idx].bulanMinggu || '';
         promesRows[idx].strategi = item.strategi || '';
         promesRows[idx].asesmen = item.asesmen || '';
       }
     });
 
     renderPromesTable(container);
-    showToast(`✅ Berhasil generate ${generatedData.length} baris dengan AI!`, 'success');
+    showToast(`✅ Berhasil generate ${generatedData.length} baris (alokasi, jadwal, strategi & asesmen) dengan AI!`, 'success');
 
   } catch (error) {
     console.error('Error generating with AI:', error);
@@ -559,7 +564,7 @@ window.deletePromes = async function(id) {
   catch (error) { showToast('❌ Gagal menghapus!', 'error'); }
 };
 
-// ========== 4. EXPORT WORD (FORMAT RAPI) ==========
+// ========== 4. EXPORT WORD (FORMAT RAPI, LANDSCAPE FIT-PAGE) ==========
 function handleExport(container) {
   if (promesRows.length === 0) { showToast('⚠️ Tidak ada data!', 'error'); return; }
 
@@ -572,23 +577,46 @@ function handleExport(container) {
   const pendekatan = container.querySelector('#promes-pendekatan').value;
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
 
+  // Catatan teknis: Word (saat membuka file .doc hasil export HTML) TIDAK membaca
+  // CSS "@page { size: A4 landscape; }" biasa. Word butuh @page bernama (Section1)
+  // yang di-bind ke elemen <div class="Section1">, ditambah lebar kolom tabel yang
+  // TETAP (colgroup + table-layout:fixed) supaya tabel tidak meluber ke luar halaman.
   let html = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
     <head><meta charset='utf-8'><title>Promes_${mapel}_Kelas${kelas}</title>
+    <!--[if gte mso 9]>
+    <xml>
+      <w:WordDocument>
+        <w:View>Print</w:View>
+        <w:Zoom>90</w:Zoom>
+        <w:DoNotOptimizeForBrowser/>
+      </w:WordDocument>
+    </xml>
+    <![endif]-->
     <style>
-      @page { size: A4 landscape; margin: 1.5cm; }
-      body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #000; }
+      @page Section1 {
+        size: 29.7cm 21cm;
+        mso-page-orientation: landscape;
+        margin: 1.3cm 1.2cm 1.3cm 1.2cm;
+        mso-header-margin: .5cm;
+        mso-footer-margin: .5cm;
+      }
+      div.Section1 { page: Section1; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 10.5pt; line-height: 1.35; color: #000; margin: 0; }
       h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; text-transform: uppercase; }
-      h2 { text-align: center; font-size: 13pt; font-weight: bold; margin: 5px 0 15px 0; }
-      .info-table { width: 100%; border: none; margin-bottom: 15px; font-size: 11pt; }
-      .info-table td { border: none; padding: 3px 0; vertical-align: top; }
-      table.data-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt; }
-      table.data-table th { background-color: #e6e6e6 !important; border: 1px solid #000 !important; padding: 8px 6px; text-align: center !important; font-weight: bold; -webkit-print-color-adjust: exact; }
-      table.data-table td { border: 1px solid #000 !important; padding: 6px; vertical-align: top !important; }
-      .col-no, .col-elemen, .col-alokasi, .col-bulan { text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
+      h2 { text-align: center; font-size: 12pt; font-weight: bold; margin: 4px 0 14px 0; }
+      .info-table { width: 100%; border: none; margin-bottom: 14px; font-size: 11pt; }
+      .info-table td { border: none; padding: 2px 0; vertical-align: top; }
+      table.data-table { border-collapse: collapse; width: 100%; table-layout: fixed; margin-top: 8px; font-size: 9.5pt; }
+      table.data-table th { background-color: #e6e6e6 !important; border: 1px solid #000 !important; padding: 6px 4px; text-align: center !important; font-weight: bold; vertical-align: middle; -webkit-print-color-adjust: exact; mso-shading: #e6e6e6; }
+      table.data-table td { border: 1px solid #000 !important; padding: 5px; vertical-align: top !important; word-wrap: break-word; overflow-wrap: break-word; }
+      .col-no, .col-elemen, .col-alokasi, .col-bulan { text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; mso-shading: #f5f5f5; }
       .col-konten, .col-tp, .col-strategi, .col-asesmen { text-align: justify !important; }
-      .signature { margin-top: 30px; text-align: right; font-size: 11pt; }
+      table.data-table thead { display: table-header-group; }
+      tr { page-break-inside: avoid; }
+      .signature { margin-top: 26px; text-align: right; font-size: 11pt; }
     </style></head><body>
+    <div class="Section1">
       <h1>PROGRAM SEMESTER (PROMES) ${mapel.toUpperCase()}</h1>
       <h2>Kurikulum Merdeka - Pembelajaran Mendalam (Deep Learning)</h2>
       <table class="info-table">
@@ -597,12 +625,23 @@ function handleExport(container) {
         <tr><td><strong>Tahun Ajaran</strong></td><td>:</td><td>${tahun}</td></tr>
         <tr><td><strong>Pendekatan</strong></td><td>:</td><td>${pendekatan}</td></tr>
       </table>
-      <table class="data-table"><thead><tr>
-        <th class="col-no" style="width:5%">No</th><th class="col-elemen" style="width:10%">Elemen</th>
-        <th class="col-konten" style="width:15%">Konten / Materi Esensial</th><th class="col-tp" style="width:20%">Tujuan Pembelajaran</th>
-        <th class="col-alokasi" style="width:8%">Alokasi Waktu</th><th class="col-bulan" style="width:12%">Bulan / Minggu</th>
-        <th class="col-strategi" style="width:20%">Strategi & Aktivitas</th><th class="col-asesmen" style="width:10%">Asesmen Otentik</th>
-      </tr></thead><tbody>`;
+      <table class="data-table">
+        <colgroup>
+          <col style="width:5%">
+          <col style="width:11%">
+          <col style="width:15%">
+          <col style="width:19%">
+          <col style="width:7%">
+          <col style="width:11%">
+          <col style="width:21%">
+          <col style="width:11%">
+        </colgroup>
+        <thead><tr>
+          <th class="col-no">No</th><th class="col-elemen">Elemen</th>
+          <th class="col-konten">Konten / Materi Esensial</th><th class="col-tp">Tujuan Pembelajaran</th>
+          <th class="col-alokasi">Alokasi Waktu</th><th class="col-bulan">Bulan / Minggu</th>
+          <th class="col-strategi">Strategi & Aktivitas</th><th class="col-asesmen">Asesmen Otentik</th>
+        </tr></thead><tbody>`;
 
   promesRows.forEach(row => {
     html += `<tr>
@@ -614,8 +653,9 @@ function handleExport(container) {
   });
 
   html += `</tbody></table>
-    <div class="signature"><p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-    <p style="margin-top: 60px;"><strong><u>${guru}</u></strong></p></div></body></html>`;
+      <div class="signature"><p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      <p style="margin-top: 60px;"><strong><u>${guru}</u></strong></p></div>
+    </div></body></html>`;
 
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
