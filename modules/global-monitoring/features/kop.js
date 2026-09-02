@@ -23,26 +23,15 @@ export async function init(contentDiv, firebaseDb) {
   currentUser = userData;
   currentSchoolId = userData.npsn || userData.idSekolah;
   
-  if (!currentSchoolId) {
-    contentDiv.innerHTML = `
-      <div style="padding: 40px; text-align: center; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-        <h3 style="color: #dc3545; margin-bottom: 15px;">❌ Error</h3>
-        <p style="color: #6c757d; margin-bottom: 20px;">School ID (NPSN) tidak ditemukan. Silakan update profil Anda terlebih dahulu.</p>
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <button onclick="window.location.href='../../profil-user/profil-user.html'" 
-                  style="padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-            🔄 Update Profil
-          </button>
-          <button onclick="window.inputNPSNManual()" 
-                  style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
-            ➕ Input NPSN Manual
-          </button>
-        </div>
-      </div>
-    `;
-    return;
-  }
-  
+ if (!currentSchoolId) {
+  contentDiv.innerHTML = `
+    <div style="padding: 40px; text-align: center; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+      <h3 style="color: #dc3545; margin-bottom: 15px;">❌ Error</h3>
+      <p style="color: #6c757d;">NPSN tidak ditemukan pada data user. Silakan hubungi administrator.</p>
+    </div>
+  `;
+  return;
+}
   console.log('✅ Kop Administrasi initialized for school:', currentSchoolId);
   renderKopUI(contentDiv);
   
