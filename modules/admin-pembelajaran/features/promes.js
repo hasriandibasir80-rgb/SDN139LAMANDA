@@ -1,8 +1,7 @@
 // modules/admin-pembelajaran/features/promes.js
 // =========================================
 // FITUR: PROGRAM SEMESTER (PROMES)
-// TERINTEGRASI: Firebase Firestore (data_tp, data_promes)
-// FITUR: Load Data TP, Edit, Simpan, Export Word, Import, Print
+// TERINTEGRASI: Firebase (cp_tp_atp & data_promes) + Groq AI
 // =========================================
 import { db } from '../../../js/firebase-config.js';
 import {
@@ -12,9 +11,14 @@ import {
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
 const CSS_ID = 'promes-css';
+
+// Konfigurasi Groq AI
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODEL = 'llama-3.1-70b-versatile';
+let groqApiKey = null;
+
 let currentEditId = null;
 let dataMapel = [];
-let loadedTPData = [];
 let promesRows = [];
 
 const FALLBACK_MAPEL = [
@@ -23,17 +27,18 @@ const FALLBACK_MAPEL = [
   { id: 'ipas', nama: 'IPAS', singkatan: 'IPAS', icon: '🔬' },
   { id: 'pjok', nama: 'PJOK', singkatan: 'PJOK', icon: '⚽' },
   { id: 'bahasa-indonesia', nama: 'Bahasa Indonesia', singkatan: 'Bhs.Indonesia', icon: '📖' },
-  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮' },
+  { id: 'pendidikan-pancasila', nama: 'Pendidikan Pancasila', singkatan: 'Pendidikan Pancasila', icon: '🇮🇩' },
   { id: 'seni-budaya', nama: 'Seni dan Budaya', singkatan: 'Seni dan Budaya', icon: '🎨' },
   { id: 'bahasa-inggris', nama: 'Bahasa Inggris', singkatan: 'Bhs.Inggris', icon: '🇬🇧' },
   { id: 'coding-kka', nama: 'Coding/KKA', singkatan: 'Coding/KKA', icon: '💻' },
-  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '️' },
-  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '📚' }
+  { id: 'bahasa-ibu', nama: 'Bahasa Ibu', singkatan: 'Bhs.Ibu', icon: '🗣️' },
+  { id: 'bta', nama: 'BTA', singkatan: 'BTA', icon: '' }
 ];
 
 export async function init(container, db) {
   loadCSS();
   await loadMataPelajaran();
+  await loadGroqApiKey();
   renderUI(container);
   attachEvents(container);
   loadSavedPromes(container);
@@ -51,8 +56,24 @@ async function loadMataPelajaran() {
     const data = await response.json();
     dataMapel = data.mataPelajaran || [];
   } catch (error) {
-    console.warn('⚠️ Menggunakan data mapel fallback');
     dataMapel = FALLBACK_MAPEL;
+  }
+}
+
+async function loadGroqApiKey() {
+  try {
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const docRef = doc(db, 'settings', 'api_key');
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      if (data.keys) {
+        const activeKeys = Object.values(data.keys).filter(k => k.active === true);
+        if (activeKeys.length > 0) groqApiKey = activeKeys[0].value;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading API key:', error);
   }
 }
 
@@ -77,6 +98,7 @@ function loadCSS() {
     .promes-form-control:focus { outline: none; border-color: #ec4899; box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.15); }
     .promes-btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s; color: white; }
     .promes-btn:hover { transform: translateY(-2px); }
+    .promes-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
     .promes-btn-primary { background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); }
     .promes-btn-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
     .promes-btn-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
@@ -95,6 +117,7 @@ function loadCSS() {
     .promes-toast { position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 10px; z-index: 10001; color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: promesSlideIn 0.3s ease; }
     .promes-toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
     .promes-toast-error { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+    .promes-toast-warning { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
     @keyframes promesSlideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
     @media (max-width: 768px) { .promes-form-grid { grid-template-columns: 1fr; } .promes-actions { flex-direction: column; } .promes-btn { width: 100%; justify-content: center; } }
   `;
@@ -114,12 +137,11 @@ function renderUI(container) {
         <p>Penyusunan Program Semester berbasis Deep Learning - Kurikulum Merdeka</p>
       </div>
 
-      <!-- BAGIAN 1: LOAD DATA TP -->
       <div class="promes-section">
-        <h3 class="promes-section-title">📥 1. Load Data dari Master TP</h3>
+        <h3 class="promes-section-title">📥 1. Load Data dari Master TP (Firebase)</h3>
         <div class="promes-form-grid">
           <div class="promes-form-group">
-            <label> Kelas</label>
+            <label>🎓 Kelas</label>
             <select id="promes-kelas" class="promes-form-control">
               <option value="">-- Pilih Kelas --</option>
               <option value="1">Kelas 1</option><option value="2">Kelas 2</option>
@@ -141,18 +163,18 @@ function renderUI(container) {
         </div>
         <div class="promes-actions" style="justify-content: flex-start;">
           <button class="promes-btn promes-btn-primary" id="btn-load-tp">🔄 Load Data TP</button>
+          <button class="promes-btn promes-btn-success" id="btn-generate-ai" style="display: none;">✨ Generate Strategi & Asesmen (AI)</button>
         </div>
-        <div id="promes-tp-info" style="margin-top: 15px; padding: 10px; background: #f0f9ff; border-radius: 6px; display: none;">
-          <p style="margin: 0; color: #0369a1; font-size: 13px;"></p>
+        <div id="promes-tp-info" style="margin-top: 15px; padding: 10px; border-radius: 6px; display: none;">
+          <p style="margin: 0; font-size: 13px;"></p>
         </div>
       </div>
 
-      <!-- BAGIAN 2: INFORMASI DOKUMEN -->
       <div class="promes-section">
         <h3 class="promes-section-title">📋 2. Informasi Dokumen</h3>
         <div class="promes-form-grid">
           <div class="promes-form-group">
-            <label> Nama Sekolah</label>
+            <label>🏫 Nama Sekolah</label>
             <input type="text" id="promes-sekolah" class="promes-form-control" value="${currentUser.namaSekolah || 'SDN 139 LAMANDA'}">
           </div>
           <div class="promes-form-group">
@@ -164,13 +186,12 @@ function renderUI(container) {
             <input type="text" id="promes-guru" class="promes-form-control" value="${currentUser.namaLengkap || ''}">
           </div>
           <div class="promes-form-group">
-            <label> Pendekatan</label>
+            <label>💡 Pendekatan</label>
             <input type="text" id="promes-pendekatan" class="promes-form-control" value="Pembelajaran Mendalam (Deep Learning) - Kurikulum Merdeka">
           </div>
         </div>
       </div>
 
-      <!-- BAGIAN 3: TABEL PROMES -->
       <div class="promes-section">
         <h3 class="promes-section-title">📝 3. Tabel Program Semester</h3>
         <div class="promes-table-wrap">
@@ -180,39 +201,33 @@ function renderUI(container) {
                 <th style="width: 5%;">No</th>
                 <th style="width: 10%;">Elemen</th>
                 <th style="width: 15%;">Konten / Materi Esensial</th>
-                <th style="width: 20%;">Tujuan Pembelajaran (TP) Berbasis Deep Learning</th>
+                <th style="width: 20%;">Tujuan Pembelajaran (TP)</th>
                 <th style="width: 8%;">Alokasi Waktu</th>
                 <th style="width: 12%;">Bulan / Minggu</th>
-                <th style="width: 20%;">Strategi & Aktivitas Pembelajaran Mendalam</th>
+                <th style="width: 20%;">Strategi & Aktivitas Pembelajaran</th>
                 <th style="width: 10%;">Bentuk Asesmen Otentik</th>
               </tr>
             </thead>
             <tbody id="promes-tbody">
-              <tr>
-                <td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">
-                  Klik "Load Data TP" untuk memuat data dari Master TP
-                </td>
-              </tr>
+              <tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">Klik "Load Data TP" untuk memuat data dari Firebase</td></tr>
             </tbody>
           </table>
         </div>
         <button type="button" class="promes-btn promes-btn-primary" id="btn-add-row" style="margin-top: 15px;">➕ Tambah Baris Manual</button>
       </div>
 
-      <!-- BAGIAN 4: AKSI -->
       <div class="promes-section">
-        <h3 class="promes-section-title">️ 4. Aksi</h3>
+        <h3 class="promes-section-title">⚙️ 4. Aksi</h3>
         <div class="promes-actions">
           <button class="promes-btn promes-btn-success" id="btn-simpan">💾 Simpan</button>
-          <button class="promes-btn promes-btn-warning" id="btn-export"> Export Word</button>
+          <button class="promes-btn promes-btn-warning" id="btn-export">📥 Export Word</button>
           <button class="promes-btn promes-btn-info" id="btn-import">📤 Import File</button>
           <input type="file" id="promes-import-file" accept=".json" style="display: none;">
-          <button class="promes-btn promes-btn-secondary" id="btn-print">🖨️ Print</button>
+          <button class="promes-btn promes-btn-secondary" id="btn-print">️ Print</button>
           <button class="promes-btn promes-btn-danger" id="btn-reset">🔄 Reset</button>
         </div>
       </div>
 
-      <!-- BAGIAN 5: DAFTAR PROMES TERSIMPAN -->
       <div class="promes-section">
         <h3 class="promes-section-title">📚 Daftar Promes Tersimpan</h3>
         <div id="promes-list-container">
@@ -225,7 +240,8 @@ function renderUI(container) {
 
 function attachEvents(container) {
   container.querySelector('#btn-load-tp').addEventListener('click', () => handleLoadTP(container));
-  container.querySelector('#btn-add-row').addEventListener('click', () => addEmptyRow());
+  container.querySelector('#btn-generate-ai').addEventListener('click', () => handleGenerateWithAI(container));
+  container.querySelector('#btn-add-row').addEventListener('click', () => addEmptyRow(container));
   container.querySelector('#btn-simpan').addEventListener('click', () => handleSimpan(container));
   container.querySelector('#btn-export').addEventListener('click', () => handleExport(container));
   container.querySelector('#btn-import').addEventListener('click', () => container.querySelector('#promes-import-file').click());
@@ -234,92 +250,180 @@ function attachEvents(container) {
   container.querySelector('#btn-reset').addEventListener('click', () => handleReset(container));
 }
 
-// ========== LOAD DATA TP DARI FIREBASE ==========
+// ========== 1. LOAD DATA DARI cp_tp_atp ==========
 async function handleLoadTP(container) {
   const kelas = container.querySelector('#promes-kelas').value;
   const mapel = container.querySelector('#promes-mapel').value;
   const semester = container.querySelector('#promes-semester').value;
 
   if (!kelas || !mapel) {
-    showToast('️ Pilih Kelas dan Mata Pelajaran terlebih dahulu!', 'error');
+    showToast('⚠️ Pilih Kelas dan Mata Pelajaran terlebih dahulu!', 'error');
     return;
   }
 
   const infoDiv = container.querySelector('#promes-tp-info');
   infoDiv.style.display = 'block';
   infoDiv.querySelector('p').textContent = '⏳ Memuat data TP dari Firebase...';
+  infoDiv.style.background = '#f0f9ff';
+  infoDiv.querySelector('p').style.color = '#0369a1';
 
   try {
     const q = query(
-      collection(db, 'data_tp'),
-      where('userId', '==', currentUser.uid),
+      collection(db, 'cp_tp_atp'),
       where('kelas', '==', kelas),
-      where('mapel', '==', mapel)
+      where('mapel', '==', mapel),
+      where('semester', '==', semester)
     );
+    
     const snapshot = await getDocs(q);
 
     if (snapshot.empty) {
-      infoDiv.querySelector('p').textContent = '️ Tidak ada data TP untuk Kelas ' + kelas + ' - ' + mapel + '. Silakan buat TP terlebih dahulu di Master Data.';
+      infoDiv.querySelector('p').textContent = `⚠️ Tidak ada data TP untuk Kelas ${kelas} - ${mapel}. Silakan generate di menu CP, TP & ATP terlebih dahulu.`;
       infoDiv.style.background = '#fef3c7';
       infoDiv.querySelector('p').style.color = '#92400e';
+      container.querySelector('#btn-generate-ai').style.display = 'none';
       return;
     }
 
-    loadedTPData = [];
-    snapshot.forEach(docSnap => {
-      loadedTPData.push({ id: docSnap.id, ...docSnap.data() });
-    });
-
-    // Konversi data TP ke baris Promes
     promesRows = [];
     let no = 1;
-    loadedTPData.forEach(tpDoc => {
-      const rows = tpDoc.tp_rows || [];
-      if (rows.length > 0) {
-        rows.forEach(row => {
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      // Parsing JSON string dari Firebase
+      const cpArray = JSON.parse(data.cp || '[]');
+      
+      if (cpArray.length > 0) {
+        cpArray.forEach((item) => {
           promesRows.push({
             no: no++,
-            elemen: row.elemen || tpDoc.topik || '',
-            konten: '',
-            tp: row.tp || '',
+            elemen: data.topik || '', // Topik -> Elemen
+            konten: item.subTema || '', // SubTema -> Materi Esensial
+            tp: item.deskripsi || '', // Deskripsi -> TP
             alokasi: '',
             bulanMinggu: '',
             strategi: '',
-            asesmen: '',
-            materi: row.materi || ''
+            asesmen: ''
           });
         });
       } else {
-        // Fallback ke field lama
-        const tujuan = tpDoc.tujuan_pembelajaran || [];
-        tujuan.forEach(tp => {
-          promesRows.push({
-            no: no++,
-            elemen: tpDoc.topik || '',
-            konten: '',
-            tp: tp,
-            alokasi: '',
-            bulanMinggu: '',
-            strategi: '',
-            asesmen: '',
-            materi: ''
-          });
+        // Fallback jika array cp kosong
+        promesRows.push({
+          no: no++,
+          elemen: data.topik || '',
+          konten: '',
+          tp: '',
+          alokasi: '',
+          bulanMinggu: '',
+          strategi: '',
+          asesmen: ''
         });
       }
     });
 
     renderPromesTable(container);
-    infoDiv.querySelector('p').textContent = `✅ Berhasil memuat ${promesRows.length} baris TP dari ${loadedTPData.length} dokumen.`;
+    infoDiv.querySelector('p').textContent = `✅ Berhasil memuat ${promesRows.length} baris data dari Firebase.`;
     infoDiv.style.background = '#dcfce7';
     infoDiv.querySelector('p').style.color = '#166534';
+    
+    // Tampilkan tombol AI jika API Key ada
+    if (groqApiKey) {
+      container.querySelector('#btn-generate-ai').style.display = 'inline-flex';
+    } else {
+      showToast('⚠️ API Key Groq belum aktif. Tombol AI disembunyikan.', 'warning');
+    }
+    
     showToast(`✅ ${promesRows.length} baris TP berhasil dimuat!`, 'success');
 
   } catch (error) {
     console.error('Error loading TP:', error);
-    infoDiv.querySelector('p').textContent = '❌ Gagal memuat data TP: ' + error.message;
+    infoDiv.querySelector('p').textContent = '❌ Gagal memuat data: ' + error.message;
     infoDiv.style.background = '#fee2e2';
     infoDiv.querySelector('p').style.color = '#991b1b';
     showToast('❌ Gagal memuat data TP!', 'error');
+  }
+}
+
+// ========== 2. GENERATE DENGAN GROQ AI ==========
+async function handleGenerateWithAI(container) {
+  if (promesRows.length === 0) {
+    showToast('⚠️ Load data TP terlebih dahulu!', 'error');
+    return;
+  }
+
+  const btnGenerate = container.querySelector('#btn-generate-ai');
+  const originalText = btnGenerate.textContent;
+  btnGenerate.textContent = ' AI Sedang Bekerja...';
+  btnGenerate.disabled = true;
+
+  try {
+    const mapel = container.querySelector('#promes-mapel').value;
+    const kelas = container.querySelector('#promes-kelas').value;
+    const semester = container.querySelector('#promes-semester').value;
+    const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
+
+    let prompt = `Bertindaklah sebagai ahli kurikulum dan pembelajaran mendalam (Deep Learning). \n`;
+    prompt += `Buatkan "Strategi & Aktivitas Pembelajaran" dan "Bentuk Asesmen Otentik" untuk mata pelajaran ${mapel} Kelas ${kelas} Semester ${labelSemester}.\n\n`;
+    prompt += `Berikut adalah data yang harus Anda lengkapi:\n`;
+    
+    promesRows.forEach((row, idx) => {
+      prompt += `${idx + 1}. Elemen/Topik: ${row.elemen}\n`;
+      prompt += `   Materi Esensial: ${row.konten}\n`;
+      prompt += `   Tujuan Pembelajaran: ${row.tp}\n\n`;
+    });
+
+    prompt += `ATURAN OUTPUT:\n`;
+    prompt += `1. Berikan jawaban HANYA dalam bentuk JSON array yang valid.\n`;
+    prompt += `2. Setiap item memiliki properti: "no" (angka), "strategi" (string, gunakan <br> untuk baris baru), dan "asesmen" (string, gunakan <br> untuk baris baru).\n`;
+    prompt += `3. Strategi harus berpusat pada siswa (4C: Critical Thinking, Collaboration, Communication, Creativity).\n`;
+    prompt += `4. Asesmen harus otentik (Formatif & Sumatif).\n`;
+    prompt += `Contoh format:\n[\n  {"no": 1, "strategi": "Diskusi kelompok...", "asesmen": "Formatif: Observasi..."},\n  ...\n]`;
+
+    const response = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${groqApiKey}` },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: 'Anda adalah ahli kurikulum yang hanya merespons dalam format JSON valid.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 4000
+      })
+    });
+
+    if (!response.ok) throw new Error(`API Error: ${response.status}`);
+    const data = await response.json();
+    const aiResponse = data.choices[0].message.content;
+
+    // Parsing JSON dari AI
+    let generatedData;
+    try {
+      const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)```/) || aiResponse.match(/\[[\s\S]*\]/);
+      generatedData = JSON.parse(jsonMatch ? jsonMatch[1] || jsonMatch[0] : aiResponse);
+    } catch (e) {
+      throw new Error('AI menghasilkan format yang tidak valid.');
+    }
+
+    // Update baris
+    generatedData.forEach((item) => {
+      const idx = item.no - 1;
+      if (promesRows[idx]) {
+        promesRows[idx].strategi = item.strategi || '';
+        promesRows[idx].asesmen = item.asesmen || '';
+      }
+    });
+
+    renderPromesTable(container);
+    showToast(`✅ Berhasil generate ${generatedData.length} baris dengan AI!`, 'success');
+
+  } catch (error) {
+    console.error('Error generating with AI:', error);
+    showToast('❌ Gagal generate: ' + error.message, 'error');
+  } finally {
+    btnGenerate.textContent = originalText;
+    btnGenerate.disabled = false;
   }
 }
 
@@ -328,7 +432,7 @@ function renderPromesTable(container) {
   tbody.innerHTML = '';
 
   if (promesRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">Klik "Load Data TP" untuk memuat data dari Master TP</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #64748b;">Klik "Load Data TP" untuk memuat data</td></tr>';
     return;
   }
 
@@ -340,49 +444,31 @@ function renderPromesTable(container) {
       <td><textarea data-field="konten" data-idx="${idx}">${escapeHtml(row.konten)}</textarea></td>
       <td><textarea data-field="tp" data-idx="${idx}">${escapeHtml(row.tp)}</textarea></td>
       <td><input type="text" data-field="alokasi" data-idx="${idx}" value="${escapeAttr(row.alokasi)}" placeholder="15 JP"></td>
-      <td><input type="text" data-field="bulanMinggu" data-idx="${idx}" value="${escapeAttr(row.bulanMinggu)}" placeholder="Juli: M1, M2, M3"></td>
+      <td><input type="text" data-field="bulanMinggu" data-idx="${idx}" value="${escapeAttr(row.bulanMinggu)}" placeholder="Juli: M1, M2"></td>
       <td><textarea data-field="strategi" data-idx="${idx}">${escapeHtml(row.strategi)}</textarea></td>
       <td><textarea data-field="asesmen" data-idx="${idx}">${escapeHtml(row.asesmen)}</textarea></td>
     `;
     tbody.appendChild(tr);
   });
 
-  // Attach event listeners untuk update data
   tbody.querySelectorAll('input, textarea').forEach(el => {
     el.addEventListener('input', (e) => {
       const idx = parseInt(e.target.dataset.idx);
       const field = e.target.dataset.field;
-      if (promesRows[idx]) {
-        promesRows[idx][field] = e.target.value;
-      }
+      if (promesRows[idx]) promesRows[idx][field] = e.target.value;
     });
   });
 }
 
-function addEmptyRow() {
+function addEmptyRow(container) {
   const idx = promesRows.length;
-  promesRows.push({
-    no: idx + 1,
-    elemen: '',
-    konten: '',
-    tp: '',
-    alokasi: '',
-    bulanMinggu: '',
-    strategi: '',
-    asesmen: '',
-    materi: ''
-  });
-  const container = document.querySelector('.promes-container');
+  promesRows.push({ no: idx + 1, elemen: '', konten: '', tp: '', alokasi: '', bulanMinggu: '', strategi: '', asesmen: '' });
   renderPromesTable(container);
-  showToast('✅ Baris kosong ditambahkan!', 'success');
 }
 
-// ========== SIMPAN KE FIREBASE ==========
+// ========== 3. SIMPAN KE FIREBASE ==========
 async function handleSimpan(container) {
-  if (promesRows.length === 0) {
-    showToast('⚠️ Tidak ada data untuk disimpan!', 'error');
-    return;
-  }
+  if (promesRows.length === 0) { showToast('⚠️ Tidak ada data!', 'error'); return; }
 
   const kelas = container.querySelector('#promes-kelas').value;
   const mapel = container.querySelector('#promes-mapel').value;
@@ -392,24 +478,13 @@ async function handleSimpan(container) {
   const guru = container.querySelector('#promes-guru').value;
   const pendekatan = container.querySelector('#promes-pendekatan').value;
 
-  if (!kelas || !mapel) {
-    showToast('⚠️ Pilih Kelas dan Mata Pelajaran terlebih dahulu!', 'error');
-    return;
-  }
+  if (!kelas || !mapel) { showToast('⚠️ Pilih Kelas dan Mapel!', 'error'); return; }
 
   try {
     const promesData = {
-      userId: currentUser.uid,
-      kelas,
-      mapel,
-      semester,
-      sekolah,
-      tahunAjaran: tahun,
-      guru,
-      pendekatan,
-      rows: promesRows,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+      userId: currentUser.uid, kelas, mapel, semester, sekolah,
+      tahunAjaran: tahun, guru, pendekatan, rows: promesRows,
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp()
     };
 
     if (currentEditId) {
@@ -420,15 +495,12 @@ async function handleSimpan(container) {
       await addDoc(collection(db, 'data_promes'), promesData);
       showToast('✅ Promes berhasil disimpan!', 'success');
     }
-
     loadSavedPromes(container);
   } catch (error) {
-    console.error('Error saving promes:', error);
     showToast('❌ Gagal menyimpan: ' + error.message, 'error');
   }
 }
 
-// ========== LOAD DAFTAR PROMES TERSIMPAN ==========
 function loadSavedPromes(container) {
   const listContainer = container.querySelector('#promes-list-container');
   const q = query(collection(db, 'data_promes'), where('userId', '==', currentUser.uid));
@@ -438,12 +510,8 @@ function loadSavedPromes(container) {
       listContainer.innerHTML = '<div class="promes-empty">📭 Belum ada Promes tersimpan.</div>';
       return;
     }
-
     const docs = [];
-    snapshot.forEach(docSnap => {
-      docs.push({ id: docSnap.id, ...docSnap.data() });
-    });
-
+    snapshot.forEach(docSnap => docs.push({ id: docSnap.id, ...docSnap.data() }));
     docs.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
 
     listContainer.innerHTML = docs.map(d => `
@@ -455,27 +523,22 @@ function loadSavedPromes(container) {
           </div>
           <div style="display: flex; gap: 5px;">
             <button onclick="editPromes('${d.id}')" style="background: #3b82f6; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">✏️ Edit</button>
-            <button onclick="deletePromes('${d.id}')" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">️ Hapus</button>
+            <button onclick="deletePromes('${d.id}')" style="background: #ef4444; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px;">🗑️ Hapus</button>
           </div>
         </div>
       </div>
     `).join('');
-  }, (error) => {
-    console.warn('Error loading promes:', error);
-    listContainer.innerHTML = '<div class="promes-empty">❌ Gagal memuat data.</div>';
   });
 }
 
 window.editPromes = async function(id) {
   try {
     const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const docRef = doc(db, 'data_promes', id);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await getDoc(doc(db, 'data_promes', id));
     if (!docSnap.exists()) { showToast('❌ Data tidak ditemukan!', 'error'); return; }
 
     const d = docSnap.data();
     currentEditId = id;
-
     document.querySelector('#promes-kelas').value = d.kelas || '';
     document.querySelector('#promes-mapel').value = d.mapel || '';
     document.querySelector('#promes-semester').value = d.semester || '1';
@@ -483,39 +546,25 @@ window.editPromes = async function(id) {
     document.querySelector('#promes-tahun').value = d.tahunAjaran || '';
     document.querySelector('#promes-guru').value = d.guru || '';
     document.querySelector('#promes-pendekatan').value = d.pendekatan || '';
-
     promesRows = d.rows || [];
-    const container = document.querySelector('.promes-container');
-    renderPromesTable(container);
-
-    showToast('✅ Data Promes dimuat untuk diedit!', 'success');
+    renderPromesTable(document.querySelector('.promes-container'));
+    showToast('✅ Data dimuat untuk diedit!', 'success');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  } catch (error) {
-    console.error('Error loading promes:', error);
-    showToast('❌ Gagal memuat data!', 'error');
-  }
+  } catch (error) { showToast('❌ Gagal memuat!', 'error'); }
 };
 
 window.deletePromes = async function(id) {
-  if (!confirm('⚠️ Yakin hapus Promes ini?')) return;
-  try {
-    await deleteDoc(doc(db, 'data_promes', id));
-    showToast('✅ Promes berhasil dihapus!', 'success');
-  } catch (error) {
-    console.error('Error deleting:', error);
-    showToast('❌ Gagal menghapus!', 'error');
-  }
+  if (!confirm('️ Yakin hapus?')) return;
+  try { await deleteDoc(doc(db, 'data_promes', id)); showToast('✅ Berhasil dihapus!', 'success'); }
+  catch (error) { showToast('❌ Gagal menghapus!', 'error'); }
 };
 
-// ========== EXPORT WORD ==========
+// ========== 4. EXPORT WORD (FORMAT RAPI) ==========
 function handleExport(container) {
-  if (promesRows.length === 0) {
-    showToast('⚠️ Tidak ada data untuk diexport!', 'error');
-    return;
-  }
+  if (promesRows.length === 0) { showToast('⚠️ Tidak ada data!', 'error'); return; }
 
-  const kelas = container.querySelector('#promes-kelas').value;
   const mapel = container.querySelector('#promes-mapel').value;
+  const kelas = container.querySelector('#promes-kelas').value;
   const semester = container.querySelector('#promes-semester').value;
   const sekolah = container.querySelector('#promes-sekolah').value;
   const tahun = container.querySelector('#promes-tahun').value;
@@ -525,43 +574,21 @@ function handleExport(container) {
 
   let html = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-    <head>
-      <meta charset='utf-8'>
-      <title>Promes_${mapel}_Kelas${kelas}</title>
-      <style>
-        @page { size: A4 landscape; margin: 1.5cm; }
-        body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #000; }
-        h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; text-transform: uppercase; }
-        h2 { text-align: center; font-size: 13pt; font-weight: bold; margin: 5px 0 15px 0; }
-        .info-table { width: 100%; border: none; margin-bottom: 15px; font-size: 11pt; }
-        .info-table td { border: none; padding: 3px 0; vertical-align: top; }
-        table.data-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt; }
-        table.data-table th {
-          background-color: #e6e6e6 !important;
-          border: 1px solid #000 !important;
-          padding: 8px 6px;
-          text-align: center !important;
-          font-weight: bold;
-          -webkit-print-color-adjust: exact;
-        }
-        table.data-table td {
-          border: 1px solid #000 !important;
-          padding: 6px;
-          vertical-align: top !important;
-          text-align: left !important;
-        }
-        .col-no { width: 5%; text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
-        .col-elemen { width: 10%; text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
-        .col-konten { width: 15%; text-align: justify !important; }
-        .col-tp { width: 20%; text-align: justify !important; }
-        .col-alokasi { width: 8%; text-align: center !important; }
-        .col-bulan { width: 12%; text-align: center !important; }
-        .col-strategi { width: 20%; text-align: justify !important; }
-        .col-asesmen { width: 10%; text-align: justify !important; }
-        .signature { margin-top: 30px; text-align: right; font-size: 11pt; }
-      </style>
-    </head>
-    <body>
+    <head><meta charset='utf-8'><title>Promes_${mapel}_Kelas${kelas}</title>
+    <style>
+      @page { size: A4 landscape; margin: 1.5cm; }
+      body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #000; }
+      h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; text-transform: uppercase; }
+      h2 { text-align: center; font-size: 13pt; font-weight: bold; margin: 5px 0 15px 0; }
+      .info-table { width: 100%; border: none; margin-bottom: 15px; font-size: 11pt; }
+      .info-table td { border: none; padding: 3px 0; vertical-align: top; }
+      table.data-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt; }
+      table.data-table th { background-color: #e6e6e6 !important; border: 1px solid #000 !important; padding: 8px 6px; text-align: center !important; font-weight: bold; -webkit-print-color-adjust: exact; }
+      table.data-table td { border: 1px solid #000 !important; padding: 6px; vertical-align: top !important; }
+      .col-no, .col-elemen, .col-alokasi, .col-bulan { text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
+      .col-konten, .col-tp, .col-strategi, .col-asesmen { text-align: justify !important; }
+      .signature { margin-top: 30px; text-align: right; font-size: 11pt; }
+    </style></head><body>
       <h1>PROGRAM SEMESTER (PROMES) ${mapel.toUpperCase()}</h1>
       <h2>Kurikulum Merdeka - Pembelajaran Mendalam (Deep Learning)</h2>
       <table class="info-table">
@@ -570,104 +597,59 @@ function handleExport(container) {
         <tr><td><strong>Tahun Ajaran</strong></td><td>:</td><td>${tahun}</td></tr>
         <tr><td><strong>Pendekatan</strong></td><td>:</td><td>${pendekatan}</td></tr>
       </table>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="col-no">No</th>
-            <th class="col-elemen">Elemen</th>
-            <th class="col-konten">Konten / Materi Esensial</th>
-            <th class="col-tp">Tujuan Pembelajaran (TP) Berbasis Deep Learning</th>
-            <th class="col-alokasi">Alokasi Waktu</th>
-            <th class="col-bulan">Bulan / Minggu</th>
-            <th class="col-strategi">Strategi & Aktivitas Pembelajaran Mendalam</th>
-            <th class="col-asesmen">Bentuk Asesmen Otentik</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
+      <table class="data-table"><thead><tr>
+        <th class="col-no" style="width:5%">No</th><th class="col-elemen" style="width:10%">Elemen</th>
+        <th class="col-konten" style="width:15%">Konten / Materi Esensial</th><th class="col-tp" style="width:20%">Tujuan Pembelajaran</th>
+        <th class="col-alokasi" style="width:8%">Alokasi Waktu</th><th class="col-bulan" style="width:12%">Bulan / Minggu</th>
+        <th class="col-strategi" style="width:20%">Strategi & Aktivitas</th><th class="col-asesmen" style="width:10%">Asesmen Otentik</th>
+      </tr></thead><tbody>`;
 
   promesRows.forEach(row => {
-    html += `
-      <tr>
-        <td class="col-no">${row.no}</td>
-        <td class="col-elemen">${escapeHtml(row.elemen)}</td>
-        <td class="col-konten">${escapeHtml(row.konten)}</td>
-        <td class="col-tp">${escapeHtml(row.tp)}</td>
-        <td class="col-alokasi">${escapeHtml(row.alokasi)}</td>
-        <td class="col-bulan">${escapeHtml(row.bulanMinggu)}</td>
-        <td class="col-strategi">${escapeHtml(row.strategi)}</td>
-        <td class="col-asesmen">${escapeHtml(row.asesmen)}</td>
-      </tr>
-    `;
+    html += `<tr>
+      <td class="col-no">${row.no}</td><td class="col-elemen">${escapeHtml(row.elemen)}</td>
+      <td class="col-konten">${escapeHtml(row.konten)}</td><td class="col-tp">${escapeHtml(row.tp)}</td>
+      <td class="col-alokasi">${escapeHtml(row.alokasi)}</td><td class="col-bulan">${escapeHtml(row.bulanMinggu)}</td>
+      <td class="col-strategi">${escapeHtml(row.strategi)}</td><td class="col-asesmen">${escapeHtml(row.asesmen)}</td>
+    </tr>`;
   });
 
-  html += `
-        </tbody>
-      </table>
-      <div class="signature">
-        <p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p style="margin-top: 60px;"><strong><u>${guru}</u></strong></p>
-      </div>
-    </body>
-    </html>
-  `;
+  html += `</tbody></table>
+    <div class="signature"><p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    <p style="margin-top: 60px;"><strong><u>${guru}</u></strong></p></div></body></html>`;
 
   const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = url;
-  link.download = `Promes_${mapel.replace(/\s+/g, '_')}_Kelas${kelas}_Sem${semester}.doc`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-
+  link.href = url; link.download = `Promes_${mapel.replace(/\s+/g, '_')}_Kelas${kelas}_Sem${semester}.doc`;
+  document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
   showToast('✅ File Word berhasil diunduh!', 'success');
 }
 
-// ========== IMPORT FILE ==========
+// ========== 5. IMPORT, PRINT, RESET ==========
 function handleImport(event, container) {
   const file = event.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       const imported = JSON.parse(e.target.result);
-      if (!imported.rows || !Array.isArray(imported.rows)) {
-        throw new Error('Format file tidak valid!');
-      }
-
+      if (!imported.rows) throw new Error('Format tidak valid!');
       promesRows = imported.rows;
-      renderPromesTable(container);
-
-      // Isi form dengan data imported
       if (imported.kelas) container.querySelector('#promes-kelas').value = imported.kelas;
       if (imported.mapel) container.querySelector('#promes-mapel').value = imported.mapel;
-      if (imported.semester) container.querySelector('#promes-semester').value = imported.semester;
-      if (imported.sekolah) container.querySelector('#promes-sekolah').value = imported.sekolah;
-      if (imported.tahunAjaran) container.querySelector('#promes-tahun').value = imported.tahunAjaran;
-      if (imported.guru) container.querySelector('#promes-guru').value = imported.guru;
-
-      showToast(`✅ ${promesRows.length} baris berhasil diimport!`, 'success');
-    } catch (error) {
-      showToast('❌ Gagal import: ' + error.message, 'error');
-    }
+      renderPromesTable(container);
+      showToast(`✅ ${promesRows.length} baris diimport!`, 'success');
+    } catch (error) { showToast('❌ Gagal import!', 'error'); }
   };
   reader.readAsText(file);
   event.target.value = '';
 }
 
-// ========== PRINT ==========
 function handlePrint(container) {
-  if (promesRows.length === 0) {
-    showToast('⚠️ Tidak ada data untuk diprint!', 'error');
-    return;
-  }
-
+  if (promesRows.length === 0) { showToast('⚠️ Tidak ada data!', 'error'); return; }
   const printWindow = window.open('', '_blank');
-  const kelas = container.querySelector('#promes-kelas').value;
   const mapel = container.querySelector('#promes-mapel').value;
+  const kelas = container.querySelector('#promes-kelas').value;
   const semester = container.querySelector('#promes-semester').value;
   const sekolah = container.querySelector('#promes-sekolah').value;
   const tahun = container.querySelector('#promes-tahun').value;
@@ -675,107 +657,45 @@ function handlePrint(container) {
   const pendekatan = container.querySelector('#promes-pendekatan').value;
   const labelSemester = semester === '1' ? 'Ganjil' : 'Genap';
 
-  let html = `
-    <html>
-    <head>
-      <title>Promes_${mapel}_Kelas${kelas}</title>
-      <style>
-        @page { size: A4 landscape; margin: 1.5cm; }
-        body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.4; color: #000; }
-        h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; text-transform: uppercase; }
-        h2 { text-align: center; font-size: 13pt; font-weight: bold; margin: 5px 0 15px 0; }
-        .info-table { width: 100%; border: none; margin-bottom: 15px; font-size: 11pt; }
-        .info-table td { border: none; padding: 3px 0; vertical-align: top; }
-        table.data-table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 10pt; }
-        table.data-table th {
-          background-color: #e6e6e6 !important;
-          border: 1px solid #000 !important;
-          padding: 8px 6px;
-          text-align: center !important;
-          font-weight: bold;
-          -webkit-print-color-adjust: exact;
-        }
-        table.data-table td {
-          border: 1px solid #000 !important;
-          padding: 6px;
-          vertical-align: top !important;
-          text-align: left !important;
-        }
-        .col-no { width: 5%; text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
-        .col-elemen { width: 10%; text-align: center !important; font-weight: bold; background-color: #f5f5f5 !important; }
-        .col-konten { width: 15%; text-align: justify !important; }
-        .col-tp { width: 20%; text-align: justify !important; }
-        .col-alokasi { width: 8%; text-align: center !important; }
-        .col-bulan { width: 12%; text-align: center !important; }
-        .col-strategi { width: 20%; text-align: justify !important; }
-        .col-asesmen { width: 10%; text-align: justify !important; }
-        .signature { margin-top: 30px; text-align: right; font-size: 11pt; }
-      </style>
-    </head>
-    <body>
-      <h1>PROGRAM SEMESTER (PROMES) ${mapel.toUpperCase()}</h1>
-      <h2>Kurikulum Merdeka - Pembelajaran Mendalam (Deep Learning)</h2>
-      <table class="info-table">
-        <tr><td width="120"><strong>Satuan Pendidikan</strong></td><td width="10">:</td><td>${sekolah}</td></tr>
-        <tr><td><strong>Kelas / Semester</strong></td><td>:</td><td>${kelas} / ${labelSemester}</td></tr>
-        <tr><td><strong>Tahun Ajaran</strong></td><td>:</td><td>${tahun}</td></tr>
-        <tr><td><strong>Pendekatan</strong></td><td>:</td><td>${pendekatan}</td></tr>
-      </table>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th class="col-no">No</th>
-            <th class="col-elemen">Elemen</th>
-            <th class="col-konten">Konten / Materi Esensial</th>
-            <th class="col-tp">Tujuan Pembelajaran (TP) Berbasis Deep Learning</th>
-            <th class="col-alokasi">Alokasi Waktu</th>
-            <th class="col-bulan">Bulan / Minggu</th>
-            <th class="col-strategi">Strategi & Aktivitas Pembelajaran Mendalam</th>
-            <th class="col-asesmen">Bentuk Asesmen Otentik</th>
-          </tr>
-        </thead>
-        <tbody>
-  `;
+  let html = `<html><head><title>Promes</title><style>
+    @page { size: A4 landscape; margin: 1.5cm; }
+    body { font-family: 'Times New Roman', serif; font-size: 11pt; }
+    h1 { text-align: center; font-size: 14pt; margin: 0; } h2 { text-align: center; font-size: 13pt; margin: 5px 0 15px 0; }
+    .info-table { width: 100%; border: none; margin-bottom: 15px; } .info-table td { border: none; padding: 3px 0; }
+    table.data-table { border-collapse: collapse; width: 100%; font-size: 10pt; }
+    th { background: #e6e6e6 !important; border: 1px solid #000 !important; padding: 8px; text-align: center !important; -webkit-print-color-adjust: exact; }
+    td { border: 1px solid #000 !important; padding: 6px; vertical-align: top !important; }
+    .col-no, .col-elemen, .col-alokasi, .col-bulan { text-align: center !important; background: #f5f5f5 !important; -webkit-print-color-adjust: exact; }
+    .col-konten, .col-tp, .col-strategi, .col-asesmen { text-align: justify !important; }
+  </style></head><body>
+    <h1>PROGRAM SEMESTER (PROMES) ${mapel.toUpperCase()}</h1><h2>Kurikulum Merdeka - Deep Learning</h2>
+    <table class="info-table"><tr><td><strong>Satuan Pendidikan</strong></td><td>: ${sekolah}</td></tr>
+    <tr><td><strong>Kelas / Semester</strong></td><td>: ${kelas} / ${labelSemester}</td></tr>
+    <tr><td><strong>Tahun Ajaran</strong></td><td>: ${tahun}</td></tr>
+    <tr><td><strong>Pendekatan</strong></td><td>: ${pendekatan}</td></tr></table>
+    <table class="data-table"><thead><tr>
+      <th class="col-no" style="width:5%">No</th><th class="col-elemen" style="width:10%">Elemen</th>
+      <th class="col-konten" style="width:15%">Konten</th><th class="col-tp" style="width:20%">TP</th>
+      <th class="col-alokasi" style="width:8%">Alokasi</th><th class="col-bulan" style="width:12%">Bulan/Minggu</th>
+      <th class="col-strategi" style="width:20%">Strategi</th><th class="col-asesmen" style="width:10%">Asesmen</th>
+    </tr></thead><tbody>`;
 
   promesRows.forEach(row => {
-    html += `
-      <tr>
-        <td class="col-no">${row.no}</td>
-        <td class="col-elemen">${escapeHtml(row.elemen)}</td>
-        <td class="col-konten">${escapeHtml(row.konten)}</td>
-        <td class="col-tp">${escapeHtml(row.tp)}</td>
-        <td class="col-alokasi">${escapeHtml(row.alokasi)}</td>
-        <td class="col-bulan">${escapeHtml(row.bulanMinggu)}</td>
-        <td class="col-strategi">${escapeHtml(row.strategi)}</td>
-        <td class="col-asesmen">${escapeHtml(row.asesmen)}</td>
-      </tr>
-    `;
+    html += `<tr><td class="col-no">${row.no}</td><td class="col-elemen">${escapeHtml(row.elemen)}</td>
+      <td class="col-konten">${escapeHtml(row.konten)}</td><td class="col-tp">${escapeHtml(row.tp)}</td>
+      <td class="col-alokasi">${escapeHtml(row.alokasi)}</td><td class="col-bulan">${escapeHtml(row.bulanMinggu)}</td>
+      <td class="col-strategi">${escapeHtml(row.strategi)}</td><td class="col-asesmen">${escapeHtml(row.asesmen)}</td></tr>`;
   });
-
-  html += `
-        </tbody>
-      </table>
-      <div class="signature">
-        <p>${sekolah}, ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-        <p style="margin-top: 60px;"><strong><u>${guru}</u></strong></p>
-      </div>
-    </body>
-    </html>
-  `;
+  html += `</tbody></table><div style="margin-top:30px; text-align:right;"><p>${sekolah}, ${new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'})}</p><p style="margin-top:60px;"><strong><u>${guru}</u></strong></p></div></body></html>`;
 
   printWindow.document.write(html);
   printWindow.document.close();
   printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
-
-  showToast('✅ Print dialog dibuka!', 'success');
+  setTimeout(() => { printWindow.print(); }, 500);
 }
 
-// ========== RESET ==========
 function handleReset(container) {
-  if (!confirm('🔄 Reset semua data Promes?')) return;
+  if (!confirm('🔄 Reset semua data?')) return;
   currentEditId = null;
   promesRows = [];
   container.querySelector('#promes-kelas').value = '';
@@ -784,9 +704,9 @@ function handleReset(container) {
   container.querySelector('#promes-sekolah').value = currentUser.namaSekolah || 'SDN 139 LAMANDA';
   container.querySelector('#promes-tahun').value = '2026/2027';
   container.querySelector('#promes-guru').value = currentUser.namaLengkap || '';
-  container.querySelector('#promes-pendekatan').value = 'Pembelajaran Mendalam (Deep Learning) - Kurikulum Merdeka';
+  container.querySelector('#btn-generate-ai').style.display = 'none';
   renderPromesTable(container);
-  showToast('✅ Form Promes direset!', 'success');
+  showToast('✅ Form direset!', 'success');
 }
 
 function showToast(msg, type = 'success') {
@@ -795,9 +715,7 @@ function showToast(msg, type = 'success') {
   toast.textContent = msg;
   document.body.appendChild(toast);
   setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateX(400px)';
-    toast.style.transition = 'all 0.3s ease';
+    toast.style.opacity = '0'; toast.style.transform = 'translateX(400px)'; toast.style.transition = 'all 0.3s ease';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
 }
