@@ -14,7 +14,7 @@ const CSS_ID = 'promes-css';
 
 // Konfigurasi Groq AI
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_MODEL = 'llama-3.1-70b-versatile';
+const GROQ_MODEL = 'openai/gpt-oss-20b';
 let groqApiKey = null;
 
 let currentEditId = null;
