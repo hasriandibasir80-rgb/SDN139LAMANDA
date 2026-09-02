@@ -57,7 +57,14 @@ const MENU_ITEMS = [
     path: './features/kop.js',
     status: 'ready',
     isKop: true  // ✅ Flag untuk styling khusus
-  }
+  },
+     { 
+     id: 'data-cp', 
+     icon: '📖', 
+     title: 'Data CP', 
+     path: './features/data-cp.js',
+     status: 'ready'
+   }
 ];
 
 document.addEventListener('DOMContentLoaded', () => {
