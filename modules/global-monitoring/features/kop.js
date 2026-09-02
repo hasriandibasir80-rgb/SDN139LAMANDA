@@ -7,7 +7,7 @@
 
 import { 
   collection, doc, getDocs, getDoc, setDoc, updateDoc, 
-  query, where, serverTimestamp 
+  query, where, serverTimestamp, addDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let db = null;
@@ -70,16 +70,21 @@ async function loadExistingKop() {
       const data = docSnap.data();
       
       // Auto-fill form dengan data yang sudah ada
-      document.getElementById('kopNamaKabupaten').value = data.namaKabupaten || '';
-      document.getElementById('kopDinas').value = data.dinas || '';
-      document.getElementById('kopNamaSekolah').value = data.namaSekolah || currentUser.namaSekolah || '';
-      document.getElementById('kopAlamat').value = data.alamat || '';
+      const elKab = document.getElementById('kopNamaKabupaten');
+      const elDinas = document.getElementById('kopDinas');
+      const elSekolah = document.getElementById('kopNamaSekolah');
+      const elAlamat = document.getElementById('kopAlamat');
+      if (elKab) elKab.value = data.namaKabupaten || '';
+      if (elDinas) elDinas.value = data.dinas || '';
+      if (elSekolah) elSekolah.value = data.namaSekolah || currentUser.namaSekolah || '';
+      if (elAlamat) elAlamat.value = data.alamat || '';
       
       // Update preview
       updatePreview();
     } else {
       // Set default values dari data user
-      document.getElementById('kopNamaSekolah').value = currentUser.namaSekolah || '';
+      const elSekolah = document.getElementById('kopNamaSekolah');
+      if (elSekolah) elSekolah.value = currentUser.namaSekolah || '';
       updatePreview();
     }
   } catch (error) {
@@ -88,13 +93,13 @@ async function loadExistingKop() {
 }
 
 async function saveKopData() {
-  const namaKabupaten = document.getElementById('kopNamaKabupaten').value.trim();
-  const dinas = document.getElementById('kopDinas').value.trim();
-  const namaSekolah = document.getElementById('kopNamaSekolah').value.trim();
-  const alamat = document.getElementById('kopAlamat').value.trim();
+  const namaKabupaten = document.getElementById('kopNamaKabupaten')?.value.trim();
+  const dinas = document.getElementById('kopDinas')?.value.trim();
+  const namaSekolah = document.getElementById('kopNamaSekolah')?.value.trim();
+  const alamat = document.getElementById('kopAlamat')?.value.trim();
   
   if (!namaKabupaten || !dinas || !namaSekolah || !alamat) {
-    showToast('⚠️ Semua field wajib diisi!', 'error');
+    showToast('⚠ Semua field wajib diisi!', 'error');
     return;
   }
   
@@ -107,15 +112,15 @@ async function saveKopData() {
       alamat,
       npsn: currentSchoolId,
       updatedAt: serverTimestamp(),
-      updatedBy: currentUser?.uid || 'unknown'
+      updatedBy: currentUser?.uid || currentUser?.email || 'unknown'
     };
     
     if (kopDocId) {
       // Update dokumen yang sudah ada
       await updateDoc(doc(db, collectionPath, kopDocId), kopData);
     } else {
-      // Buat dokumen baru
-      const docRef = await setDoc(doc(collection(db, collectionPath)), kopData);
+      // Buat dokumen baru - FIX: pakai addDoc bukan setDoc(doc(collection()))
+      const docRef = await addDoc(collection(db, collectionPath), {...kopData, createdAt: serverTimestamp()});
       kopDocId = docRef.id;
     }
     
@@ -127,12 +132,13 @@ async function saveKopData() {
 }
 
 function updatePreview() {
-  const namaKabupaten = document.getElementById('kopNamaKabupaten').value.trim() || '[Nama Kabupaten]';
-  const dinas = document.getElementById('kopDinas').value.trim() || '[Nama Dinas]';
-  const namaSekolah = document.getElementById('kopNamaSekolah').value.trim() || '[Nama Sekolah]';
-  const alamat = document.getElementById('kopAlamat').value.trim() || '[Alamat Lengkap]';
+  const namaKabupaten = document.getElementById('kopNamaKabupaten')?.value.trim() || '[Nama Kabupaten]';
+  const dinas = document.getElementById('kopDinas')?.value.trim() || '[Nama Dinas]';
+  const namaSekolah = document.getElementById('kopNamaSekolah')?.value.trim() || '[Nama Sekolah]';
+  const alamat = document.getElementById('kopAlamat')?.value.trim() || '[Alamat Lengkap]';
   
   const preview = document.getElementById('kopPreview');
+  if (!preview) return;
   preview.innerHTML = `
     <div style="text-align: center; padding: 20px; border: 1px solid #ddd; background: white;">
       <div style="font-size: 14px; font-weight: bold; margin-bottom: 5px;">
@@ -151,6 +157,10 @@ function updatePreview() {
     </div>
   `;
 }
+
+// FIX WAJIB: Agar onclick/oninput di HTML bisa akses fungsi di ES Module
+window.saveKopData = saveKopData;
+window.updatePreview = updatePreview;
 
 function renderKopUI(container) {
   container.innerHTML = `
@@ -281,46 +291,46 @@ function renderKopUI(container) {
     
     <div class="kop-container">
       <div class="kop-header">
-        <h2>🏛️ Pengaturan Kop Surat</h2>
+        <h2>🏛 Pengaturan Kop Surat</h2>
         <p><strong>Sekolah:</strong> ${currentUser.namaSekolah || '-'}</p>
         <p><strong>NPSN:</strong> ${currentSchoolId}</p>
         <p style="font-size:13px; margin-top:10px; opacity:0.9;">
-          ℹ️ Data kop surat ini akan otomatis di-load oleh sub-fitur lain saat generate dokumen untuk di-download.
+          ℹ Data kop surat ini akan otomatis di-load oleh sub-fitur lain saat generate dokumen untuk di-download.
         </p>
       </div>
       
       <div class="kop-form-container">
         <div class="kop-form-title">
-          <span>🏛️</span>
+          <span>🏛</span>
           <span>Pengaturan Kop Surat (Editable)</span>
         </div>
         
         <div class="kop-form-grid">
           <div class="kop-form-group">
-            <label>️ Nama Kabupaten</label>
-            <input type="text" id="kopNamaKabupaten" placeholder="Contoh: BULUKUMBA" oninput="updatePreview()">
+            <label> Nama Kabupaten</label>
+            <input type="text" id="kopNamaKabupaten" placeholder="Contoh: BULUKUMBA" oninput="window.updatePreview()">
           </div>
           <div class="kop-form-group">
             <label>🏢 Dinas</label>
-            <input type="text" id="kopDinas" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN" oninput="updatePreview()">
+            <input type="text" id="kopDinas" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN" oninput="window.updatePreview()">
           </div>
           <div class="kop-form-group">
             <label>🏫 Nama Sekolah</label>
-            <input type="text" id="kopNamaSekolah" placeholder="Contoh: SDN 139 LAMANDA" oninput="updatePreview()">
+            <input type="text" id="kopNamaSekolah" placeholder="Contoh: SDN 139 LAMANDA" oninput="window.updatePreview()">
           </div>
           <div class="kop-form-group full-width">
             <label>📍 Alamat Lengkap</label>
-            <input type="text" id="kopAlamat" placeholder="Contoh: Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba" oninput="updatePreview()">
+            <input type="text" id="kopAlamat" placeholder="Contoh: Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba" oninput="window.updatePreview()">
           </div>
         </div>
         
-        <button class="kop-btn-save" onclick="saveKopData()">
+        <button class="kop-btn-save" onclick="window.saveKopData()">
           💾 Simpan Pengaturan Kop
         </button>
       </div>
       
       <div class="kop-preview-container">
-        <div class="kop-preview-title">👁️ Preview Kop Surat</div>
+        <div class="kop-preview-title">👁 Preview Kop Surat</div>
         <div id="kopPreview">
           <div style="text-align: center; padding: 20px; color: #6c757d;">
             Preview akan muncul di sini...
@@ -379,7 +389,7 @@ export async function getKopData() {
 // Fungsi helper untuk generate kop HTML (untuk digunakan sub-fitur lain)
 export function generateKopHTML(kopData) {
   if (!kopData) {
-    return '<div style="text-align:center; color:red;">️ Data Kop Surat belum diatur!</div>';
+    return '<div style="text-align:center; color:red;"> Data Kop Surat belum diatur!</div>';
   }
   
   return `
