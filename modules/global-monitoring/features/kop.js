@@ -1,4 +1,4 @@
-// modules/global-monitoring/features/kop/kop.js
+// modules/global-monitoring/features/kop.js
 // =========================================
 // FITUR: KOP ADMINISTRASI
 // Fungsi: Mengelola data Kop Surat Sekolah
@@ -25,13 +25,19 @@ export async function init(contentDiv, firebaseDb) {
   
   if (!currentSchoolId) {
     contentDiv.innerHTML = `
-      <div class="empty-state">
-        <h3>❌ Error</h3>
-        <p>School ID (NPSN) tidak ditemukan. Silakan update profil Anda terlebih dahulu.</p>
-        <button onclick="window.location.href='../../profil-user/profil-user.html'" 
-                style="margin-top:10px; padding:10px 20px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer;">
-          Update Profil
-        </button>
+      <div style="padding: 40px; text-align: center; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+        <h3 style="color: #dc3545; margin-bottom: 15px;">❌ Error</h3>
+        <p style="color: #6c757d; margin-bottom: 20px;">School ID (NPSN) tidak ditemukan. Silakan update profil Anda terlebih dahulu.</p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+          <button onclick="window.location.href='../../profil-user/profil-user.html'" 
+                  style="padding: 12px 24px; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+             Update Profil
+          </button>
+          <button onclick="window.inputNPSNManual()" 
+                  style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">
+            ➕ Input NPSN Manual
+          </button>
+        </div>
       </div>
     `;
     return;
@@ -43,6 +49,21 @@ export async function init(contentDiv, firebaseDb) {
   // Load data kop yang sudah ada
   await loadExistingKop();
 }
+
+// Fungsi untuk input NPSN manual
+window.inputNPSNManual = function() {
+  const npsn = prompt('Masukkan NPSN Sekolah Anda:');
+  if (npsn && npsn.trim()) {
+    // Update localStorage
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    currentUser.npsn = npsn.trim();
+    currentUser.idSekolah = npsn.trim();
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    
+    // Reload halaman
+    location.reload();
+  }
+};
 
 function getCollectionPath() {
   return `schools/${currentSchoolId}/kopAdministrasi`;
@@ -270,7 +291,7 @@ function renderKopUI(container) {
     
     <div class="kop-container">
       <div class="kop-header">
-        <h2>🏛️ Pengaturan Kop Surat</h2>
+        <h2>️ Pengaturan Kop Surat</h2>
         <p><strong>Sekolah:</strong> ${currentUser.namaSekolah || '-'}</p>
         <p><strong>NPSN:</strong> ${currentSchoolId}</p>
         <p style="font-size:13px; margin-top:10px; opacity:0.9;">
@@ -290,15 +311,15 @@ function renderKopUI(container) {
             <input type="text" id="kopNamaKabupaten" placeholder="Contoh: BULUKUMBA" oninput="updatePreview()">
           </div>
           <div class="kop-form-group">
-            <label>🏢 Dinas</label>
+            <label> Dinas</label>
             <input type="text" id="kopDinas" placeholder="Contoh: DINAS PENDIDIKAN DAN KEBUDAYAAN" oninput="updatePreview()">
           </div>
           <div class="kop-form-group">
             <label>🏫 Nama Sekolah</label>
             <input type="text" id="kopNamaSekolah" placeholder="Contoh: SDN 139 LAMANDA" oninput="updatePreview()">
           </div>
-          <div class="kop-form-group">
-            <label>📍 Alamat Lengkap</label>
+          <div class="kop-form-group full-width">
+            <label> Alamat Lengkap</label>
             <input type="text" id="kopAlamat" placeholder="Contoh: Dusun Batu Assung, Desa Lamanda, Kec. [Kecamatan], Kab. Bulukumba" oninput="updatePreview()">
           </div>
         </div>
@@ -368,7 +389,7 @@ export async function getKopData() {
 // Fungsi helper untuk generate kop HTML (untuk digunakan sub-fitur lain)
 export function generateKopHTML(kopData) {
   if (!kopData) {
-    return '<div style="text-align:center; color:red;">⚠️ Data Kop Surat belum diatur!</div>';
+    return '<div style="text-align:center; color:red;">️ Data Kop Surat belum diatur!</div>';
   }
   
   return `
