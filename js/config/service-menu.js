@@ -79,6 +79,7 @@ export const konfigurasiFitur = {
     { nama: 'Master Data', icon: '📝', link: 'modules/global-monitoring/global-monitoring.html?fitur=master-data' },
     { nama: 'Evaluasi Mandiri', icon: '', link: 'modules/global-monitoring/global-monitoring.html?fitur=evaluasi-mandiri' },
     { nama: 'Data TP', icon: '🎯', link: 'modules/global-monitoring/global-monitoring.html?fitur=data-tp' }
+    { nama: 'KOP ', icon: '🎯', link: 'modules/global-monitoring/global-monitoring.html?fitur=KOP' }
   ]
 };
 
