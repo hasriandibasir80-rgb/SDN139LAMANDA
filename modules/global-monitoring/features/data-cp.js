@@ -1,32 +1,75 @@
 // modules/global-monitoring/features/data-cp.js
 // =========================================
 // FITUR: DATA CAPAIAN PEMBELAJARAN (CP)
-// Fungsi: Mengelola data CP sekolah
+// Fungsi: Mengelola data CP sekolah (tersimpan terpusat di Firebase)
 // Fitur: Input Manual, Export, Import, Template, Simpan
 // =========================================
 
 import { 
   collection, doc, getDocs, setDoc, updateDoc, deleteDoc, 
-  query, orderBy, serverTimestamp 
+  query, orderBy, where, serverTimestamp 
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 let db = null;
-let currentUser = null;
+let currentUserData = null;
 let currentSchoolId = null;
+const auth = getAuth();
+
+// =========================================
+// FUNGSI AMBIL DATA USER DARI FIREBASE (BUKAN LOCALSTORAGE)
+// =========================================
+async function fetchCurrentUserFromFirebase() {
+  const user = auth.currentUser;
+  if (!user) return null;
+
+  try {
+    // Mengambil data user dari collection 'users' di root berdasarkan UID Auth
+    const q = query(collection(db, 'users'), where('userId', '==', user.uid));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      return snapshot.docs[0].data();
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Gagal mengambil data user dari Firebase:', error);
+    return null;
+  }
+}
 
 export async function init(contentDiv, firebaseDb) {
   db = firebaseDb;
   
-  // Ambil data user yang login
-  const userData = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  currentUser = userData;
-  currentSchoolId = userData.npsn || userData.idSekolah;
+  // 1. Tunggu hingga status Auth siap
+  await new Promise(resolve => {
+    if (auth.currentUser) {
+      resolve();
+    } else {
+      const unsub = onAuthStateChanged(auth, (user) => {
+        unsub();
+        resolve();
+      });
+    }
+  });
+
+  // 2. Ambil data user LANGSUNG dari Firebase (Terpusat)
+  currentUserData = await fetchCurrentUserFromFirebase();
   
+  // 3. Ambil NPSN dari data Firebase
+  if (currentUserData) {
+    currentSchoolId = currentUserData.npsn || currentUserData.idSekolah;
+  }
+  
+  console.log('🔍 Data User dari Firebase:', currentUserData);
+  console.log(' NPSN dari Firebase:', currentSchoolId);
+
+  // Validasi NPSN
   if (!currentSchoolId) {
     contentDiv.innerHTML = `
       <div style="padding: 40px; text-align: center; background: white; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
         <h3 style="color: #dc3545; margin-bottom: 15px;">❌ Error</h3>
-        <p style="color: #6c757d;">NPSN tidak ditemukan. Silakan hubungi administrator.</p>
+        <p style="color: #6c757d;">Data NPSN Sekolah tidak ditemukan di database Firebase untuk user ini. Silakan hubungi administrator.</p>
       </div>
     `;
     return;
@@ -40,6 +83,7 @@ export async function init(contentDiv, firebaseDb) {
 }
 
 function getCollectionPath() {
+  // Data disimpan per sekolah sesuai NPSN
   return `sekolah/${currentSchoolId}/data_cp`;
 }
 
@@ -68,7 +112,7 @@ async function saveDataCP(data, id = null) {
       ...data,
       npsn: currentSchoolId,
       updatedAt: serverTimestamp(),
-      updatedBy: currentUser?.uid || 'unknown',
+      updatedBy: currentUserData?.userId || auth.currentUser?.uid || 'unknown',
       createdAt: id ? undefined : serverTimestamp()
     }, { merge: true });
     
@@ -104,23 +148,10 @@ function renderDataCPUI(container) {
       }
       .data-cp-header h2 { margin: 0 0 10px 0; }
       .data-cp-header p { margin: 5px 0; opacity: 0.95; }
-      .data-cp-actions {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-      }
+      .data-cp-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
       .data-cp-btn {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: all 0.3s;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 14px;
+        padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer;
+        font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 8px; font-size: 14px;
       }
       .data-cp-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
       .btn-primary { background: #007bff; color: white; }
@@ -135,133 +166,34 @@ function renderDataCPUI(container) {
       .btn-danger:hover { background: #c82333; }
       .btn-secondary { background: #6c757d; color: white; }
       .btn-secondary:hover { background: #5a6268; }
-      .data-cp-table-container {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        overflow-x: auto;
-      }
+      .data-cp-table-container { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); overflow-x: auto; }
       .data-cp-table { width: 100%; border-collapse: collapse; }
-      .data-cp-table th, .data-cp-table td {
-        padding: 12px 15px;
-        text-align: left;
-        border-bottom: 1px solid #dee2e6;
-      }
-      .data-cp-table th {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        font-weight: 700;
-        color: #495057;
-        position: sticky;
-        top: 0;
-      }
+      .data-cp-table th, .data-cp-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #dee2e6; }
+      .data-cp-table th { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); font-weight: 700; color: #495057; position: sticky; top: 0; }
       .data-cp-table tr:hover td { background: #f8f9fa; }
-      .data-cp-form-container {
-        background: #f8f9fa;
-        border: 2px solid #dee2e6;
-        border-radius: 10px;
-        padding: 25px;
-        margin-bottom: 25px;
-      }
-      .data-cp-form-title {
-        color: #343a40;
-        font-size: 20px;
-        font-weight: bold;
-        margin-bottom: 20px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .data-cp-form-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-bottom: 20px;
-      }
-      .data-cp-form-group { display: flex; flex-direction: column; }
-      .data-cp-form-group label {
-        margin-bottom: 8px;
-        font-weight: 600;
-        color: #495057;
-        font-size: 14px;
-      }
-      .data-cp-form-group input,
-      .data-cp-form-group select,
-      .data-cp-form-group textarea {
-        padding: 12px;
-        border: 2px solid #dee2e6;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: all 0.3s;
-        background: white;
-      }
-      .data-cp-form-group input:focus,
-      .data-cp-form-group select:focus,
-      .data-cp-form-group textarea:focus {
-        outline: none;
-        border-color: #007bff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-      }
-      .data-cp-form-group textarea { min-height: 100px; resize: vertical; }
       .data-cp-modal {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 1000;
-        align-items: center;
-        justify-content: center;
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
       }
       .data-cp-modal.active { display: flex; }
-      .data-cp-modal-content {
-        background: white;
-        padding: 30px;
-        border-radius: 10px;
-        max-width: 600px;
-        width: 90%;
-        max-height: 90vh;
-        overflow-y: auto;
-      }
-      .data-cp-modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 2px solid #e9ecef;
-      }
+      .data-cp-modal-content { background: white; padding: 30px; border-radius: 10px; max-width: 600px; width: 90%; max-height: 90vh; overflow-y: auto; }
+      .data-cp-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e9ecef; }
       .data-cp-modal-header h3 { margin: 0; color: #343a40; }
-      .data-cp-close {
-        font-size: 28px;
-        cursor: pointer;
-        color: #6c757d;
-        line-height: 20px;
-      }
+      .data-cp-close { font-size: 28px; cursor: pointer; color: #6c757d; line-height: 20px; }
       .data-cp-close:hover { color: #dc3545; }
+      .data-cp-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
+      .data-cp-form-group { display: flex; flex-direction: column; }
+      .data-cp-form-group label { margin-bottom: 8px; font-weight: 600; color: #495057; font-size: 14px; }
+      .data-cp-form-group input, .data-cp-form-group select, .data-cp-form-group textarea {
+        padding: 12px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 14px; transition: all 0.3s; background: white;
+      }
+      .data-cp-form-group input:focus, .data-cp-form-group select:focus, .data-cp-form-group textarea:focus { outline: none; border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+      .data-cp-form-group textarea { min-height: 100px; resize: vertical; }
       .empty-state { text-align: center; padding: 40px; color: #6c757d; }
-      .data-cp-search {
-        margin-bottom: 20px;
-      }
-      .data-cp-search input {
-        width: 100%;
-        padding: 12px;
-        border: 2px solid #dee2e6;
-        border-radius: 6px;
-        font-size: 14px;
-      }
-      .data-cp-search input:focus {
-        outline: none;
-        border-color: #007bff;
-      }
-      .badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 12px;
-        font-size: 12px;
-        font-weight: 600;
-      }
+      .data-cp-search { margin-bottom: 20px; }
+      .data-cp-search input { width: 100%; padding: 12px; border: 2px solid #dee2e6; border-radius: 6px; font-size: 14px; }
+      .data-cp-search input:focus { outline: none; border-color: #007bff; }
+      .badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
       .badge-phase { background: #cfe2ff; color: #084298; }
       @media (max-width: 768px) {
         .data-cp-form-grid { grid-template-columns: 1fr; }
@@ -274,24 +206,16 @@ function renderDataCPUI(container) {
     
     <div class="data-cp-container">
       <div class="data-cp-header">
-        <h2> Data Capaian Pembelajaran (CP)</h2>
-        <p><strong>Sekolah:</strong> ${currentUser.namaSekolah || '-'}</p>
+        <h2>📖 Data Capaian Pembelajaran (CP)</h2>
+        <p><strong>Sekolah:</strong> ${currentUserData.namaSekolah || '-'}</p>
         <p><strong>NPSN:</strong> ${currentSchoolId}</p>
       </div>
       
       <div class="data-cp-actions">
-        <button class="data-cp-btn btn-primary" onclick="showAddForm()">
-          ️ Input Manual
-        </button>
-        <button class="data-cp-btn btn-success" onclick="exportData()">
-          📤 Export File
-        </button>
-        <button class="data-cp-btn btn-warning" onclick="document.getElementById('importFileInput').click()">
-          📥 Import File
-        </button>
-        <button class="data-cp-btn btn-info" onclick="downloadTemplate()">
-          📋 Template File
-        </button>
+        <button class="data-cp-btn btn-primary" onclick="showAddForm()">✏️ Input Manual</button>
+        <button class="data-cp-btn btn-success" onclick="exportData()">📤 Export File</button>
+        <button class="data-cp-btn btn-warning" onclick="document.getElementById('importFileInput').click()">📥 Import File</button>
+        <button class="data-cp-btn btn-info" onclick="downloadTemplate()">📋 Template File</button>
         <input type="file" id="importFileInput" accept=".json" style="display:none;" onchange="importData(event)">
       </div>
       
@@ -301,7 +225,7 @@ function renderDataCPUI(container) {
       
       <div class="data-cp-table-container">
         <div id="dataContainer">
-          <div class="empty-state"> Memuat data...</div>
+          <div class="empty-state">⏳ Memuat data...</div>
         </div>
       </div>
       
@@ -344,12 +268,8 @@ function renderDataCPUI(container) {
               </div>
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
-              <button type="button" class="data-cp-btn btn-secondary" onclick="closeModal()">
-                Batal
-              </button>
-              <button type="submit" class="data-cp-btn btn-success">
-                💾 Simpan
-              </button>
+              <button type="button" class="data-cp-btn btn-secondary" onclick="closeModal()">Batal</button>
+              <button type="submit" class="data-cp-btn btn-success">💾 Simpan</button>
             </div>
           </form>
         </div>
@@ -430,7 +350,7 @@ function renderDataCPUI(container) {
     
     const exportObj = {
       metadata: {
-        sekolah: currentUser.namaSekolah,
+        sekolah: currentUserData.namaSekolah,
         npsn: currentSchoolId,
         exportDate: new Date().toISOString(),
         totalData: allData.length
@@ -488,7 +408,7 @@ function renderDataCPUI(container) {
   window.downloadTemplate = function() {
     const template = {
       metadata: {
-        sekolah: currentUser.namaSekolah || 'Nama Sekolah',
+        sekolah: currentUserData.namaSekolah || 'Nama Sekolah',
         npsn: currentSchoolId || 'NPSN',
         exportDate: new Date().toISOString(),
         totalData: 0,
@@ -561,7 +481,7 @@ function renderDataCPUI(container) {
     } catch (error) {
       dataContainer.innerHTML = `
         <div class="empty-state" style="color: #dc3545;">
-           Gagal memuat data: ${error.message}
+          ❌ Gagal memuat data: ${error.message}
         </div>
       `;
     }
@@ -594,12 +514,8 @@ function renderDataCPUI(container) {
           <td>${item.kelas || '-'}</td>
           <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${item.deskripsi || ''}">${item.deskripsi || '-'}</td>
           <td>
-            <button class="data-cp-btn btn-primary" onclick="editData('${item.id}')" style="padding:5px 10px; font-size:12px;">
-              ✏️ Edit
-            </button>
-            <button class="data-cp-btn btn-danger" onclick="deleteData('${item.id}')" style="padding:5px 10px; font-size:12px;">
-              🗑️ Hapus
-            </button>
+            <button class="data-cp-btn btn-primary" onclick="editData('${item.id}')" style="padding:5px 10px; font-size:12px;">✏️ Edit</button>
+            <button class="data-cp-btn btn-danger" onclick="deleteData('${item.id}')" style="padding:5px 10px; font-size:12px;">🗑️ Hapus</button>
           </td>
         </tr>
       `;
@@ -616,24 +532,14 @@ function renderDataCPUI(container) {
     const toast = document.createElement('div');
     toast.className = 'data-cp-toast';
     toast.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 14px 24px;
-      border-radius: 8px;
-      z-index: 10001;
-      color: white;
-      font-weight: 600;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-      animation: slideIn 0.3s ease;
+      position: fixed; top: 20px; right: 20px; padding: 14px 24px; border-radius: 8px; z-index: 10001;
+      color: white; font-weight: 600; box-shadow: 0 4px 16px rgba(0,0,0,0.15); animation: slideIn 0.3s ease;
       background: ${type === 'success' ? '#28a745' : '#dc3545'};
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transform = 'translateX(400px)';
-      toast.style.transition = 'all 0.3s ease';
+      toast.style.opacity = '0'; toast.style.transform = 'translateX(400px)'; toast.style.transition = 'all 0.3s ease';
       setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
